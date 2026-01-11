@@ -25,38 +25,63 @@ ChartJS.register(
   Filler
 )
 
-export default function AccountDetailsView({ account, onClose }) {
+export default function AccountDetailsView({ accountId, onClose }) {
+  // Account data
+  const [account, setAccount] = useState(null)
+
+  // Transaction pagination state
   const [transactions, setTransactions] = useState([])
   const [totalCount, setTotalCount] = useState(0)
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 25
 
+  // Filter state
   const [searchQuery, setSearchQuery] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [sortBy, setSortBy] = useState('date')
   const [sortOrder, setSortOrder] = useState('desc')
-  const [loading, setLoading] = useState(false)
 
-  // ESC key handler to close modal
+  // Loading states
+  const [accountLoading, setAccountLoading] = useState(true)
+  const [transactionsLoading, setTransactionsLoading] = useState(false)
+  const [chartLoading, setChartLoading] = useState(false)
+
+  // Chart data state
+  const [chartDates, setChartDates] = useState([])
+  const [chartBalances, setChartBalances] = useState([])
+
+  // Fetch account details
+  const fetchAccountDetails = async () => {
+    if (!accountId) return
+
+    setAccountLoading(true)
+    try {
+      const res = await axios.get(`/api/banking/accounts/${accountId}/`)
+      setAccount(res.data)
+      console.log('Loaded account:', res.data)
+    } catch (e) {
+      console.error('Failed to load account:', e)
+      setAccount(null)
+    } finally {
+      setAccountLoading(false)
+    }
+  }
+
+  // ESC key handler
   useEffect(() => {
     const handleEsc = (e) => {
-      if (e.key === 'Escape') {
-        onClose()
-      }
+      if (e.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', handleEsc)
     return () => window.removeEventListener('keydown', handleEsc)
   }, [onClose])
 
-  // Fetch transactions for this specific account with server-side pagination
-  const fetchAccountTransactions = async (page = 1) => {
-    if (!account?.id) {
-      console.warn('No account ID available')
-      return
-    }
+  // Fetch transactions for current page
+  const fetchTransactions = async (page = 1) => {
+    if (!account?.id) return
 
-    setLoading(true)
+    setTransactionsLoading(true)
     try {
       const params = {
         account: account.id,
@@ -68,80 +93,127 @@ export default function AccountDetailsView({ account, onClose }) {
       if (dateFrom) params.date_from = dateFrom
       if (dateTo) params.date_to = dateTo
 
-      console.log('Fetching transactions with params:', params)
       const res = await axios.get('/api/banking/transactions/', { params })
-      console.log('Transactions response:', res.data)
-
       const data = res.data
       const results = data.results || []
       const count = data.count || 0
 
       setTransactions(results)
       setTotalCount(count)
-      console.log(`Loaded ${results.length} transactions, total: ${count}`)
+      console.log(`Loaded page ${page}: ${results.length} transactions, total: ${count}`)
     } catch (e) {
-      console.error('Failed to load account transactions:', e)
+      console.error('Failed to load transactions:', e)
       setTransactions([])
       setTotalCount(0)
     } finally {
-      setLoading(false)
+      setTransactionsLoading(false)
     }
   }
 
-  // Fetch when account changes
+  // Fetch timeseries data for chart
+  const fetchChartData = async () => {
+    if (!account?.id) return
+
+    setChartLoading(true)
+    try {
+      const params = {}
+      if (dateFrom) params.date_from = dateFrom
+      if (dateTo) params.date_to = dateTo
+
+      const res = await axios.get(`/api/analytics/accounts/${account.id}/balance-timeseries/`, { params })
+      const data = res.data
+
+      setChartDates(data.dates || [])
+      setChartBalances(data.balances || [])
+      console.log(`Loaded chart data: ${data.count} data points`)
+    } catch (e) {
+      console.error('Failed to load chart data:', e)
+      setChartDates([])
+      setChartBalances([])
+    } finally {
+      setChartLoading(false)
+    }
+  }
+
+  // Load initial page when account changes
+  useEffect(() => {
+    if (accountId) {
+      console.log('Account ID changed, loading account details:', accountId)
+      fetchAccountDetails()
+    }
+  }, [accountId])
+
+  // Load transactions and chart when account is loaded
   useEffect(() => {
     if (account?.id) {
-      console.log('Account changed, fetching transactions for account:', account.id)
+      console.log('Account loaded, loading initial data for account:', account.id)
       setCurrentPage(1)
-      fetchAccountTransactions(1)
+      fetchTransactions(1)
+      fetchChartData()
     }
   }, [account?.id])
 
-  // Fetch when page or filters change
+  // Load new page when page changes
   useEffect(() => {
     if (account?.id && currentPage >= 1) {
-      console.log('Page or filters changed, fetching page:', currentPage)
-      fetchAccountTransactions(currentPage)
+      console.log('Page changed to:', currentPage)
+      fetchTransactions(currentPage)
     }
-  }, [currentPage, searchQuery, dateFrom, dateTo, sortBy, sortOrder, account?.id])
+  }, [currentPage, account?.id])
 
-  // ApplyFilters resets to page 1 and fetches
+  // Reload on filter changes
+  useEffect(() => {
+    if (account?.id) {
+      console.log('Filters changed, reloading data')
+      setCurrentPage(1)
+      fetchTransactions(1)
+      fetchChartData()
+    }
+  }, [searchQuery, dateFrom, dateTo, sortBy, sortOrder, account?.id])
+
+  // Apply filters
   const applyFilters = () => {
     console.log('Applying filters')
     setCurrentPage(1)
   }
 
-  // Chart data computed from current page transactions
-  const calculateBalanceOverTime = () => {
-    if (!transactions.length) return { labels: [], data: [] }
-
-    const sorted = [...transactions].sort((a, b) => new Date(a.date) - new Date(b.date))
-
-    let runningBalance = parseFloat(account?.opening_balance || 0)
-
-    const labels = []
-    const data = []
-    sorted.forEach(tx => {
-      const amt = typeof tx.amount === 'string' ? parseFloat(tx.amount) : tx.amount
-      runningBalance += parseFloat(amt || 0)
-      labels.push(new Date(tx.date).toLocaleDateString())
-      data.push(Number(runningBalance.toFixed(2)))
+  // Build chart labels - only show first day of month
+  const buildChartLabels = () => {
+    return chartDates.map((dateStr) => {
+      const date = new Date(dateStr)
+      // Only show label if it's the first day of the month
+      if (date.getDate() === 1) {
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      }
+      return ''
     })
-    return { labels, data }
   }
 
-  const chartData = calculateBalanceOverTime()
-
-  // Pagination controls
+  // Pagination helpers
   const totalPages = Math.max(1, Math.ceil(totalCount / itemsPerPage))
   const canPrev = currentPage > 1
   const canNext = currentPage < totalPages
 
-  if (loading) {
+  if (!accountId) {
+    return null
+  }
+
+  if (accountLoading) {
     return (
       <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
         <div className="bg-white rounded-lg p-8">
           <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto"></div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!account) {
+    return (
+      <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-8 text-center">
+          <p className="text-red-600">Failed to load account</p>
+          <button onClick={onClose} className="mt-4 px-4 py-2 bg-blue-600 text-white rounded">Close</button>
         </div>
       </div>
     )
@@ -153,9 +225,9 @@ export default function AccountDetailsView({ account, onClose }) {
         {/* Header */}
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">{account?.name}</h2>
-            <p className="text-sm text-gray-500">{account?.institution}</p>
-            {account?.iban && <p className="text-xs text-gray-400 font-mono">IBAN: {account.iban}</p>}
+            <h2 className="text-2xl font-bold text-gray-900">{account.name}</h2>
+            <p className="text-sm text-gray-500">{account.institution}</p>
+            {account.iban && <p className="text-xs text-gray-400 font-mono">IBAN: {account.iban}</p>}
           </div>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl">✕</button>
         </div>
@@ -167,39 +239,34 @@ export default function AccountDetailsView({ account, onClose }) {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') applyFilters() }}
-              placeholder="Search description, partner, merchant"
-              className="border border-gray-300 rounded px-3 py-2"
+              placeholder="Search description, partner..."
+              className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <input
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="border border-gray-300 rounded px-3 py-2"
+              className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <input
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="border border-gray-300 rounded px-3 py-2"
+              className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <div className="flex gap-2">
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="border border-gray-300 rounded px-3 py-2 flex-1"
+                className="border border-gray-300 rounded px-3 py-2 flex-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="date">Date</option>
                 <option value="amount">Amount</option>
-                <option value="description">Description</option>
               </select>
               <button
                 onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                className="border border-gray-300 rounded px-3 py-2"
+                className="border border-gray-300 rounded px-3 py-2 hover:bg-gray-100"
               >{sortOrder === 'asc' ? '↑' : '↓'}</button>
-              <button
-                onClick={applyFilters}
-                className="bg-blue-600 text-white rounded px-4 py-2"
-              >Apply</button>
             </div>
           </div>
         </div>
@@ -208,42 +275,52 @@ export default function AccountDetailsView({ account, onClose }) {
         <div className="px-6 py-6 border-b border-gray-200">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Balance Over Time</h3>
-            {account?.opening_balance_date && (
-              <div className="text-xs bg-blue-50 border border-blue-200 rounded px-2 py-1 text-blue-700">
-                Reference: {account.currency} {parseFloat(account.opening_balance).toFixed(2)} on {new Date(account.opening_balance_date).toLocaleDateString()}
-              </div>
-            )}
+            {chartLoading && <span className="text-xs text-gray-500">Loading chart...</span>}
           </div>
           <div className="bg-gray-50 p-4 rounded-lg" style={{ height: '300px' }}>
-            {chartData.labels.length > 0 ? (
+            {chartDates.length > 0 ? (
               <Line
                 data={{
-                  labels: chartData.labels,
+                  labels: buildChartLabels(),
                   datasets: [{
                     label: 'Balance',
-                    data: chartData.data,
+                    data: chartBalances,
                     borderColor: '#2563eb',
                     backgroundColor: 'rgba(37, 99, 235, 0.1)',
                     fill: true,
                     tension: 0.4,
-                  }]}}
+                    pointRadius: 0,
+                    pointHoverRadius: 6,
+                  }]
+                }}
                 options={{
                   responsive: true,
                   maintainAspectRatio: false,
+                  plugins: {
+                    legend: { display: true }
+                  },
                   scales: {
-                    y: { ticks: { callback: (v) => `${account.currency} ${Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` } }
+                    y: {
+                      ticks: {
+                        callback: (v) => `${account.currency} ${Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      }
+                    }
                   }
                 }}
               />
+            ) : chartLoading ? (
+              <div className="h-full flex items-center justify-center text-gray-500">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
             ) : (
-              <div className="h-full flex items-center justify-center text-gray-500">No data for current filters/page</div>
+              <div className="h-full flex items-center justify-center text-gray-500">No data available</div>
             )}
           </div>
         </div>
 
         {/* Transactions Table */}
         <div className="px-6 py-4">
-          {loading ? (
+          {transactionsLoading && transactions.length === 0 ? (
             <div className="flex items-center justify-center h-40">
               <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
             </div>
@@ -260,15 +337,25 @@ export default function AccountDetailsView({ account, onClose }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {transactions.map(tx => (
-                    <tr key={tx.id} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="py-3 px-4">{new Date(tx.date).toLocaleDateString()}</td>
-                      <td className="py-3 px-4">{tx.description || '-'}</td>
-                      <td className="py-3 px-4 text-right">{Number((typeof tx.amount === 'string' ? parseFloat(tx.amount) : tx.amount) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {account.currency}</td>
-                      <td className="py-3 px-4">{tx.type}</td>
-                      <td className="py-3 px-4">{tx.category_name || tx.category || '-'}</td>
+                  {transactions.length > 0 ? (
+                    transactions.map(tx => (
+                      <tr key={tx.id} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="py-3 px-4">{new Date(tx.date).toLocaleDateString()}</td>
+                        <td className="py-3 px-4 text-sm truncate">{tx.description || tx.partner_name || '-'}</td>
+                        <td className="py-3 px-4 text-right font-medium">
+                          <span style={{ color: parseFloat(tx.amount) >= 0 ? '#10b981' : '#ef4444' }}>
+                            {Number((typeof tx.amount === 'string' ? parseFloat(tx.amount) : tx.amount) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {account.currency}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-sm">{tx.type}</td>
+                        <td className="py-3 px-4 text-sm">{tx.category_name || tx.category || '-'}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="5" className="py-8 text-center text-gray-500">No transactions found</td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>
@@ -276,17 +363,19 @@ export default function AccountDetailsView({ account, onClose }) {
 
           {/* Pagination */}
           <div className="flex items-center justify-between bg-white rounded-lg border border-gray-200 px-4 py-3 mt-3">
-            <div className="text-sm text-gray-600">Page {currentPage} of {totalPages} • {totalCount} transactions</div>
+            <div className="text-sm text-gray-600">
+              Page {currentPage} of {totalPages} • {totalCount} transactions
+            </div>
             <div className="flex gap-2">
               <button
                 onClick={() => canPrev && setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={!canPrev}
-                className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
+                className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
               >← Previous</button>
               <button
                 onClick={() => canNext && setCurrentPage(p => Math.min(totalPages, p + 1))}
                 disabled={!canNext}
-                className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
+                className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
               >Next →</button>
             </div>
           </div>

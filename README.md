@@ -88,16 +88,38 @@ celery -A finance_project beat -l info
 The React SPA provides:
 
 - **Dashboard**: Overview of accounts, balances, income/expenses
+- **Accounts Details Modal**: Click an account to view:
+  - Paginated transactions (25 per page) with async loading
+  - Real-time balance chart with aggregated data
+  - Search, date filtering, and sorting
+  - Interactive pagination with backend calls
 - **Transactions**: Searchable, filterable transaction list
-- **Import**: CSV file upload with background processing
+- **Import**: CSV/JSON file upload with background processing
 - **Rules**: Auto-categorization rule management
+- **Categories**: CRUD management with color coding
 - **AI Insights**: LLM-powered financial analysis
+
+### Account Details Features
+
+When opening an account detail modal:
+
+1. **Initial Load**: First page of transactions loads immediately on modal open
+2. **Async Pagination**: Clicking Next/Previous fetches the next page from the backend without blocking UI
+3. **Chart Rendering**: Balance chart loads asynchronously via dedicated timeseries endpoint
+4. **Optimized Labels**: Chart x-axis displays labels only on the first day of each month
+5. **Filtering**: Apply date range, search, and sort filters; pagination resets to page 1
+
+**Performance Benefits**:
+- Transactions paginated server-side (25 per page)
+- Chart uses aggregated daily balance data (not raw transactions)
+- Separate requests for transactions and chart to allow parallel loading
+- No point labels on chart (only month-first-day labels) for cleaner visualization
 
 ## API Endpoints
 
 ### Banking
 - `GET/POST /api/banking/accounts/` - Bank account management
-- `GET/POST /api/banking/transactions/` - Transaction CRUD
+- `GET/POST /api/banking/transactions/` - Transaction CRUD with pagination (25 per page)
 - `POST /api/banking/transactions/import-csv/` - CSV import
 - `POST /api/banking/transactions/apply-rules/` - Apply categorization rules
 - `GET/POST /api/banking/categories/` - Category management
@@ -105,6 +127,7 @@ The React SPA provides:
 
 ### Analytics
 - `GET /api/analytics/overview` - Dashboard statistics
+- `GET /api/analytics/accounts/{account_id}/balance-timeseries/` - Balance timeseries for charts (aggregated by date)
 
 ### AI
 - `POST /api/ai/insights` - Generate financial insights
