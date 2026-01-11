@@ -37,3 +37,7 @@ logs/
 
 staticfiles/
 .env.local
+
+celerybeat-schedule
+celerybeat-schedule-shm
+celerybeat-schedule-wal
