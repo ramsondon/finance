@@ -32,6 +32,11 @@ env = Env(
     ACTIVE_AI_PROVIDER=(str, "ollama"),
     ALLOWLIST_ENABLED=(bool, False),
     CORS_ALLOWED_ORIGINS=(list, []),
+    # POSTGRES_HOST=(str, "localhost"),
+    # POSTGRES_PORT=(str, "5432"),
+    # POSTGRES_USER=(str, "postgres"),
+    # POSTGRES_PASSWORD=(str, ""),
+    # POSTGRES_DB=(str, "finance"),
 )
 
 # Load defaults from deploy/.env.example when present

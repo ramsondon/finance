@@ -1,5 +1,9 @@
+import logging
+
 import requests
 import os
+
+log = logging.getLogger(__name__)
 
 
 class OllamaProvider:
@@ -11,9 +15,10 @@ class OllamaProvider:
 
     def generate_insights(self, user_id: int, context: dict) -> dict:
         prompt = (
-            "Provide 3 budgeting suggestions and a short analysis based on the following context: "
-            + str(context)
+                "Provide 3 budgeting suggestions and a short analysis based on the following context: "
+                + str(context)
         )
+        log.debug(prompt)
         try:
             resp = requests.post(
                 f"{self.host}/api/generate",
@@ -26,9 +31,8 @@ class OllamaProvider:
                 suggestions = [s.strip("- ") for s in text.split("\n") if s.strip()][:3]
                 return {"suggestions": suggestions, "analysis": text}
         except Exception:
-            pass
+            log.exception("Failed to generate insights")
         return {"suggestions": ["Reduce discretionary spending."], "analysis": "Ollama unavailable; fallback output."}
 
 
 provider = OllamaProvider()
-
