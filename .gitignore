@@ -41,3 +41,4 @@ staticfiles/
 celerybeat-schedule
 celerybeat-schedule-shm
 celerybeat-schedule-wal
+/backend/db.sqlite3
