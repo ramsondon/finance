@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import axios from 'axios'
+import { getCsrfToken } from '../utils/csrf'
 
 export default function TransactionsTable() {
   const [transactions, setTransactions] = useState([])
@@ -9,6 +10,7 @@ export default function TransactionsTable() {
   const itemsPerPage = 25
   const [categories, setCategories] = useState([])
   const [filters, setFilters] = useState({ search: '', type: '', category: '', categoryUnknown: false })
+  const [editingTransaction, setEditingTransaction] = useState(null)
 
   // Load categories for filter dropdown
   useEffect(() => {
@@ -193,6 +195,7 @@ export default function TransactionsTable() {
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Category</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Type</th>
                   <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Amount</th>
+                  <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-100">
@@ -232,6 +235,14 @@ export default function TransactionsTable() {
                         {tx.type === 'income' ? '+' : tx.type === 'expense' ? '-' : ''}{tx.account_currency || 'EUR'} {Math.abs(tx.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </div>
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <button
+                        onClick={() => setEditingTransaction(tx)}
+                        className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+                      >
+                        Edit
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -255,6 +266,126 @@ export default function TransactionsTable() {
             >Next →</button>
           </div>
         </div>
+      </div>
+
+      {/* Edit Transaction Modal */}
+      {editingTransaction && (
+        <EditTransactionModal
+          transaction={editingTransaction}
+          categories={categories}
+          onClose={() => setEditingTransaction(null)}
+          onSuccess={() => {
+            setEditingTransaction(null)
+            loadTransactions()
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+function EditTransactionModal({ transaction, categories, onClose, onSuccess }) {
+  const [selectedCategory, setSelectedCategory] = useState(transaction.category || null)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState(null)
+
+  // ESC key handler
+  useEffect(() => {
+    const handleEsc = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', handleEsc)
+    return () => window.removeEventListener('keydown', handleEsc)
+  }, [onClose])
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setSubmitting(true)
+    setError(null)
+
+    try {
+      await axios.patch(`/api/banking/transactions/${transaction.id}/`,
+        { category: selectedCategory },
+        { headers: { 'X-CSRFToken': getCsrfToken() } }
+      )
+      onSuccess()
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || 'Failed to update transaction')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+        <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+          <h3 className="text-lg font-bold text-gray-900">Edit Transaction Category</h3>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl">✕</button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {/* Transaction Info */}
+          <div className="bg-gray-50 rounded-lg p-4 text-sm">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-gray-600">Date:</span>
+              <span className="font-medium">{new Date(transaction.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+            </div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-gray-600">Description:</span>
+              <span className="font-medium truncate ml-2">{transaction.description || '-'}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-gray-600">Amount:</span>
+              <span className={`font-medium ${
+                transaction.type === 'income' ? 'text-green-600' : transaction.type === 'expense' ? 'text-red-600' : 'text-gray-900'
+              }`}>
+                {transaction.type === 'income' ? '+' : transaction.type === 'expense' ? '-' : ''}{transaction.account_currency || 'EUR'} {Math.abs(transaction.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            </div>
+          </div>
+
+          {/* Category Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Category
+            </label>
+            <select
+              value={selectedCategory || ''}
+              onChange={(e) => setSelectedCategory(e.target.value ? parseInt(e.target.value) : null)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Unknown (Uncategorized)</option>
+              {categories.map(cat => (
+                <option key={cat.id} value={cat.id}>{cat.name}</option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-1">Select a category or leave as "Unknown"</p>
+          </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+
+          {/* Buttons */}
+          <div className="flex gap-3 pt-2 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-2 bg-gray-100 text-gray-900 rounded-lg hover:bg-gray-200 font-medium text-sm"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium text-sm"
+            >
+              {submitting ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   )

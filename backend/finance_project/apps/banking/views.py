@@ -43,7 +43,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
     serializer_class = TransactionSerializer
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter, filters.SearchFilter]
-    filterset_fields = {"date": ["gte", "lte"], "amount": ["gte", "lte"], "category": ["exact"], "type": ["exact"]}
+    filterset_fields = {"date": ["gte", "lte"], "amount": ["gte", "lte"], "category": ["exact", "isnull"], "type": ["exact"]}
     ordering_fields = ["date", "amount"]
     search_fields = ["description"]
     pagination_class = DefaultPagination

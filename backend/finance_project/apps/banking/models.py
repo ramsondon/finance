@@ -8,6 +8,7 @@ class Category(models.Model):
     color = models.CharField(max_length=7, default="#3b82f6")  # hex
 
     class Meta:
+        ordering = ["user", "name"]
         unique_together = ("user", "name")
 
     def __str__(self) -> str:
