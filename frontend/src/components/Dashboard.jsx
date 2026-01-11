@@ -165,9 +165,7 @@ export default function Dashboard() {
                     {
                       label: 'Expenses',
                       data: categoryBreakdown.values,
-                      backgroundColor: [
-                        '#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899', '#64748b', '#84cc16'
-                      ],
+                      backgroundColor: categoryBreakdown.colors || [],
                       borderWidth: 1,
                     }
                   ]
@@ -182,8 +180,8 @@ export default function Dashboard() {
             </div>
             <div className="flex-1">
               <ul className="divide-y divide-gray-100">
-                {categoryBreakdown.items?.map((item, idx) => (
-                  <li key={idx} className="py-2 flex items-center justify-between">
+                {categoryBreakdown.items?.map((item) => (
+                  <li key={item.id || 'unknown'} className="py-2 flex items-center justify-between">
                     <button
                       onClick={() => {
                         // Navigate to Transactions tab with category filter
@@ -193,7 +191,7 @@ export default function Dashboard() {
                       }}
                       className="text-left flex items-center gap-3 hover:bg-gray-50 rounded px-2 py-1 w-full"
                     >
-                      <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899', '#64748b', '#84cc16'][idx % 10] }}></span>
+                      <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: item.color || '#9ca3af' }}></span>
                       <span className="text-sm text-gray-800">{item.name}</span>
                     </button>
                     <span className="text-sm font-medium text-gray-900">{item.value.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>

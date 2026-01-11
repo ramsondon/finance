@@ -50,16 +50,18 @@ class StatsService:
 
         qs = Transaction.objects.filter(account__user_id=user_id, type="expense")
         data = (
-            qs.values("category_id", "category__name")
+            qs.values("category_id", "category__name", "category__color")
             .annotate(total=Sum("amount"))
             .order_by("-total")
         )
-        labels, values, items = [], [], []
+        labels, values, colors, items = [], [], [], []
         for row in data:
             cat_id = row["category_id"]
             name = row["category__name"] or "Unknown"
+            color = row["category__color"] or "#9ca3af"  # gray-400 as default for Unknown
             value = float(abs(row["total"] or 0))
             labels.append(name)
             values.append(value)
-            items.append({"id": cat_id, "name": name, "value": value})
-        return {"labels": labels, "values": values, "items": items}
+            colors.append(color)
+            items.append({"id": cat_id, "name": name, "value": value, "color": color})
+        return {"labels": labels, "values": values, "colors": colors, "items": items}
