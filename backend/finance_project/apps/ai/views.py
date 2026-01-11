@@ -1,3 +1,6 @@
+from datetime import timedelta
+
+from django.utils import timezone
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -7,6 +10,7 @@ from .services.insights_service import ProviderRegistry
 from .services.providers.mock_provider import provider as mock_provider
 from .services.providers.ollama_provider import provider as ollama_provider
 from .tasks import generate_categories_task
+from ..banking.models import Transaction
 
 # Register providers at import time
 ProviderRegistry.register(mock_provider)
@@ -20,7 +24,44 @@ class InsightsView(APIView):
         req = InsightsRequestSerializer(data=request.data)
         req.is_valid(raise_exception=True)
         provider = ProviderRegistry.get_active()
-        data = provider.generate_insights(request.user.id, req.validated_data)
+        context = req.validated_data.copy()
+        default_timeframe = 30
+        timeframe = context.get('timeframe', f'{default_timeframe}d')
+
+        # timeframe = "7d", "30d", "90d", "365d"
+        # convert the timeframe to a real date from now
+
+        transactions = Transaction.objects.filter(account__user=request.user)
+        now = timezone.now()
+        if timeframe:
+            if timeframe.endswith('d'):
+                days = int(timeframe[:-1])
+                start_date = now - timedelta(days=days)
+            elif timeframe.endswith('m'):
+                months = int(timeframe[:-1])
+                start_date = now - timedelta(days=30 * months)
+            elif timeframe.endswith('y'):
+                years = int(timeframe[:-1])
+                start_date = now - timedelta(days=365 * years)
+            else:
+                start_date = now - timedelta(days=default_timeframe)  # default to 30 days
+        else:
+            start_date = now - timedelta(days=default_timeframe)  # default to 30 days
+        transactions = transactions.filter(date__gte=start_date)
+        context.update({
+            'timeframe': timeframe,
+            'transactions': [{
+                'id': t.id,
+                'date': t.date.isoformat(),
+                'amount': float(t.amount),
+                'description': t.description,
+                'category': t.category.name if t.category else None,
+            } for t in transactions]
+        })
+
+        # Add more timeframe parsing as needed
+
+        data = provider.generate_insights(request.user.id, context)
         return Response(data)
 
 

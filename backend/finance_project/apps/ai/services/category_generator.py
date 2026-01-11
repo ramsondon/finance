@@ -208,7 +208,7 @@ class CategoryGeneratorService:
         try:
             # Prepare transaction data for AI analysis
             transaction_samples = []
-            for tx in list(transactions)[:50]:  # Analyze up to 50 transactions
+            for tx in transactions[:200]:  # Analyze up to 50 transactions
                 description = tx.get('description', '') or ''
                 amount = tx.get('amount', 0)
                 tx_type = tx.get('type', 'expense')
@@ -217,7 +217,7 @@ class CategoryGeneratorService:
                 direction = 'income' if (amount > 0 or tx_type == 'income') else 'expense'
 
                 transaction_samples.append({
-                    'description': description[:100],  # Limit length
+                    'description': description[:500],  # Limit length
                     'type': direction
                 })
 
@@ -333,7 +333,7 @@ Focus on practical categories that reflect the user's actual spending and income
                 if current_category:
                     # Save previous category
                     categories.append({
-                        'name': current_category,
+                        'name': current_category.strip("*"),
                         'color': self._default_color(),
                         'confidence': 0.75,  # AI-generated have medium-high confidence
                         'transaction_count': 0,  # Unknown from AI

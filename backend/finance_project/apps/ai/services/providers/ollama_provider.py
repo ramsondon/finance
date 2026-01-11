@@ -15,8 +15,17 @@ class OllamaProvider:
 
     def generate_insights(self, user_id: int, context: dict) -> dict:
         prompt = (
-                "Provide 3 budgeting suggestions and a short analysis based on the following context: "
-                + str(context)
+            "You are a financial advisor AI. You provide budgeting suggestions based on transactional data of a user.\n\n"
+            "Your task:\n"
+            "Provide exactly 3 specific, actionable budgeting suggestions and a brief analysis based on the following context:\n\n"
+            + str(context) +
+            "Format your response as:\n"
+            "SUGGESTIONS:\n"
+            "1. [First suggestion]\n"
+            "2. [Second suggestion]\n"
+            "3. [Third suggestion]\n\n"
+            "ANALYSIS:\n"
+            "[Your brief analysis of spending patterns]\n"
         )
         log.debug(prompt)
         try:
