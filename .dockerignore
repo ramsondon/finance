@@ -1,0 +1,71 @@
+# Git
+.git
+.gitignore
+.github
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+.venv/
+venv/
+env/
+.coverage
+htmlcov/
+
+# Django
+backend/finance_project/settings_local.py
+backend/db.sqlite3
+backend/staticfiles/
+celerybeat-schedule
+celerybeat-schedule-shm
+celerybeat-schedule-wal
+*.log
+
+# Node
+node_modules/
+frontend/node_modules/
+frontend/dist/
+npm-debug.log
+yarn-error.log
+
+# IDE
+.idea/
+.vscode/
+.DS_Store
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# OS
+.volumes/
+Thumbs.db
+
+# Testing
+.pytest_cache/
+.tox/
+
+# Documentation
+docs/
+*.md
+
+# Misc
+.env.example
+README.md
+DESIGN.md
+GOOGLE_OAUTH_FIX.md
+LOGIN_LANDING_PAGES.md
+AI_CATEGORY_GENERATION.md
+*.sh
+
