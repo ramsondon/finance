@@ -34,11 +34,14 @@ class BankAccountSerializer(serializers.ModelSerializer):
 
 
 class TransactionSerializer(serializers.ModelSerializer):
+    account_currency = serializers.CharField(source='account.currency', read_only=True)
+
     class Meta:
         model = Transaction
         fields = [
             "id",
             "account",
+            "account_currency",
             "date",
             "amount",
             "description",

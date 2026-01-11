@@ -154,7 +154,7 @@ export default function TransactionsTable() {
                       <div className={`text-sm font-bold ${
                         tx.type === 'income' ? 'text-green-600' : tx.type === 'expense' ? 'text-red-600' : 'text-gray-900'
                       }`}>
-                        {tx.type === 'income' ? '+' : tx.type === 'expense' ? '-' : ''}${Math.abs(tx.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {tx.type === 'income' ? '+' : tx.type === 'expense' ? '-' : ''}{tx.account_currency || 'EUR'} {Math.abs(tx.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </div>
                     </td>
                   </tr>
