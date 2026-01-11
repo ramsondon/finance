@@ -23,7 +23,7 @@ class OllamaProvider:
             resp = requests.post(
                 f"{self.host}/api/generate",
                 json={"model": self.model, "prompt": prompt, "stream": False},
-                timeout=10,
+                timeout=60,  # Increased from 10 to 60 seconds to allow Ollama time to generate
             )
             if resp.ok:
                 data = resp.json()
