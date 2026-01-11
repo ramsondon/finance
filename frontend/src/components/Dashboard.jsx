@@ -3,6 +3,9 @@ import axios from 'axios'
 import { getCsrfToken } from '../utils/csrf'
 import CreateAccountModal from './CreateAccountModal'
 import AccountDetailsView from './AccountDetailsView'
+import { Pie } from 'react-chartjs-2'
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
+ChartJS.register(ArcElement, Tooltip, Legend)
 
 export default function Dashboard() {
   const [overview, setOverview] = useState(null)
@@ -13,15 +16,19 @@ export default function Dashboard() {
   const [selectedAccountId, setSelectedAccountId] = useState(null)
   const [deleteConfirm, setDeleteConfirm] = useState(null) // { id, name }
   const [deleting, setDeleting] = useState(false)
+  const [categoryBreakdown, setCategoryBreakdown] = useState({ labels: [], values: [] })
+  const [categoryLoading, setCategoryLoading] = useState(false)
 
   const fetchData = () => {
     setLoading(true)
     Promise.all([
       axios.get('/api/analytics/overview').catch(() => ({ data: { total_balance: 0, income_expense_breakdown: { income: 0, expense: 0 }, monthly_trends: [] } })),
-      axios.get('/api/banking/accounts/').catch(() => ({ data: { results: [] } }))
-    ]).then(([overviewRes, accountsRes]) => {
+      axios.get('/api/banking/accounts/').catch(() => ({ data: { results: [] } })),
+      axios.get('/api/analytics/category-expense/').catch(() => ({ data: { labels: [], values: [] } }))
+    ]).then(([overviewRes, accountsRes, catRes]) => {
       setOverview(overviewRes.data)
       setAccounts(accountsRes.data.results || accountsRes.data || [])
+      setCategoryBreakdown(catRes.data || { labels: [], values: [] })
       setLoading(false)
     }).catch(err => {
       setError(err.message)
@@ -138,6 +145,67 @@ export default function Dashboard() {
             <span>vs last month</span>
           </div>
         </div>
+      </div>
+
+      {/* Expense by Category */}
+      <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-xl font-bold text-gray-900">Expenses by Category</h3>
+            <p className="text-gray-500 text-sm">Uncategorized transactions are shown as "Unknown"</p>
+          </div>
+        </div>
+        {categoryBreakdown.values.length > 0 ? (
+          <div className="flex flex-col lg:flex-row gap-6">
+            <div className="max-w-xl">
+              <Pie
+                data={{
+                  labels: categoryBreakdown.labels,
+                  datasets: [
+                    {
+                      label: 'Expenses',
+                      data: categoryBreakdown.values,
+                      backgroundColor: [
+                        '#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899', '#64748b', '#84cc16'
+                      ],
+                      borderWidth: 1,
+                    }
+                  ]
+                }}
+                options={{
+                  plugins: {
+                    legend: { display: false },
+                    tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${ctx.raw.toLocaleString('en-US', { minimumFractionDigits: 2 })}` } }
+                  }
+                }}
+              />
+            </div>
+            <div className="flex-1">
+              <ul className="divide-y divide-gray-100">
+                {categoryBreakdown.items?.map((item, idx) => (
+                  <li key={idx} className="py-2 flex items-center justify-between">
+                    <button
+                      onClick={() => {
+                        // Navigate to Transactions tab with category filter
+                        window.location.hash = `category=${item.id || 'unknown'}`
+                        const evt = new CustomEvent('nav-to-transactions')
+                        window.dispatchEvent(evt)
+                      }}
+                      className="text-left flex items-center gap-3 hover:bg-gray-50 rounded px-2 py-1 w-full"
+                    >
+                      <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899', '#64748b', '#84cc16'][idx % 10] }}></span>
+                      <span className="text-sm text-gray-800">{item.name}</span>
+                    </button>
+                    <span className="text-sm font-medium text-gray-900">{item.value.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-xs text-gray-500 mt-2">Tip: Click a category to view all matching transactions.</p>
+            </div>
+          </div>
+        ) : (
+          <div className="text-gray-500">No expense data available.</div>
+        )}
       </div>
 
       {/* Accounts Section */}
@@ -289,4 +357,3 @@ export default function Dashboard() {
     </div>
   )
 }
-

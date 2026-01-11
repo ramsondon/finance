@@ -4,25 +4,68 @@ import axios from 'axios'
 export default function TransactionsTable() {
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(true)
-  const [filters, setFilters] = useState({ search: '', type: '' })
+  const [totalCount, setTotalCount] = useState(0)
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 25
+  const [categories, setCategories] = useState([])
+  const [filters, setFilters] = useState({ search: '', type: '', category: '', categoryUnknown: false })
+
+  // Load categories for filter dropdown
+  useEffect(() => {
+    axios.get('/api/banking/categories/?page_size=1000')
+      .then(res => {
+        const results = res.data.results || res.data || []
+        setCategories(results)
+      })
+      .catch(() => setCategories([]))
+  }, [])
+
+  // Initialize from URL hash (supports category filter and "unknown")
+  useEffect(() => {
+    const applyHash = () => {
+      const hash = window.location.hash.replace('#','')
+      const params = new URLSearchParams(hash)
+      const cat = params.get('category')
+      if (cat) {
+        if (cat === 'unknown') {
+          setFilters((f) => ({ ...f, category: '', categoryUnknown: true }))
+        } else {
+          setFilters((f) => ({ ...f, category: cat, categoryUnknown: false }))
+        }
+        setCurrentPage(1)
+      }
+    }
+    applyHash()
+    window.addEventListener('hashchange', applyHash)
+    return () => window.removeEventListener('hashchange', applyHash)
+  }, [])
 
   useEffect(() => {
     loadTransactions()
-  }, [filters])
+  }, [filters, currentPage])
 
   const loadTransactions = () => {
     setLoading(true)
     const params = new URLSearchParams()
     if (filters.search) params.append('search', filters.search)
     if (filters.type) params.append('type', filters.type)
+    if (filters.category && !filters.categoryUnknown) params.append('category', filters.category)
+    if (filters.categoryUnknown) params.append('category__isnull', 'true')
+    params.append('page', String(currentPage))
+    params.append('page_size', String(itemsPerPage))
+    params.append('ordering', '-date')
 
-    axios.get(`/api/banking/transactions/?${params}`)
+    axios.get(`/api/banking/transactions/?${params.toString()}`)
       .then(res => {
-        setTransactions(res.data.results || res.data || [])
+        const data = res.data
+        const results = data.results || []
+        setTransactions(results)
+        setTotalCount(data.count || results.length || 0)
         setLoading(false)
       })
       .catch(() => {
         setTransactions([])
+        setTotalCount(0)
         setLoading(false)
       })
   }
@@ -45,6 +88,10 @@ export default function TransactionsTable() {
     }
   }
 
+  const totalPages = Math.max(1, Math.ceil(totalCount / itemsPerPage))
+  const canPrev = currentPage > 1
+  const canNext = currentPage < totalPages
+
   return (
     <div className="space-y-6">
       {/* Filters Card */}
@@ -52,13 +99,13 @@ export default function TransactionsTable() {
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900">Filters</h3>
           <button
-            onClick={loadTransactions}
+            onClick={() => { setCurrentPage(1); loadTransactions() }}
             className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors font-medium text-sm"
           >
             🔄 Refresh
           </button>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
             <div className="relative">
@@ -76,13 +123,37 @@ export default function TransactionsTable() {
             <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
             <select
               value={filters.type}
-              onChange={(e) => setFilters({...filters, type: e.target.value})}
+              onChange={(e) => { setFilters({...filters, type: e.target.value}); setCurrentPage(1) }}
               className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
             >
               <option value="">All Types</option>
               <option value="income">📈 Income</option>
               <option value="expense">📉 Expense</option>
               <option value="transfer">↔️ Transfer</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+            <select
+              value={filters.categoryUnknown ? 'unknown' : (filters.category || '')}
+              onChange={(e) => {
+                const val = e.target.value
+                if (val === '') {
+                  setFilters({...filters, category: '', categoryUnknown: false})
+                } else if (val === 'unknown') {
+                  setFilters({...filters, category: '', categoryUnknown: true})
+                } else {
+                  setFilters({...filters, category: val, categoryUnknown: false})
+                }
+                setCurrentPage(1)
+              }}
+              className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+            >
+              <option value="">All Categories</option>
+              <option value="unknown">Unknown</option>
+              {categories.map(cat => (
+                <option key={cat.id} value={cat.id}>{cat.name}</option>
+              ))}
             </select>
           </div>
         </div>
@@ -93,7 +164,7 @@ export default function TransactionsTable() {
         <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
           <h3 className="text-lg font-semibold text-gray-900">Transactions</h3>
           <p className="text-sm text-gray-500 mt-1">
-            {transactions.length} {transactions.length === 1 ? 'transaction' : 'transactions'} found
+            {totalCount} {totalCount === 1 ? 'transaction' : 'transactions'} found
           </p>
         </div>
 
@@ -106,7 +177,7 @@ export default function TransactionsTable() {
               </div>
             </div>
           </div>
-        ) : transactions.length === 0 ? (
+        ) : totalCount === 0 ? (
           <div className="text-center py-20 bg-gradient-to-br from-gray-50 to-white">
             <div className="text-6xl mb-4">💳</div>
             <h3 className="text-xl font-semibold text-gray-700 mb-2">No transactions found</h3>
@@ -133,12 +204,16 @@ export default function TransactionsTable() {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="text-sm text-gray-900 font-medium">{tx.description || '-'}</div>
+                      <div className="text-sm text-gray-900 font-medium truncate max-w-xs" title={tx.description || '-'}>{tx.description || '-'}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {tx.category ? (
-                        <span className="px-3 py-1 text-xs font-medium bg-purple-100 text-purple-700 rounded-full border border-purple-200">
-                          {tx.category}
+                      {tx.category_name ? (
+                        <span
+                          className="px-3 py-1 text-xs font-medium rounded-full border"
+                          style={{ borderColor: tx.category_color, color: tx.category_color }}
+                          title={tx.category_name}
+                        >
+                          {tx.category_name}
                         </span>
                       ) : (
                         <span className="text-sm text-gray-400">-</span>
@@ -163,8 +238,24 @@ export default function TransactionsTable() {
             </table>
           </div>
         )}
+
+        {/* Pagination */}
+        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 bg-white">
+          <div className="text-sm text-gray-600">Page {currentPage} of {totalPages} • {totalCount} transactions</div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => canPrev && setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={!canPrev}
+              className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
+            >← Previous</button>
+            <button
+              onClick={() => canNext && setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={!canNext}
+              className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
+            >Next →</button>
+          </div>
+        </div>
       </div>
     </div>
   )
 }
-

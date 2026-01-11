@@ -45,6 +45,14 @@ function App() {
       })
   }, [])
 
+  useEffect(() => {
+    const handler = () => {
+      setActiveTab('transactions')
+    }
+    window.addEventListener('nav-to-transactions', handler)
+    return () => window.removeEventListener('nav-to-transactions', handler)
+  }, [])
+
   // Loading state
   if (loading) {
     return (

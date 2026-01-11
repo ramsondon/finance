@@ -2,6 +2,8 @@ from __future__ import annotations
 from typing import Dict, Any
 from django.db.models import Sum
 from ...banking.models import BankAccount, Transaction
+from django.db.models import Value, CharField
+from ...banking.models import Category
 
 
 class StatsService:
@@ -42,3 +44,22 @@ class StatsService:
             "monthly_trends": monthly,
         }
 
+    def category_expense_breakdown(self, user_id: int) -> Dict[str, Any]:
+        """Return expense totals grouped by category for the user. Uncategorized -> 'Unknown'."""
+        from ...banking.models import Transaction
+
+        qs = Transaction.objects.filter(account__user_id=user_id, type="expense")
+        data = (
+            qs.values("category_id", "category__name")
+            .annotate(total=Sum("amount"))
+            .order_by("-total")
+        )
+        labels, values, items = [], [], []
+        for row in data:
+            cat_id = row["category_id"]
+            name = row["category__name"] or "Unknown"
+            value = float(abs(row["total"] or 0))
+            labels.append(name)
+            values.append(value)
+            items.append({"id": cat_id, "name": name, "value": value})
+        return {"labels": labels, "values": values, "items": items}

@@ -35,6 +35,8 @@ class BankAccountSerializer(serializers.ModelSerializer):
 
 class TransactionSerializer(serializers.ModelSerializer):
     account_currency = serializers.CharField(source='account.currency', read_only=True)
+    category_name = serializers.CharField(source='category.name', read_only=True)
+    category_color = serializers.CharField(source='category.color', read_only=True)
 
     class Meta:
         model = Transaction
@@ -46,6 +48,8 @@ class TransactionSerializer(serializers.ModelSerializer):
             "amount",
             "description",
             "category",
+            "category_name",
+            "category_color",
             "type",
             # Extended fields
             "partner_name",
@@ -77,4 +81,3 @@ class RuleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Rule
         fields = ["id", "name", "conditions", "category", "priority", "active"]
-

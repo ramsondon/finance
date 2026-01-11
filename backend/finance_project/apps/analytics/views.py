@@ -88,3 +88,11 @@ class AccountBalanceTimeseriesView(APIView):
             'opening_balance_date': str(account.opening_balance_date) if account.opening_balance_date else None,
             'count': len(dates)
         })
+
+
+class CategoryExpenseBreakdownView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        data = StatsService().category_expense_breakdown(request.user.id)
+        return Response(data)
