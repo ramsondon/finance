@@ -90,9 +90,10 @@ export default function AccountDetailsView({ accountId, onClose }) {
         ordering: sortOrder === 'desc' ? `-${sortBy}` : sortBy,
       }
       if (searchQuery) params.search = searchQuery
-      if (dateFrom) params.date_from = dateFrom
-      if (dateTo) params.date_to = dateTo
+      if (dateFrom) params.date__gte = dateFrom
+      if (dateTo) params.date__lte = dateTo
 
+      console.log('Fetching transactions with params:', params)
       const res = await axios.get('/api/banking/transactions/', { params })
       const data = res.data
       const results = data.results || []
@@ -117,9 +118,10 @@ export default function AccountDetailsView({ accountId, onClose }) {
     setChartLoading(true)
     try {
       const params = {}
-      if (dateFrom) params.date_from = dateFrom
-      if (dateTo) params.date_to = dateTo
+      if (dateFrom) params.date__gte = dateFrom
+      if (dateTo) params.date__lte = dateTo
 
+      console.log('Fetching chart data with params:', params)
       const res = await axios.get(`/api/analytics/accounts/${account.id}/balance-timeseries/`, { params })
       const data = res.data
 

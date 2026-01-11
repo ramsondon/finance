@@ -45,9 +45,9 @@ class AccountBalanceTimeseriesView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        # Get optional date filters
-        date_from = request.query_params.get('date_from')
-        date_to = request.query_params.get('date_to')
+        # Get optional date filters (support both parameter naming conventions)
+        date_from = request.query_params.get('date__gte') or request.query_params.get('date_from')
+        date_to = request.query_params.get('date__lte') or request.query_params.get('date_to')
 
         # Build queryset
         qs = Transaction.objects.filter(account=account).order_by('date')
