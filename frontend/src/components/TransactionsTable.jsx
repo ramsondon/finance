@@ -324,17 +324,17 @@ function EditTransactionModal({ transaction, categories, onClose, onSuccess }) {
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {/* Transaction Info */}
-          <div className="bg-gray-50 rounded-lg p-4 text-sm">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-600">Date:</span>
+          <div className="bg-gray-50 rounded-lg p-4 text-sm space-y-3">
+            <div>
+              <span className="text-gray-600 block mb-1">Date:</span>
               <span className="font-medium">{new Date(transaction.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
             </div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-600">Description:</span>
-              <span className="font-medium truncate ml-2">{transaction.description || '-'}</span>
+            <div>
+              <span className="text-gray-600 block mb-1">Description:</span>
+              <span className="font-medium text-gray-900 break-words">{transaction.description || '-'}</span>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-600">Amount:</span>
+            <div>
+              <span className="text-gray-600 block mb-1">Amount:</span>
               <span className={`font-medium ${
                 transaction.type === 'income' ? 'text-green-600' : transaction.type === 'expense' ? 'text-red-600' : 'text-gray-900'
               }`}>
