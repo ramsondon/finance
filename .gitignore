@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+*.egg
+.build/
+.python-version
+.env
+.venv/
+venv/
+.coverage
+htmlcov/
+
+# Django
+backend/finance_project/settings_local.py
+backend/static/*
+!backend/finance_project/static/tailwind.css
+media/
+
+# Node
+node_modules/
+frontend/node_modules/
+frontend/dist/
+
+# Logs
+*.log
+logs/
+
+# IDE
+.idea/
+.vscode/
+.DS_Store
+
+# Docker
+.volumes/
+
