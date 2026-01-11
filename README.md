@@ -43,17 +43,19 @@ A production-ready finance analytics platform with Django 6, DRF, React 18, Tail
 
 ```bash
 # 1) Start all services
-docker compose -f deploy/docker-compose.yml --env-file deploy/.env.example up --build -d
+docker compose --env-file deploy/.env.local -f deploy/docker-compose.yml up -d
 
 # 2) Create superuser
-docker compose -f deploy/docker-compose.yml exec web python manage.py createsuperuser
+docker compose --env-file deploy/.env.local -f deploy/docker-compose.yml exec web python manage.py createsuperuser
 
 # 3) Pull an Ollama model (e.g., gemma2:2b)
-docker compose exec ollama ollama pull gemma2:2b
+docker compose --env-file deploy/.env.local -f deploy/docker-compose.yml exec ollama ollama pull gemma2:2b
 
-# 3) Access the application
+# 4) Access the application
 open http://localhost:8000
 ```
+
+**Note**: Configuration is in `deploy/.env.local`. Copy from `deploy/.env.example` if needed.
 
 ### Option 2: Local Development
 
@@ -139,9 +141,61 @@ When opening an account detail modal:
 
 ## Configuration
 
+### Docker Compose Commands
+
+All commands use `.env.local` for configuration.
+
+**Convenience Script**: Use `./dc.sh` as a shortcut:
+
+```bash
+# Start services
+./dc.sh up -d
+
+# Stop services
+./dc.sh down
+
+# View logs
+./dc.sh logs -f web
+
+# Rebuild and restart
+./dc.sh build web
+./dc.sh up -d --force-recreate web
+
+# Check service status
+./dc.sh ps
+
+# Execute commands in containers
+./dc.sh exec web python manage.py migrate
+./dc.sh exec web python manage.py createsuperuser
+```
+
+**Full commands** (if you prefer):
+
+```bash
+# Start services
+docker compose --env-file deploy/.env.local -f deploy/docker-compose.yml up -d
+
+# Stop services
+docker compose --env-file deploy/.env.local -f deploy/docker-compose.yml down
+
+# View logs
+docker compose --env-file deploy/.env.local -f deploy/docker-compose.yml logs -f web
+
+# Rebuild and restart
+docker compose --env-file deploy/.env.local -f deploy/docker-compose.yml build web
+docker compose --env-file deploy/.env.local -f deploy/docker-compose.yml up -d --force-recreate web
+
+# Check service status
+docker compose --env-file deploy/.env.local -f deploy/docker-compose.yml ps
+
+# Execute commands in containers
+docker compose --env-file deploy/.env.local -f deploy/docker-compose.yml exec web python manage.py migrate
+docker compose --env-file deploy/.env.local -f deploy/docker-compose.yml exec web python manage.py createsuperuser
+```
+
 ### Environment Variables
 
-Key settings in `deploy/.env.example`:
+Key settings in `deploy/.env.local` (copy from `deploy/.env.example` if needed):
 
 ```bash
 # Database
@@ -173,10 +227,10 @@ CELERY_BROKER_URL=redis://redis:6379/1
 
 #### Quick Setup (Recommended)
 
-If you have Google OAuth credentials, add them to your `.env` file and the system will auto-configure:
+If you have Google OAuth credentials, add them to `deploy/.env.local`:
 
 ```bash
-# In deploy/.env (create from .env.example)
+# In deploy/.env.local
 GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your-client-secret
 ```
@@ -184,7 +238,7 @@ GOOGLE_CLIENT_SECRET=your-client-secret
 Then start the services:
 
 ```bash
-docker compose -f deploy/docker-compose.yml up -d
+docker compose --env-file deploy/.env.local -f deploy/docker-compose.yml up -d
 ```
 
 The `configure_google_oauth` command runs automatically on startup and configures everything.

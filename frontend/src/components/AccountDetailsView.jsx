@@ -327,7 +327,7 @@ export default function AccountDetailsView({ accountId, onClose }) {
               <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
             </div>
           ) : (
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            <div className="bg-white rounded-lg border border-gray-200 overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
@@ -342,15 +342,17 @@ export default function AccountDetailsView({ accountId, onClose }) {
                   {transactions.length > 0 ? (
                     transactions.map(tx => (
                       <tr key={tx.id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="py-3 px-4">{new Date(tx.date).toLocaleDateString()}</td>
-                        <td className="py-3 px-4 text-sm truncate">{tx.description || tx.partner_name || '-'}</td>
-                        <td className="py-3 px-4 text-right font-medium">
+                        <td className="py-3 px-4 whitespace-nowrap">{new Date(tx.date).toLocaleDateString()}</td>
+                        <td className="py-3 px-4 text-sm max-w-xs truncate" title={tx.description || tx.partner_name || '-'}>
+                          {tx.description || tx.partner_name || '-'}
+                        </td>
+                        <td className="py-3 px-4 text-right font-medium whitespace-nowrap">
                           <span style={{ color: parseFloat(tx.amount) >= 0 ? '#10b981' : '#ef4444' }}>
                             {Number((typeof tx.amount === 'string' ? parseFloat(tx.amount) : tx.amount) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {account.currency}
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-sm">{tx.type}</td>
-                        <td className="py-3 px-4 text-sm">{tx.category_name || tx.category || '-'}</td>
+                        <td className="py-3 px-4 text-sm whitespace-nowrap">{tx.type}</td>
+                        <td className="py-3 px-4 text-sm whitespace-nowrap">{tx.category_name || tx.category || '-'}</td>
                       </tr>
                     ))
                   ) : (
