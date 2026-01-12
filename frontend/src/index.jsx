@@ -11,6 +11,8 @@ import LandingPage from './components/LandingPage'
 import axios from 'axios'
 import { getCsrfToken } from './utils/csrf'
 import { getFormatPreferences, saveFormatPreferences, DATE_FORMATS, CURRENCY_OPTIONS, NUMBER_FORMATS } from './utils/format'
+import { getSupportedLanguages, setLanguage as setLanguagePreference } from './utils/i18n'
+import { useTranslate } from './hooks/useLanguage'
 
 // Configure axios to include CSRF token in all requests
 axios.interceptors.request.use((config) => {
@@ -23,7 +25,9 @@ axios.interceptors.request.use((config) => {
   return Promise.reject(error)
 })
 
-function App() {
+// Main app content component that uses translations
+function AppContent() {
+  const t = useTranslate() // This hook listens for language changes
   const [activeTab, setActiveTab] = useState('dashboard')
   const [showImportModal, setShowImportModal] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -120,13 +124,13 @@ function App() {
     return <LandingPage />
   }
 
-  // Dashboard menu items
+  // Dashboard menu items - use translations
   const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: '📊' },
-    { id: 'transactions', label: 'Transactions', icon: '💳' },
-    { id: 'categories', label: 'Categories', icon: '📁' },
-    { id: 'rules', label: 'Rules', icon: '⚙️' },
-    { id: 'insights', label: 'AI Insights', icon: '🤖' },
+    { id: 'dashboard', label: t('nav.dashboard'), icon: '📊' },
+    { id: 'transactions', label: t('nav.transactions'), icon: '💳' },
+    { id: 'categories', label: t('nav.categories'), icon: '📁' },
+    { id: 'rules', label: t('nav.rules'), icon: '⚙️' },
+    { id: 'insights', label: t('nav.insights'), icon: '🤖' },
   ]
 
   const handleLogout = async () => {
@@ -211,7 +215,7 @@ function App() {
             className="w-full flex items-center space-x-3 px-4 py-3 hover:bg-gray-100 rounded-lg transition-colors text-gray-700"
           >
             <span className="text-2xl">🚪</span>
-            {!sidebarCollapsed && <span>Logout</span>}
+            {!sidebarCollapsed && <span>{t('common.logout')}</span>}
           </button>
         </div>
       </aside>
@@ -227,11 +231,11 @@ function App() {
                   {menuItems.find(item => item.id === activeTab)?.label}
                 </h1>
                 <p className="text-sm text-gray-500 mt-1">
-                  {activeTab === 'dashboard' && 'Overview of your financial data'}
-                  {activeTab === 'transactions' && 'Manage your transactions'}
-                  {activeTab === 'categories' && 'Organize your transactions'}
-                  {activeTab === 'rules' && 'Configure categorization rules'}
-                  {activeTab === 'insights' && 'AI-powered financial insights'}
+                  {activeTab === 'dashboard' && t('dashboard.description')}
+                  {activeTab === 'transactions' && t('transactions.description')}
+                  {activeTab === 'categories' && t('categories.description')}
+                  {activeTab === 'rules' && t('rules.description')}
+                  {activeTab === 'insights' && t('insights.description')}
                 </p>
               </div>
               <div className="flex items-center space-x-3">
@@ -239,7 +243,7 @@ function App() {
                   onClick={() => setShowImportModal(true)}
                   className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-medium"
                 >
-                  + Import
+                  {t('common.import')}
                 </button>
                 <button className="p-2.5 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-gray-700">
                   <span className="text-xl">🔔</span>
@@ -276,6 +280,7 @@ function App() {
                         saveFormatPreferences(prefs)
                       }}
                       onClose={() => setShowSettingsMenu(false)}
+                      t={t}
                     />
                   )}
                 </div>
@@ -304,19 +309,19 @@ function App() {
   )
 }
 
-const SettingsMenu = ({ sensitiveMode, setSensitiveMode, darkMode, setDarkMode, compactView, setCompactView, formatPrefs, setFormatPrefs, onClose }) => {
+const SettingsMenu = ({ sensitiveMode, setSensitiveMode, darkMode, setDarkMode, compactView, setCompactView, formatPrefs, setFormatPrefs, onClose, t }) => {
   return (
     <div className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50 max-h-[90vh] overflow-y-auto">
       <div className="p-4 border-b border-gray-200 sticky top-0 bg-white">
-        <h3 className="text-lg font-bold text-gray-900">Settings</h3>
+        <h3 className="text-lg font-bold text-gray-900">{t('settings.title')}</h3>
       </div>
 
       <div className="p-4 space-y-4">
         {/* Sensitive Mode */}
         <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
           <div>
-            <div className="font-medium text-gray-900">Sensitive Mode</div>
-            <div className="text-xs text-gray-500">Blur monetary values (Alt+Shift+S)</div>
+            <div className="font-medium text-gray-900">{t('settings.sensitiveMode')}</div>
+            <div className="text-xs text-gray-500">{t('settings.sensitiveModeDesc')}</div>
           </div>
           <label className="flex items-center cursor-pointer">
             <input
@@ -332,11 +337,11 @@ const SettingsMenu = ({ sensitiveMode, setSensitiveMode, darkMode, setDarkMode, 
         </div>
 
         <div className="border-t border-gray-200 pt-4">
-          <h4 className="font-semibold text-gray-900 mb-3 text-sm">Format Preferences</h4>
+          <h4 className="font-semibold text-gray-900 mb-3 text-sm">{t('settings.formatPreferences')}</h4>
 
           {/* Date Format */}
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Date Format</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('settings.dateFormat')}</label>
             <select
               value={formatPrefs.dateFormat}
               onChange={(e) => setFormatPrefs({ ...formatPrefs, dateFormat: e.target.value })}
@@ -350,7 +355,7 @@ const SettingsMenu = ({ sensitiveMode, setSensitiveMode, darkMode, setDarkMode, 
 
           {/* Currency */}
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Currency</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('settings.currency')}</label>
             <select
               value={formatPrefs.currencyCode}
               onChange={(e) => setFormatPrefs({ ...formatPrefs, currencyCode: e.target.value })}
@@ -366,7 +371,7 @@ const SettingsMenu = ({ sensitiveMode, setSensitiveMode, darkMode, setDarkMode, 
 
           {/* Number Format */}
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Number Format</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('settings.numberFormat')}</label>
             <select
               value={formatPrefs.numberFormat}
               onChange={(e) => setFormatPrefs({ ...formatPrefs, numberFormat: e.target.value })}
@@ -377,16 +382,34 @@ const SettingsMenu = ({ sensitiveMode, setSensitiveMode, darkMode, setDarkMode, 
               ))}
             </select>
           </div>
+
+          {/* Language */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('settings.language')}</label>
+            <select
+              value={formatPrefs.language}
+              onChange={(e) => {
+                const newPrefs = { ...formatPrefs, language: e.target.value }
+                setFormatPrefs(newPrefs)
+                setLanguagePreference(e.target.value)
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {getSupportedLanguages().map(lang => (
+                <option key={lang.code} value={lang.code}>{lang.name}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div className="border-t border-gray-200 pt-4">
-          <h4 className="font-semibold text-gray-900 mb-3 text-sm">Display</h4>
+          <h4 className="font-semibold text-gray-900 mb-3 text-sm">{t('settings.display')}</h4>
 
           {/* Dark Mode */}
           <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors opacity-50">
             <div>
-              <div className="font-medium text-gray-900">Dark Mode</div>
-              <div className="text-xs text-gray-500">Coming soon (Alt+Shift+D)</div>
+              <div className="font-medium text-gray-900">{t('settings.darkMode')}</div>
+              <div className="text-xs text-gray-500">{t('settings.darkModeDesc')}</div>
             </div>
             <label className="flex items-center cursor-pointer">
               <input
@@ -404,8 +427,8 @@ const SettingsMenu = ({ sensitiveMode, setSensitiveMode, darkMode, setDarkMode, 
 
           <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors opacity-50 mt-2">
             <div>
-              <div className="font-medium text-gray-900">Compact View</div>
-              <div className="text-xs text-gray-500">Reduce spacing (Alt+Shift+C)</div>
+              <div className="font-medium text-gray-900">{t('settings.compactView')}</div>
+              <div className="text-xs text-gray-500">{t('settings.compactViewDesc')}</div>
             </div>
             <label className="flex items-center cursor-pointer">
               <input
@@ -424,10 +447,10 @@ const SettingsMenu = ({ sensitiveMode, setSensitiveMode, darkMode, setDarkMode, 
 
         <div className="border-t border-gray-200 pt-4">
           <div className="text-xs text-gray-500 space-y-2 bg-blue-50 p-3 rounded-lg">
-            <div className="font-semibold text-gray-700">Keyboard Shortcuts:</div>
-            <div>🔒 Alt+Shift+S - Toggle Sensitive Mode</div>
-            <div>🌙 Alt+Shift+D - Toggle Dark Mode</div>
-            <div>📦 Alt+Shift+C - Toggle Compact View</div>
+            <div className="font-semibold text-gray-700">{t('settings.keyboardShortcuts')}</div>
+            <div>{t('settings.toggleSensitive')}</div>
+            <div>{t('settings.toggleDark')}</div>
+            <div>{t('settings.toggleCompact')}</div>
           </div>
         </div>
       </div>
@@ -437,7 +460,7 @@ const SettingsMenu = ({ sensitiveMode, setSensitiveMode, darkMode, setDarkMode, 
           onClick={onClose}
           className="px-4 py-2 bg-gray-100 text-gray-900 rounded-lg hover:bg-gray-200 font-medium text-sm"
         >
-          Close
+          {t('common.close')}
         </button>
       </div>
     </div>
@@ -457,6 +480,11 @@ const SensitiveValue = ({ value, sensitiveMode, isMonetary = true }) => {
       {value}
     </span>
   )
+}
+
+// Wrapper App component that provides translation context
+function App() {
+  return <AppContent />
 }
 
 const root = createRoot(document.getElementById('root'))

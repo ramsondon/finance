@@ -38,6 +38,7 @@ export function getFormatPreferences() {
     dateFormat: localStorage.getItem('dateFormat') || 'MM/DD/YYYY',
     currencyCode: localStorage.getItem('currencyCode') || 'USD',
     numberFormat: localStorage.getItem('numberFormat') || '1,000.00',
+    language: localStorage.getItem('language') || 'en',
   }
 }
 
@@ -48,6 +49,7 @@ export function saveFormatPreferences(prefs) {
   if (prefs.dateFormat) localStorage.setItem('dateFormat', prefs.dateFormat)
   if (prefs.currencyCode) localStorage.setItem('currencyCode', prefs.currencyCode)
   if (prefs.numberFormat) localStorage.setItem('numberFormat', prefs.numberFormat)
+  if (prefs.language) localStorage.setItem('language', prefs.language)
 }
 
 /**
