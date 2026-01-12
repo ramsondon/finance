@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import axios from 'axios'
 import { getCsrfToken } from '../utils/csrf'
-import { SensitiveValue } from '../utils/sensitive'
+import { SensitiveValue, useSensitiveModeListener } from '../utils/sensitive'
 
 export default function TransactionsTable() {
   const [transactions, setTransactions] = useState([])
@@ -12,16 +12,7 @@ export default function TransactionsTable() {
   const [categories, setCategories] = useState([])
   const [filters, setFilters] = useState({ search: '', type: '', category: '', categoryUnknown: false })
   const [editingTransaction, setEditingTransaction] = useState(null)
-  const [sensitiveMode, setSensitiveMode] = useState(localStorage.getItem('sensitiveMode') === 'true')
-
-  // Listen for sensitive mode changes
-  useEffect(() => {
-    const handleStorageChange = () => {
-      setSensitiveMode(localStorage.getItem('sensitiveMode') === 'true')
-    }
-    window.addEventListener('storage', handleStorageChange)
-    return () => window.removeEventListener('storage', handleStorageChange)
-  }, [])
+  const sensitiveMode = useSensitiveModeListener()
 
   // Load categories for filter dropdown
   useEffect(() => {

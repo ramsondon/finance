@@ -68,6 +68,8 @@ function App() {
         setSensitiveMode(prev => {
           const newValue = !prev
           localStorage.setItem('sensitiveMode', newValue)
+          // Dispatch custom event for instant updates across all components
+          window.dispatchEvent(new CustomEvent('sensitiveModeChanged', { detail: { sensitiveMode: newValue } }))
           return newValue
         })
       }
@@ -255,6 +257,8 @@ function App() {
                       setSensitiveMode={(value) => {
                         setSensitiveMode(value)
                         localStorage.setItem('sensitiveMode', value)
+                        // Dispatch custom event for instant updates across all components
+                        window.dispatchEvent(new CustomEvent('sensitiveModeChanged', { detail: { sensitiveMode: value } }))
                       }}
                       darkMode={darkMode}
                       setDarkMode={(value) => {

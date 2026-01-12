@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
-import { SensitiveValue } from '../utils/sensitive'
+import { SensitiveValue, useSensitiveModeListener } from '../utils/sensitive'
 import { Line } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -41,17 +41,8 @@ export default function AccountDetailsView({ accountId, onClose }) {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
 
-  // Sensitive mode state
-  const [sensitiveMode, setSensitiveMode] = useState(localStorage.getItem('sensitiveMode') === 'true')
-
-  // Listen for sensitive mode changes
-  useEffect(() => {
-    const handleStorageChange = () => {
-      setSensitiveMode(localStorage.getItem('sensitiveMode') === 'true')
-    }
-    window.addEventListener('storage', handleStorageChange)
-    return () => window.removeEventListener('storage', handleStorageChange)
-  }, [])
+  // Sensitive mode state - use custom hook for instant updates
+  const sensitiveMode = useSensitiveModeListener()
   const [sortBy, setSortBy] = useState('date')
   const [sortOrder, setSortOrder] = useState('desc')
 

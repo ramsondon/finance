@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import axios from 'axios'
 import { getCsrfToken } from '../utils/csrf'
-import { SensitiveValue } from '../utils/sensitive'
+import { SensitiveValue, useSensitiveModeListener } from '../utils/sensitive'
 import CreateAccountModal from './CreateAccountModal'
 import AccountDetailsView from './AccountDetailsView'
 import { Pie } from 'react-chartjs-2'
@@ -19,16 +19,7 @@ export default function Dashboard() {
   const [deleting, setDeleting] = useState(false)
   const [categoryBreakdown, setCategoryBreakdown] = useState({ labels: [], values: [] })
   const [categoryLoading, setCategoryLoading] = useState(false)
-  const [sensitiveMode, setSensitiveMode] = useState(localStorage.getItem('sensitiveMode') === 'true')
-
-  // Listen for sensitive mode changes from settings
-  useEffect(() => {
-    const handleStorageChange = () => {
-      setSensitiveMode(localStorage.getItem('sensitiveMode') === 'true')
-    }
-    window.addEventListener('storage', handleStorageChange)
-    return () => window.removeEventListener('storage', handleStorageChange)
-  }, [])
+  const sensitiveMode = useSensitiveModeListener()
 
   const fetchData = () => {
     setLoading(true)
@@ -205,7 +196,12 @@ export default function Dashboard() {
                       <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: item.color || '#9ca3af' }}></span>
                       <span className="text-sm text-gray-800">{item.name}</span>
                     </button>
-                    <span className="text-sm font-medium text-gray-900">{item.value.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                    <span className="text-sm font-medium text-gray-900">
+                      <SensitiveValue
+                        value={item.value.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                        sensitiveMode={sensitiveMode}
+                      />
+                    </span>
                   </li>
                 ))}
               </ul>

@@ -125,6 +125,16 @@ export function useSensitiveMode() {
 }
 
 /**
+ * Custom hook to listen for sensitive mode changes in real-time
+ * NOTE: This must be called from a React component context
+ */
+export function useSensitiveModeListener() {
+  // This hook must be imported in a JSX file and called from React
+  // See sensitive.js for the actual implementation
+  throw new Error('useSensitiveModeListener must be imported from utils/sensitive (JSX file), not from format.js')
+}
+
+/**
  * Apply sensitive mode blur to any text
  */
 export function getSensitiveClass(sensitiveMode) {
