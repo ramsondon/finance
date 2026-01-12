@@ -59,7 +59,7 @@
     "income": "📈 Income",
     "expense": "📉 Expense",
     "transfer": "↔️ Transfer",
-    "transactionsFound": "{count, plural, one {transaction} other {transactions}} found",
+    "transactionsFound": "{count} transactions found",
     "noTransactions": "No transactions found",
     "importCSV": "Import a CSV to get started with transaction tracking",
     "date": "Date",
@@ -70,7 +70,10 @@
     "actions": "Actions",
     "previousPage": "← Previous",
     "nextPage": "Next →",
-    "pageOf": "Page {current} of {total} • {count} transactions"
+    "pageOf": "Page {current} of {total} • {count} transactions",
+    "edit": "Edit",
+    "noTransactionsFound": "No transactions found",
+    "importACSV": "Import a CSV to get started with transaction tracking"
   },
   "transactionEdit": {
     "title": "Edit Transaction Category",
@@ -78,9 +81,10 @@
     "description": "Description:",
     "amount": "Amount:",
     "category": "Category",
-    "categoryPlaceholder": "Unknown (Uncategorized)",
     "selectCategory": "Select a category or leave as \"Unknown\"",
-    "failedToUpdate": "Failed to update transaction",
+    "unknownUncategorized": "Unknown (Uncategorized)",
+    "cancel": "Cancel",
+    "saveChanges": "Save Changes",
     "saving": "Saving..."
   },
   "categories": {

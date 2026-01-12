@@ -170,7 +170,7 @@ export default function TransactionsTable() {
         <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
           <h3 className="text-lg font-semibold text-gray-900">{t('transactions.title')}</h3>
           <p className="text-sm text-gray-500 mt-1">
-            {totalCount} {totalCount === 1 ? t('transactions.transactionsFound').replace('{count}', '1') : t('transactions.transactionsFound').replace('{count}', totalCount)}
+            {totalCount === 1 ? t('transactions.transactionsFound').replace('{count}', '1') : t('transactions.transactionsFound').replace('{count}', totalCount)}
           </p>
         </div>
 
@@ -186,20 +186,20 @@ export default function TransactionsTable() {
         ) : totalCount === 0 ? (
           <div className="text-center py-20 bg-gradient-to-br from-gray-50 to-white">
             <div className="text-6xl mb-4">💳</div>
-            <h3 className="text-xl font-semibold text-gray-700 mb-2">No transactions found</h3>
-            <p className="text-gray-500">Import a CSV to get started with transaction tracking</p>
+            <h3 className="text-xl font-semibold text-gray-700 mb-2">{t('transactions.noTransactionsFound')}</h3>
+            <p className="text-gray-500">{t('transactions.importCSV')}</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Date</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Description</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Category</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Type</th>
-                  <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Amount</th>
-                  <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{t('transactions.date')}</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{t('transactions.fieldDescription')}</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{t('transactions.category')}</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{t('transactions.type')}</th>
+                  <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">{t('transactions.amount')}</th>
+                  <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">{t('transactions.actions')}</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-100">
@@ -228,8 +228,8 @@ export default function TransactionsTable() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full border ${getTypeColor(tx.type)}`}>
-                        <span className="mr-1">{getTypeIcon(tx.type)}</span>
-                        {tx.type}
+                        {/*<span className="mr-1">{getTypeIcon(tx.type)}</span>*/}
+                        {t(`transactions.${tx.type}`)}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
@@ -247,7 +247,7 @@ export default function TransactionsTable() {
                         onClick={() => setEditingTransaction(tx)}
                         className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
                       >
-                        Edit
+                        {t('transactions.edit')}
                       </button>
                     </td>
                   </tr>
@@ -259,18 +259,18 @@ export default function TransactionsTable() {
 
         {/* Pagination */}
         <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 bg-white">
-          <div className="text-sm text-gray-600">Page {currentPage} of {totalPages} • {totalCount} transactions</div>
+          <div className="text-sm text-gray-600">{t('transactions.pageOf', { current: currentPage, total: totalPages, count: totalCount })}</div>
           <div className="flex gap-2">
             <button
               onClick={() => canPrev && setCurrentPage(p => Math.max(1, p - 1))}
               disabled={!canPrev}
               className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
-            >← Previous</button>
+            >{t('transactions.previousPage')}</button>
             <button
               onClick={() => canNext && setCurrentPage(p => Math.min(totalPages, p + 1))}
               disabled={!canNext}
               className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
-            >Next →</button>
+            >{t('transactions.nextPage')}</button>
           </div>
         </div>
       </div>
@@ -293,6 +293,7 @@ export default function TransactionsTable() {
 }
 
 function EditTransactionModal({ transaction, categories, onClose, onSuccess, sensitiveMode }) {
+  const t = useTranslate()
   const [selectedCategory, setSelectedCategory] = useState(transaction.category || null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
@@ -326,7 +327,7 @@ function EditTransactionModal({ transaction, categories, onClose, onSuccess, sen
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
         <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-          <h3 className="text-lg font-bold text-gray-900">Edit Transaction Category</h3>
+          <h3 className="text-lg font-bold text-gray-900">{t('transactionEdit.title')}</h3>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl">✕</button>
         </div>
 
@@ -334,15 +335,15 @@ function EditTransactionModal({ transaction, categories, onClose, onSuccess, sen
           {/* Transaction Info */}
           <div className="bg-gray-50 rounded-lg p-4 text-sm space-y-3">
             <div>
-              <span className="text-gray-600 block mb-1">Date:</span>
+              <span className="text-gray-600 block mb-1">{t('transactionEdit.date')}</span>
               <span className="font-medium">{new Date(transaction.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
             </div>
             <div>
-              <span className="text-gray-600 block mb-1">Description:</span>
+              <span className="text-gray-600 block mb-1">{t('transactionEdit.description')}</span>
               <span className="font-medium text-gray-900 break-words">{transaction.description || '-'}</span>
             </div>
             <div>
-              <span className="text-gray-600 block mb-1">Amount:</span>
+              <span className="text-gray-600 block mb-1">{t('transactionEdit.amount')}</span>
               <span className={`font-medium ${
                 transaction.type === 'income' ? 'text-green-600' : transaction.type === 'expense' ? 'text-red-600' : 'text-gray-900'
               }`}>
@@ -357,19 +358,19 @@ function EditTransactionModal({ transaction, categories, onClose, onSuccess, sen
           {/* Category Selection */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Category
+              {t('transactionEdit.category')}
             </label>
             <select
               value={selectedCategory || ''}
               onChange={(e) => setSelectedCategory(e.target.value ? parseInt(e.target.value) : null)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="">Unknown (Uncategorized)</option>
+              <option value="">{t('transactionEdit.unknownUncategorized')}</option>
               {categories.map(cat => (
                 <option key={cat.id} value={cat.id}>{cat.name}</option>
               ))}
             </select>
-            <p className="text-xs text-gray-500 mt-1">Select a category or leave as "Unknown"</p>
+            <p className="text-xs text-gray-500 mt-1">{t('transactionEdit.selectCategory')}</p>
           </div>
 
           {/* Error Message */}
@@ -386,14 +387,14 @@ function EditTransactionModal({ transaction, categories, onClose, onSuccess, sen
               onClick={onClose}
               className="flex-1 px-4 py-2 bg-gray-100 text-gray-900 rounded-lg hover:bg-gray-200 font-medium text-sm"
             >
-              Cancel
+              {t('transactionEdit.cancel')}
             </button>
             <button
               type="submit"
               disabled={submitting}
               className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium text-sm"
             >
-              {submitting ? 'Saving...' : 'Save Changes'}
+              {submitting ? t('transactionEdit.saving') : t('transactionEdit.saveChanges')}
             </button>
           </div>
         </form>

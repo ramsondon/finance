@@ -59,7 +59,7 @@
     "income": "📈 Einnahmen",
     "expense": "📉 Ausgaben",
     "transfer": "↔️ Überweisung",
-    "transactionsFound": "{count, plural, one {Transaktion} other {Transaktionen}} gefunden",
+    "transactionsFound": "{count} Transaktionen gefunden",
     "noTransactions": "Keine Transaktionen gefunden",
     "importCSV": "Importieren Sie eine CSV-Datei, um die Verfolgung von Transaktionen zu starten",
     "date": "Datum",
@@ -70,7 +70,10 @@
     "actions": "Aktionen",
     "previousPage": "← Zurück",
     "nextPage": "Weiter →",
-    "pageOf": "Seite {current} von {total} • {count} Transaktionen"
+    "pageOf": "Seite {current} von {total} • {count} Transaktionen",
+    "edit": "Bearbeiten",
+    "noTransactionsFound": "Keine Transaktionen gefunden",
+    "importACSV": "Importieren Sie eine CSV-Datei, um die Verfolgung von Transaktionen zu starten"
   },
   "transactionEdit": {
     "title": "Transaktionskategorie bearbeiten",
@@ -78,10 +81,11 @@
     "description": "Beschreibung:",
     "amount": "Betrag:",
     "category": "Kategorie",
-    "categoryPlaceholder": "Unbekannt (Nicht kategorisiert)",
     "selectCategory": "Wählen Sie eine Kategorie oder lassen Sie sie als \"Unbekannt\"",
-    "failedToUpdate": "Transaktion konnte nicht aktualisiert werden",
-    "saving": "Speichern..."
+    "unknownUncategorized": "Unbekannt (Nicht kategorisiert)",
+    "cancel": "Abbrechen",
+    "saveChanges": "Änderungen speichern",
+    "saving": "Wird gespeichert..."
   },
   "categories": {
     "title": "Kategorien",
