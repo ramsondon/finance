@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react'
 import axios from 'axios'
 import { getCsrfToken } from '../utils/csrf'
+import { useTranslate } from '../hooks/useLanguage'
 
 export default function CategoriesManager() {
+  const t = useTranslate()
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -67,7 +69,7 @@ export default function CategoriesManager() {
   }
 
   const deleteCategory = async (categoryId) => {
-    if (!confirm('Delete this category? This may affect categorized transactions.')) return
+    if (!confirm(t('categories.deleteConfirm'))) return
     try {
       await axios.delete(`/api/banking/categories/${categoryId}/`, {
         headers: { 'X-CSRFToken': getCsrfToken() }
@@ -93,14 +95,14 @@ export default function CategoriesManager() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Categories</h2>
-          <p className="text-gray-500 text-sm mt-1">Organize your transactions with custom categories</p>
+          <h2 className="text-2xl font-bold text-gray-900">{t('categories.title')}</h2>
+          <p className="text-gray-500 text-sm mt-1">{t('categories.description')}</p>
         </div>
         <button
           onClick={() => setShowCreateModal(true)}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
         >
-          + Create Category
+          {t('categories.createCategory')}
         </button>
       </div>
 
@@ -115,12 +117,12 @@ export default function CategoriesManager() {
                 setSearchQuery(e.target.value)
                 setCurrentPage(1)
               }}
-              placeholder="Search categories..."
+              placeholder={t('categories.searchPlaceholder')}
               className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div className="flex items-center gap-2 text-sm text-gray-600">
-            <span>Sort by:</span>
+            <span>{t('categories.sortBy')}</span>
             <select
               value={sortBy}
               onChange={(e) => {
@@ -129,8 +131,8 @@ export default function CategoriesManager() {
               }}
               className="border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="name">Name</option>
-              <option value="color">Color</option>
+              <option value="name">{t('categories.name')}</option>
+              <option value="color">{t('categories.color')}</option>
             </select>
             <button
               onClick={() => {
@@ -140,7 +142,7 @@ export default function CategoriesManager() {
               className="p-1 hover:bg-gray-100 rounded"
               title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
             >
-              {sortOrder === 'asc' ? '↑' : '↓'}
+              {sortOrder === 'asc' ? t('categories.ascending') : t('categories.descending')}
             </button>
           </div>
         </div>
@@ -155,14 +157,14 @@ export default function CategoriesManager() {
         <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
           <div className="text-6xl mb-4">📁</div>
           <p className="text-gray-500 mb-4">
-            {searchQuery ? 'No categories found matching your search.' : 'No categories yet. Create your first category!'}
+            {searchQuery ? t('categories.noCategoriesSearch') : t('categories.noCategoriesEmpty')}
           </p>
           {!searchQuery && (
             <button
               onClick={() => setShowCreateModal(true)}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
             >
-              Create Category
+              {t('categories.createCategory')}
             </button>
           )}
         </div>
@@ -178,7 +180,7 @@ export default function CategoriesManager() {
                     onClick={() => handleSort('name')}
                   >
                     <div className="flex items-center gap-2">
-                      Name
+                      {t('categories.name')}
                       {sortBy === 'name' && (
                         <span className="text-blue-600">{sortOrder === 'asc' ? '↑' : '↓'}</span>
                       )}
@@ -189,14 +191,14 @@ export default function CategoriesManager() {
                     onClick={() => handleSort('color')}
                   >
                     <div className="flex items-center gap-2">
-                      Color
+                      {t('categories.color')}
                       {sortBy === 'color' && (
                         <span className="text-blue-600">{sortOrder === 'asc' ? '↑' : '↓'}</span>
                       )}
                     </div>
                   </th>
                   <th className="text-right py-3 px-4 text-xs font-semibold text-gray-700">
-                    Actions
+                    {t('categories.actions')}
                   </th>
                 </tr>
               </thead>

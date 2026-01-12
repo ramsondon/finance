@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react'
 import axios from 'axios'
 import { getCsrfToken } from '../utils/csrf'
+import { useTranslate } from '../hooks/useLanguage'
 
 export default function RulesManager() {
+  const t = useTranslate()
   const [rules, setRules] = useState([])
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
@@ -30,9 +32,9 @@ export default function RulesManager() {
     setApplying(true)
     try {
       await axios.post('/api/banking/transactions/apply-rules/')
-      alert('Rules applied successfully! Background processing started.')
+      alert(t('rules.rulesAppliedSuccess'))
     } catch (err) {
-      alert('Error applying rules: ' + (err.response?.data?.message || err.message))
+      alert(t('rules.errorApplying') + ' ' + (err.response?.data?.message || err.message))
     } finally {
       setApplying(false)
     }
@@ -45,46 +47,45 @@ export default function RulesManager() {
       })
       loadData()
     } catch (err) {
-      alert('Error updating rule')
+      alert(t('rules.errorUpdating'))
     }
   }
 
   const deleteRule = async (ruleId) => {
-    if (!confirm('Delete this rule?')) return
+    if (!confirm(t('rules.deleteConfirm'))) return
     try {
       await axios.delete(`/api/banking/rules/${ruleId}/`, {
         headers: { 'X-CSRFToken': getCsrfToken() }
       })
       loadData()
     } catch (err) {
-      alert('Error deleting rule')
+      alert(t('rules.errorDeleting'))
     }
   }
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">Categorization Rules</h2>
+        <h2 className="text-2xl font-bold text-gray-900">{t('rules.title')}</h2>
         <div className="flex gap-3">
           <button
             onClick={() => setShowCreateModal(true)}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
           >
-            + Create Rule
+            {t('rules.createRule')}
           </button>
           <button
             onClick={applyRules}
             disabled={applying}
             className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 font-medium"
           >
-            {applying ? 'Applying...' : 'Apply Rules Now'}
+            {applying ? t('rules.applying') : t('rules.applyRulesNow')}
           </button>
         </div>
       </div>
 
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-700">
-        <strong>How rules work:</strong> Rules automatically categorize transactions based on conditions.
-        The first matching rule applies. Lower priority number = higher priority.
+        <strong>{t('rules.howRulesWork')}</strong> {t('rules.howRulesDescription')}
       </div>
 
       {loading ? (
@@ -93,12 +94,12 @@ export default function RulesManager() {
         </div>
       ) : rules.length === 0 ? (
         <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
-          <p className="text-gray-500 mb-4">No rules yet. Create your first rule to auto-categorize transactions.</p>
+          <p className="text-gray-500 mb-4">{t('rules.noRulesEmpty')}</p>
           <button
             onClick={() => setShowCreateModal(true)}
             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
           >
-            Create Rule
+            {t('rules.createRule')}
           </button>
         </div>
       ) : (
