@@ -100,7 +100,10 @@
     "edit": "Edit",
     "delete": "Delete",
     "deleteConfirm": "Delete this category? This may affect categorized transactions.",
-    "createdAt": "Created"
+    "createdAt": "Created",
+    "total": "{count}",
+    "category": "category",
+    "categories": "categories"
   },
   "rules": {
     "title": "Categorization Rules",

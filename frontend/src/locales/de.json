@@ -100,7 +100,10 @@
     "edit": "Bearbeiten",
     "delete": "Löschen",
     "deleteConfirm": "Diese Kategorie löschen? Dies kann sich auf kategorisierte Transaktionen auswirken.",
-    "createdAt": "Erstellt"
+    "createdAt": "Erstellt",
+    "total": "{count}",
+    "category": "Kategorie",
+    "categories": "Kategorien"
   },
   "rules": {
     "title": "Kategorisierungsregeln",

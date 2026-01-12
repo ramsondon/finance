@@ -10,10 +10,11 @@ export default function CategoriesManager() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [editingCategory, setEditingCategory] = useState(null)
 
-  // Pagination
-  const [currentPage, setCurrentPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const itemsPerPage = 10
+  // Pagination using backend links
+  const [nextUrl, setNextUrl] = useState(null)
+  const [previousUrl, setPreviousUrl] = useState(null)
+  const [currentUrl, setCurrentUrl] = useState('/api/banking/categories/')
+  const [totalCount, setTotalCount] = useState(0)
 
   // Filters and sorting
   const [searchQuery, setSearchQuery] = useState('')
@@ -21,48 +22,50 @@ export default function CategoriesManager() {
   const [sortOrder, setSortOrder] = useState('asc')
 
   useEffect(() => {
-    loadCategories()
-  }, [currentPage, searchQuery, sortBy, sortOrder])
+    // Reset to first page when search/sort changes
+    setCurrentUrl('/api/banking/categories/')
+    loadCategories('/api/banking/categories/')
+  }, [searchQuery, sortBy, sortOrder])
 
-  const loadCategories = async () => {
+  useEffect(() => {
+    loadCategories(currentUrl)
+  }, [currentUrl])
+
+  const loadCategories = async (url) => {
     setLoading(true)
     try {
       const params = {
-        page: currentPage,
-        page_size: itemsPerPage,
         search: searchQuery,
         ordering: sortOrder === 'desc' ? `-${sortBy}` : sortBy
       }
 
-      const response = await axios.get('/api/banking/categories/', { params })
+      const response = await axios.get(url, { params })
       const data = response.data
 
-      // Handle both paginated and non-paginated responses
+      // Handle paginated response from backend
       if (data.results) {
         setCategories(data.results)
-        setTotalPages(Math.ceil((data.count || 0) / itemsPerPage))
+        setNextUrl(data.next || null)
+        setPreviousUrl(data.previous || null)
+        setTotalCount(data.count || 0)
+      } else if (Array.isArray(data)) {
+        // Fallback for non-paginated response
+        setCategories(data)
+        setNextUrl(null)
+        setPreviousUrl(null)
+        setTotalCount(data.length)
       } else {
-        // Manual pagination for non-paginated API
-        const filtered = (data || []).filter(cat =>
-          cat.name.toLowerCase().includes(searchQuery.toLowerCase())
-        )
-        const sorted = [...filtered].sort((a, b) => {
-          const aVal = a[sortBy]
-          const bVal = b[sortBy]
-          if (sortOrder === 'asc') {
-            return aVal > bVal ? 1 : -1
-          } else {
-            return aVal < bVal ? 1 : -1
-          }
-        })
-        const start = (currentPage - 1) * itemsPerPage
-        const end = start + itemsPerPage
-        setCategories(sorted.slice(start, end))
-        setTotalPages(Math.ceil(sorted.length / itemsPerPage))
+        setCategories([])
+        setNextUrl(null)
+        setPreviousUrl(null)
+        setTotalCount(0)
       }
     } catch (err) {
       console.error('Error loading categories:', err)
       setCategories([])
+      setNextUrl(null)
+      setPreviousUrl(null)
+      setTotalCount(0)
     } finally {
       setLoading(false)
     }
@@ -74,7 +77,7 @@ export default function CategoriesManager() {
       await axios.delete(`/api/banking/categories/${categoryId}/`, {
         headers: { 'X-CSRFToken': getCsrfToken() }
       })
-      loadCategories()
+      loadCategories(currentUrl)
     } catch (err) {
       alert('Error deleting category: ' + (err.response?.data?.message || err.message))
     }
@@ -87,7 +90,7 @@ export default function CategoriesManager() {
       setSortBy(field)
       setSortOrder('asc')
     }
-    setCurrentPage(1)
+    setCurrentUrl('/api/banking/categories/')
   }
 
   return (
@@ -250,52 +253,25 @@ export default function CategoriesManager() {
           </div>
 
           {/* Pagination */}
-          {totalPages > 1 && (
+          {(nextUrl || previousUrl) && (
             <div className="flex items-center justify-between bg-white rounded-lg border border-gray-200 px-4 py-3">
               <div className="text-sm text-gray-600">
-                Page {currentPage} of {totalPages}
+                {t('categories.total', { count: totalCount })} {totalCount === 1 ? t('categories.category') : t('categories.categories')}
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
+                  onClick={() => previousUrl && setCurrentUrl(previousUrl)}
+                  disabled={!previousUrl}
                   className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                 >
-                  ← Previous
+                  {t('transactions.previousPage')}
                 </button>
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let pageNum
-                    if (totalPages <= 5) {
-                      pageNum = i + 1
-                    } else if (currentPage <= 3) {
-                      pageNum = i + 1
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNum = totalPages - 4 + i
-                    } else {
-                      pageNum = currentPage - 2 + i
-                    }
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => setCurrentPage(pageNum)}
-                        className={`px-3 py-1 rounded text-sm ${
-                          currentPage === pageNum
-                            ? 'bg-blue-600 text-white'
-                            : 'border border-gray-300 hover:bg-gray-50'
-                        }`}
-                      >
-                        {pageNum}
-                      </button>
-                    )
-                  })}
-                </div>
                 <button
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
+                  onClick={() => nextUrl && setCurrentUrl(nextUrl)}
+                  disabled={!nextUrl}
                   className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                 >
-                  Next →
+                  {t('transactions.nextPage')}
                 </button>
               </div>
             </div>
