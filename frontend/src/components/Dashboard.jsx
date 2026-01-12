@@ -4,11 +4,13 @@ import { getCsrfToken } from '../utils/csrf'
 import { SensitiveValue, useSensitiveModeListener } from '../utils/sensitive'
 import CreateAccountModal from './CreateAccountModal'
 import AccountDetailsView from './AccountDetailsView'
+import { useTranslate } from '../hooks/useLanguage'
 import { Pie } from 'react-chartjs-2'
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
 ChartJS.register(ArcElement, Tooltip, Legend)
 
 export default function Dashboard() {
+  const t = useTranslate()
   const [overview, setOverview] = useState(null)
   const [accounts, setAccounts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -91,7 +93,7 @@ export default function Dashboard() {
         <div className="flex items-center">
           <span className="text-3xl mr-3">⚠️</span>
           <div>
-            <h3 className="text-lg font-semibold text-red-900">Error loading dashboard</h3>
+            <h3 className="text-lg font-semibold text-red-900">{t('dashboard.errorLoadingDashboard')}</h3>
             <p className="text-red-700 mt-1">{error}</p>
           </div>
         </div>
@@ -106,7 +108,7 @@ export default function Dashboard() {
         {/* Total Balance Card */}
         <div className="bg-blue-600 rounded-lg p-6 text-white shadow-sm">
           <div className="flex items-center justify-between mb-3">
-            <div className="text-blue-100 text-sm font-medium uppercase tracking-wider">Total Balance</div>
+            <div className="text-blue-100 text-sm font-medium uppercase tracking-wider">{t('dashboard.totalBalance')}</div>
             <span className="text-4xl">💰</span>
           </div>
           <div className="text-4xl font-bold mb-2">
@@ -114,37 +116,37 @@ export default function Dashboard() {
           </div>
           <div className="flex items-center text-blue-100 text-sm">
             <span className="mr-2">↗</span>
-            <span>All accounts combined</span>
+            <span>{t('dashboard.allAccountsCombined')}</span>
           </div>
         </div>
 
         {/* Income Card */}
         <div className="bg-green-600 rounded-lg p-6 text-white shadow-sm">
           <div className="flex items-center justify-between mb-3">
-            <div className="text-green-100 text-sm font-medium uppercase tracking-wider">Income</div>
+            <div className="text-green-100 text-sm font-medium uppercase tracking-wider">{t('dashboard.income')}</div>
             <span className="text-4xl">📈</span>
           </div>
           <div className="text-4xl font-bold mb-2">
             +${(overview?.income_expense_breakdown?.income || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
           <div className="flex items-center text-green-100 text-sm">
-            <span className="mr-2">+12.5%</span>
-            <span>vs last month</span>
+            <span className="mr-2">{t('dashboard.incomePercent')}</span>
+            <span>{t('dashboard.vsLastMonth')}</span>
           </div>
         </div>
 
         {/* Expenses Card */}
         <div className="bg-red-600 rounded-lg p-6 text-white shadow-sm">
           <div className="flex items-center justify-between mb-3">
-            <div className="text-red-100 text-sm font-medium uppercase tracking-wider">Expenses</div>
+            <div className="text-red-100 text-sm font-medium uppercase tracking-wider">{t('dashboard.expenses')}</div>
             <span className="text-4xl">📉</span>
           </div>
           <div className="text-4xl font-bold mb-2">
             ${(overview?.income_expense_breakdown?.expense || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
           <div className="flex items-center text-red-100 text-sm">
-            <span className="mr-2">-3.2%</span>
-            <span>vs last month</span>
+            <span className="mr-2">{t('dashboard.expensePercent')}</span>
+            <span>{t('dashboard.vsLastMonth')}</span>
           </div>
         </div>
       </div>
@@ -153,8 +155,8 @@ export default function Dashboard() {
       <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-xl font-bold text-gray-900">Expenses by Category</h3>
-            <p className="text-gray-500 text-sm">Uncategorized transactions are shown as "Unknown"</p>
+            <h3 className="text-xl font-bold text-gray-900">{t('dashboard.expensesByCategory')}</h3>
+            <p className="text-gray-500 text-sm">{t('dashboard.uncategorized')}</p>
           </div>
         </div>
         {categoryBreakdown.values.length > 0 ? (

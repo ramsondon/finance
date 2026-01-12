@@ -2,8 +2,10 @@ import React, { useEffect, useState } from 'react'
 import axios from 'axios'
 import { getCsrfToken } from '../utils/csrf'
 import { SensitiveValue, useSensitiveModeListener } from '../utils/sensitive'
+import { useTranslate } from '../hooks/useLanguage'
 
 export default function TransactionsTable() {
+  const t = useTranslate()
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(true)
   const [totalCount, setTotalCount] = useState(0)
@@ -101,43 +103,43 @@ export default function TransactionsTable() {
       {/* Filters Card */}
       <div className="bg-white rounded-2xl shadow-lg p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">Filters</h3>
+          <h3 className="text-lg font-semibold text-gray-900">{t('transactions.filters')}</h3>
           <button
             onClick={() => { setCurrentPage(1); loadTransactions() }}
             className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors font-medium text-sm"
           >
-            🔄 Refresh
+            🔄 {t('transactions.refresh')}
           </button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('transactions.search')}</label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">🔍</span>
               <input
                 type="text"
                 value={filters.search}
                 onChange={(e) => setFilters({...filters, search: e.target.value})}
-                placeholder="Search descriptions..."
+                placeholder={t('transactions.searchPlaceholder')}
                 className="w-full pl-10 pr-4 py-2.5 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
               />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('transactions.typeFilter')}</label>
             <select
               value={filters.type}
               onChange={(e) => { setFilters({...filters, type: e.target.value}); setCurrentPage(1) }}
               className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
             >
-              <option value="">All Types</option>
-              <option value="income">📈 Income</option>
-              <option value="expense">📉 Expense</option>
-              <option value="transfer">↔️ Transfer</option>
+              <option value="">{t('transactions.allTypes')}</option>
+              <option value="income">{t('transactions.income')}</option>
+              <option value="expense">{t('transactions.expense')}</option>
+              <option value="transfer">{t('transactions.transfer')}</option>
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('transactions.categoryFilter')}</label>
             <select
               value={filters.categoryUnknown ? 'unknown' : (filters.category || '')}
               onChange={(e) => {
@@ -153,8 +155,8 @@ export default function TransactionsTable() {
               }}
               className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
             >
-              <option value="">All Categories</option>
-              <option value="unknown">Unknown</option>
+              <option value="">{t('transactions.allCategories')}</option>
+              <option value="unknown">{t('transactions.unknown')}</option>
               {categories.map(cat => (
                 <option key={cat.id} value={cat.id}>{cat.name}</option>
               ))}
@@ -166,9 +168,9 @@ export default function TransactionsTable() {
       {/* Transactions Table */}
       <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
-          <h3 className="text-lg font-semibold text-gray-900">Transactions</h3>
+          <h3 className="text-lg font-semibold text-gray-900">{t('transactions.title')}</h3>
           <p className="text-sm text-gray-500 mt-1">
-            {totalCount} {totalCount === 1 ? 'transaction' : 'transactions'} found
+            {totalCount} {totalCount === 1 ? t('transactions.transactionsFound').replace('{count}', '1') : t('transactions.transactionsFound').replace('{count}', totalCount)}
           </p>
         </div>
 
