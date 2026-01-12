@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import axios from 'axios'
 import { getCsrfToken } from '../utils/csrf'
+import { SensitiveValue } from '../utils/sensitive'
 
 export default function TransactionsTable() {
   const [transactions, setTransactions] = useState([])
@@ -11,6 +12,16 @@ export default function TransactionsTable() {
   const [categories, setCategories] = useState([])
   const [filters, setFilters] = useState({ search: '', type: '', category: '', categoryUnknown: false })
   const [editingTransaction, setEditingTransaction] = useState(null)
+  const [sensitiveMode, setSensitiveMode] = useState(localStorage.getItem('sensitiveMode') === 'true')
+
+  // Listen for sensitive mode changes
+  useEffect(() => {
+    const handleStorageChange = () => {
+      setSensitiveMode(localStorage.getItem('sensitiveMode') === 'true')
+    }
+    window.addEventListener('storage', handleStorageChange)
+    return () => window.removeEventListener('storage', handleStorageChange)
+  }, [])
 
   // Load categories for filter dropdown
   useEffect(() => {
@@ -232,7 +243,10 @@ export default function TransactionsTable() {
                       <div className={`text-sm font-bold ${
                         tx.type === 'income' ? 'text-green-600' : tx.type === 'expense' ? 'text-red-600' : 'text-gray-900'
                       }`}>
-                        {tx.type === 'income' ? '+' : tx.type === 'expense' ? '-' : ''}{tx.account_currency || 'EUR'} {Math.abs(tx.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        <SensitiveValue
+                          value={`${tx.type === 'income' ? '+' : tx.type === 'expense' ? '-' : ''}${tx.account_currency || 'EUR'} ${Math.abs(tx.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                          sensitiveMode={sensitiveMode}
+                        />
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center">
@@ -273,6 +287,7 @@ export default function TransactionsTable() {
         <EditTransactionModal
           transaction={editingTransaction}
           categories={categories}
+          sensitiveMode={sensitiveMode}
           onClose={() => setEditingTransaction(null)}
           onSuccess={() => {
             setEditingTransaction(null)
@@ -284,7 +299,7 @@ export default function TransactionsTable() {
   )
 }
 
-function EditTransactionModal({ transaction, categories, onClose, onSuccess }) {
+function EditTransactionModal({ transaction, categories, onClose, onSuccess, sensitiveMode }) {
   const [selectedCategory, setSelectedCategory] = useState(transaction.category || null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
@@ -338,7 +353,10 @@ function EditTransactionModal({ transaction, categories, onClose, onSuccess }) {
               <span className={`font-medium ${
                 transaction.type === 'income' ? 'text-green-600' : transaction.type === 'expense' ? 'text-red-600' : 'text-gray-900'
               }`}>
-                {transaction.type === 'income' ? '+' : transaction.type === 'expense' ? '-' : ''}{transaction.account_currency || 'EUR'} {Math.abs(transaction.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                <SensitiveValue
+                  value={`${transaction.type === 'income' ? '+' : transaction.type === 'expense' ? '-' : ''}${transaction.account_currency || 'EUR'} ${Math.abs(transaction.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                  sensitiveMode={sensitiveMode}
+                />
               </span>
             </div>
           </div>

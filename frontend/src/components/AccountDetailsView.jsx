@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
+import { SensitiveValue } from '../utils/sensitive'
 import { Line } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -39,6 +40,18 @@ export default function AccountDetailsView({ accountId, onClose }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+
+  // Sensitive mode state
+  const [sensitiveMode, setSensitiveMode] = useState(localStorage.getItem('sensitiveMode') === 'true')
+
+  // Listen for sensitive mode changes
+  useEffect(() => {
+    const handleStorageChange = () => {
+      setSensitiveMode(localStorage.getItem('sensitiveMode') === 'true')
+    }
+    window.addEventListener('storage', handleStorageChange)
+    return () => window.removeEventListener('storage', handleStorageChange)
+  }, [])
   const [sortBy, setSortBy] = useState('date')
   const [sortOrder, setSortOrder] = useState('desc')
 
@@ -348,7 +361,10 @@ export default function AccountDetailsView({ accountId, onClose }) {
                         </td>
                         <td className="py-3 px-4 text-right font-medium whitespace-nowrap">
                           <span style={{ color: parseFloat(tx.amount) >= 0 ? '#10b981' : '#ef4444' }}>
-                            {Number((typeof tx.amount === 'string' ? parseFloat(tx.amount) : tx.amount) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {account.currency}
+                            <SensitiveValue
+                              value={`${Number((typeof tx.amount === 'string' ? parseFloat(tx.amount) : tx.amount) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${account.currency}`}
+                              sensitiveMode={sensitiveMode}
+                            />
                           </span>
                         </td>
                         <td className="py-3 px-4 text-sm whitespace-nowrap">{tx.type}</td>
