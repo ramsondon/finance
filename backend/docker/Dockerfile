@@ -9,7 +9,7 @@ RUN npm install
 # Build into /build/static instead of relative path
 RUN mkdir -p /build/static
 RUN npx tailwindcss -i ./src/index.css -o /build/static/tailwind.css --minify
-RUN npx esbuild src/index.jsx --bundle --outfile=/build/static/app.js --minify --sourcemap --loader:.jsx=jsx --jsx=automatic --jsx-import-source=react
+RUN npx esbuild src/index.jsx --bundle --outfile=/build/static/app.js --minify --sourcemap --loader:.jsx=jsx --loader:.js=jsx --jsx=automatic --jsx-import-source=react
 # Verify build
 RUN ls -lh /build/static/
 

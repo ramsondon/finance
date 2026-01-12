@@ -10,6 +10,7 @@ import LoginPage from './components/LoginPage'
 import LandingPage from './components/LandingPage'
 import axios from 'axios'
 import { getCsrfToken } from './utils/csrf'
+import { getFormatPreferences, saveFormatPreferences, DATE_FORMATS, CURRENCY_OPTIONS, NUMBER_FORMATS } from './utils/format'
 
 // Configure axios to include CSRF token in all requests
 axios.interceptors.request.use((config) => {
@@ -28,6 +29,11 @@ function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false)
+  const [sensitiveMode, setSensitiveMode] = useState(localStorage.getItem('sensitiveMode') === 'true')
+  const [darkMode, setDarkMode] = useState(localStorage.getItem('darkMode') === 'true')
+  const [compactView, setCompactView] = useState(localStorage.getItem('compactView') === 'true')
+  const [formatPrefs, setFormatPrefs] = useState(getFormatPreferences())
 
   // Get current path
   const currentPath = window.location.pathname
@@ -51,6 +57,41 @@ function App() {
     }
     window.addEventListener('nav-to-transactions', handler)
     return () => window.removeEventListener('nav-to-transactions', handler)
+  }, [])
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyPress = (e) => {
+      // Alt+Shift+S: Toggle sensitive mode
+      if (e.altKey && e.shiftKey && e.code === 'KeyS') {
+        e.preventDefault()
+        setSensitiveMode(prev => {
+          const newValue = !prev
+          localStorage.setItem('sensitiveMode', newValue)
+          return newValue
+        })
+      }
+      // Alt+Shift+D: Toggle dark mode
+      if (e.altKey && e.shiftKey && e.code === 'KeyD') {
+        e.preventDefault()
+        setDarkMode(prev => {
+          const newValue = !prev
+          localStorage.setItem('darkMode', newValue)
+          return newValue
+        })
+      }
+      // Alt+Shift+C: Toggle compact view
+      if (e.altKey && e.shiftKey && e.code === 'KeyC') {
+        e.preventDefault()
+        setCompactView(prev => {
+          const newValue = !prev
+          localStorage.setItem('compactView', newValue)
+          return newValue
+        })
+      }
+    }
+    window.addEventListener('keydown', handleKeyPress)
+    return () => window.removeEventListener('keydown', handleKeyPress)
   }, [])
 
   // Loading state
@@ -201,9 +242,39 @@ function App() {
                 <button className="p-2.5 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-gray-700">
                   <span className="text-xl">🔔</span>
                 </button>
-                <button className="p-2.5 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-gray-700">
-                  <span className="text-xl">⚙️</span>
-                </button>
+                <div className="relative">
+                  <button
+                    onClick={() => setShowSettingsMenu(!showSettingsMenu)}
+                    className="p-2.5 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-gray-700"
+                  >
+                    <span className="text-xl">⚙️</span>
+                  </button>
+                  {showSettingsMenu && (
+                    <SettingsMenu
+                      sensitiveMode={sensitiveMode}
+                      setSensitiveMode={(value) => {
+                        setSensitiveMode(value)
+                        localStorage.setItem('sensitiveMode', value)
+                      }}
+                      darkMode={darkMode}
+                      setDarkMode={(value) => {
+                        setDarkMode(value)
+                        localStorage.setItem('darkMode', value)
+                      }}
+                      compactView={compactView}
+                      setCompactView={(value) => {
+                        setCompactView(value)
+                        localStorage.setItem('compactView', value)
+                      }}
+                      formatPrefs={formatPrefs}
+                      setFormatPrefs={(prefs) => {
+                        setFormatPrefs(prefs)
+                        saveFormatPreferences(prefs)
+                      }}
+                      onClose={() => setShowSettingsMenu(false)}
+                    />
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -226,6 +297,161 @@ function App() {
         <ImportCsvModal onClose={() => setShowImportModal(false)} />
       )}
     </div>
+  )
+}
+
+const SettingsMenu = ({ sensitiveMode, setSensitiveMode, darkMode, setDarkMode, compactView, setCompactView, formatPrefs, setFormatPrefs, onClose }) => {
+  return (
+    <div className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50 max-h-[90vh] overflow-y-auto">
+      <div className="p-4 border-b border-gray-200 sticky top-0 bg-white">
+        <h3 className="text-lg font-bold text-gray-900">Settings</h3>
+      </div>
+
+      <div className="p-4 space-y-4">
+        {/* Sensitive Mode */}
+        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+          <div>
+            <div className="font-medium text-gray-900">Sensitive Mode</div>
+            <div className="text-xs text-gray-500">Blur monetary values (Alt+Shift+S)</div>
+          </div>
+          <label className="flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={sensitiveMode}
+              onChange={(e) => setSensitiveMode(e.target.checked)}
+              className="sr-only"
+            />
+            <div className={`w-10 h-6 rounded-full transition-colors ${sensitiveMode ? 'bg-blue-600' : 'bg-gray-300'}`}>
+              <div className={`w-5 h-5 rounded-full bg-white shadow-md transition-transform ${sensitiveMode ? 'translate-x-5' : 'translate-x-0'}`}></div>
+            </div>
+          </label>
+        </div>
+
+        <div className="border-t border-gray-200 pt-4">
+          <h4 className="font-semibold text-gray-900 mb-3 text-sm">Format Preferences</h4>
+
+          {/* Date Format */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Date Format</label>
+            <select
+              value={formatPrefs.dateFormat}
+              onChange={(e) => setFormatPrefs({ ...formatPrefs, dateFormat: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {Object.keys(DATE_FORMATS).map(fmt => (
+                <option key={fmt} value={fmt}>{fmt}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Currency */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Currency</label>
+            <select
+              value={formatPrefs.currencyCode}
+              onChange={(e) => setFormatPrefs({ ...formatPrefs, currencyCode: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {CURRENCY_OPTIONS.map(curr => (
+                <option key={curr.code} value={curr.code}>
+                  {curr.symbol} {curr.code} - {curr.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Number Format */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Number Format</label>
+            <select
+              value={formatPrefs.numberFormat}
+              onChange={(e) => setFormatPrefs({ ...formatPrefs, numberFormat: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {Object.keys(NUMBER_FORMATS).map(fmt => (
+                <option key={fmt} value={fmt}>{fmt} (example)</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="border-t border-gray-200 pt-4">
+          <h4 className="font-semibold text-gray-900 mb-3 text-sm">Display</h4>
+
+          {/* Dark Mode */}
+          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors opacity-50">
+            <div>
+              <div className="font-medium text-gray-900">Dark Mode</div>
+              <div className="text-xs text-gray-500">Coming soon (Alt+Shift+D)</div>
+            </div>
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={darkMode}
+                onChange={(e) => setDarkMode(e.target.checked)}
+                disabled
+                className="sr-only"
+              />
+              <div className={`w-10 h-6 rounded-full transition-colors ${darkMode ? 'bg-blue-600' : 'bg-gray-300'}`}>
+                <div className={`w-5 h-5 rounded-full bg-white shadow-md transition-transform ${darkMode ? 'translate-x-5' : 'translate-x-0'}`}></div>
+              </div>
+            </label>
+          </div>
+
+          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors opacity-50 mt-2">
+            <div>
+              <div className="font-medium text-gray-900">Compact View</div>
+              <div className="text-xs text-gray-500">Reduce spacing (Alt+Shift+C)</div>
+            </div>
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={compactView}
+                onChange={(e) => setCompactView(e.target.checked)}
+                disabled
+                className="sr-only"
+              />
+              <div className={`w-10 h-6 rounded-full transition-colors ${compactView ? 'bg-blue-600' : 'bg-gray-300'}`}>
+                <div className={`w-5 h-5 rounded-full bg-white shadow-md transition-transform ${compactView ? 'translate-x-5' : 'translate-x-0'}`}></div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div className="border-t border-gray-200 pt-4">
+          <div className="text-xs text-gray-500 space-y-2 bg-blue-50 p-3 rounded-lg">
+            <div className="font-semibold text-gray-700">Keyboard Shortcuts:</div>
+            <div>🔒 Alt+Shift+S - Toggle Sensitive Mode</div>
+            <div>🌙 Alt+Shift+D - Toggle Dark Mode</div>
+            <div>📦 Alt+Shift+C - Toggle Compact View</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-4 border-t border-gray-200 flex justify-end sticky bottom-0 bg-white">
+        <button
+          onClick={onClose}
+          className="px-4 py-2 bg-gray-100 text-gray-900 rounded-lg hover:bg-gray-200 font-medium text-sm"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  )
+}
+
+const SensitiveValue = ({ value, sensitiveMode, isMonetary = true }) => {
+  if (!sensitiveMode) {
+    return <span>{value}</span>
+  }
+  return (
+    <span className="select-none" style={{
+      filter: 'blur(6px)',
+      WebkitUserSelect: 'none',
+      userSelect: 'none'
+    }}>
+      {value}
+    </span>
   )
 }
 

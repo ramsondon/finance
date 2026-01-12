@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import axios from 'axios'
 import { getCsrfToken } from '../utils/csrf'
+import { SensitiveValue } from '../utils/sensitive'
 import CreateAccountModal from './CreateAccountModal'
 import AccountDetailsView from './AccountDetailsView'
 import { Pie } from 'react-chartjs-2'
@@ -18,6 +19,16 @@ export default function Dashboard() {
   const [deleting, setDeleting] = useState(false)
   const [categoryBreakdown, setCategoryBreakdown] = useState({ labels: [], values: [] })
   const [categoryLoading, setCategoryLoading] = useState(false)
+  const [sensitiveMode, setSensitiveMode] = useState(localStorage.getItem('sensitiveMode') === 'true')
+
+  // Listen for sensitive mode changes from settings
+  useEffect(() => {
+    const handleStorageChange = () => {
+      setSensitiveMode(localStorage.getItem('sensitiveMode') === 'true')
+    }
+    window.addEventListener('storage', handleStorageChange)
+    return () => window.removeEventListener('storage', handleStorageChange)
+  }, [])
 
   const fetchData = () => {
     setLoading(true)
@@ -270,7 +281,10 @@ export default function Dashboard() {
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-500">Current Balance</span>
                     <span className="text-xl font-bold text-gray-900">
-                      {account.currency} {(account.current_balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      <SensitiveValue
+                        value={`${account.currency} ${(account.current_balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                        sensitiveMode={sensitiveMode}
+                      />
                     </span>
                   </div>
                   <div className="flex items-center justify-between mt-2">
