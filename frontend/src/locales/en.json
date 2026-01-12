@@ -173,9 +173,13 @@
   },
   "accountDetails": {
     "details": "Account Details",
-    "balance": "Balance",
     "filter": "Filter by date",
-    "noTransactions": "No transactions found"
+    "noTransactions": "No transactions found",
+    "balanceOverTime": "Balance Over Time",
+    "loadingChart": "Loading chart...",
+    "balance": "Balance",
+    "noDataAvailable": "No data available",
+    "failedToLoadAccount": "Failed to load account"
   },
   "validation": {
     "required": "This field is required",

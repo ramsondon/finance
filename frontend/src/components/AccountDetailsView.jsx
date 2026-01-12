@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import { SensitiveValue, useSensitiveModeListener } from '../utils/sensitive'
+import { useTranslate } from '../hooks/useLanguage'
 import { Line } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -27,6 +28,7 @@ ChartJS.register(
 )
 
 export default function AccountDetailsView({ accountId, onClose }) {
+  const t = useTranslate()
   // Account data
   const [account, setAccount] = useState(null)
 
@@ -177,6 +179,25 @@ export default function AccountDetailsView({ accountId, onClose }) {
     }
   }, [searchQuery, dateFrom, dateTo, sortBy, sortOrder, account?.id])
 
+  // Helper functions for transaction type display
+  const getTypeColor = (type) => {
+    switch(type) {
+      case 'income': return 'bg-green-100 text-green-700 border-green-200'
+      case 'expense': return 'bg-red-100 text-red-700 border-red-200'
+      case 'transfer': return 'bg-blue-100 text-blue-700 border-blue-200'
+      default: return 'bg-gray-100 text-gray-700 border-gray-200'
+    }
+  }
+
+  const getTypeIcon = (type) => {
+    switch(type) {
+      case 'income': return '📈'
+      case 'expense': return '📉'
+      case 'transfer': return '↔️'
+      default: return '💳'
+    }
+  }
+
   // Apply filters
   const applyFilters = () => {
     console.log('Applying filters')
@@ -218,8 +239,8 @@ export default function AccountDetailsView({ accountId, onClose }) {
     return (
       <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
         <div className="bg-white rounded-lg p-8 text-center">
-          <p className="text-red-600">Failed to load account</p>
-          <button onClick={onClose} className="mt-4 px-4 py-2 bg-blue-600 text-white rounded">Close</button>
+          <p className="text-red-600">{t('accountDetails.failedToLoadAccount')}</p>
+          <button onClick={onClose} className="mt-4 px-4 py-2 bg-blue-600 text-white rounded">{t('common.close')}</button>
         </div>
       </div>
     )
@@ -245,7 +266,7 @@ export default function AccountDetailsView({ accountId, onClose }) {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') applyFilters() }}
-              placeholder="Search description, partner..."
+              placeholder={t('transactions.searchPlaceholder')}
               className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <input
@@ -266,8 +287,8 @@ export default function AccountDetailsView({ accountId, onClose }) {
                 onChange={(e) => setSortBy(e.target.value)}
                 className="border border-gray-300 rounded px-3 py-2 flex-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="date">Date</option>
-                <option value="amount">Amount</option>
+                <option value="date">{t('transactions.date')}</option>
+                <option value="amount">{t('transactions.amount')}</option>
               </select>
               <button
                 onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
@@ -280,8 +301,8 @@ export default function AccountDetailsView({ accountId, onClose }) {
         {/* Balance Chart */}
         <div className="px-6 py-6 border-b border-gray-200">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Balance Over Time</h3>
-            {chartLoading && <span className="text-xs text-gray-500">Loading chart...</span>}
+            <h3 className="text-lg font-semibold text-gray-900">{t('accountDetails.balanceOverTime')}</h3>
+            {chartLoading && <span className="text-xs text-gray-500">{t('accountDetails.loadingChart')}</span>}
           </div>
           <div className="bg-gray-50 p-4 rounded-lg" style={{ height: '300px' }}>
             {chartDates.length > 0 ? (
@@ -289,7 +310,7 @@ export default function AccountDetailsView({ accountId, onClose }) {
                 data={{
                   labels: buildChartLabels(),
                   datasets: [{
-                    label: 'Balance',
+                    label: t('accountDetails.balance'),
                     data: chartBalances,
                     borderColor: '#2563eb',
                     backgroundColor: 'rgba(37, 99, 235, 0.1)',
@@ -319,7 +340,7 @@ export default function AccountDetailsView({ accountId, onClose }) {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
               </div>
             ) : (
-              <div className="h-full flex items-center justify-center text-gray-500">No data available</div>
+              <div className="h-full flex items-center justify-center text-gray-500">{t('accountDetails.noDataAvailable')}</div>
             )}
           </div>
         </div>
@@ -335,11 +356,11 @@ export default function AccountDetailsView({ accountId, onClose }) {
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700">Date</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700">Description</th>
-                    <th className="text-right py-3 px-4 text-xs font-semibold text-gray-700">Amount</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700">Type</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700">Category</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700">{t('transactions.date')}</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700">{t('transactions.fieldDescription')}</th>
+                    <th className="text-right py-3 px-4 text-xs font-semibold text-gray-700">{t('transactions.amount')}</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700">{t('transactions.type')}</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700">{t('transactions.category')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -358,13 +379,18 @@ export default function AccountDetailsView({ accountId, onClose }) {
                             />
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-sm whitespace-nowrap">{tx.type}</td>
+                        <td className="py-3 px-4 text-sm whitespace-nowrap">
+                          <span className={`inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full border ${getTypeColor(tx.type)}`}>
+                            {/*<span className="mr-1">{getTypeIcon(tx.type)}</span>*/}
+                            {t(`transactions.${tx.type}`)}
+                          </span>
+                        </td>
                         <td className="py-3 px-4 text-sm whitespace-nowrap">{tx.category_name || tx.category || '-'}</td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="5" className="py-8 text-center text-gray-500">No transactions found</td>
+                      <td colSpan="5" className="py-8 text-center text-gray-500">{t('transactions.noTransactionsFound')}</td>
                     </tr>
                   )}
                 </tbody>
@@ -375,19 +401,19 @@ export default function AccountDetailsView({ accountId, onClose }) {
           {/* Pagination */}
           <div className="flex items-center justify-between bg-white rounded-lg border border-gray-200 px-4 py-3 mt-3">
             <div className="text-sm text-gray-600">
-              Page {currentPage} of {totalPages} • {totalCount} transactions
+              {t('transactions.pageOf', { current: currentPage, total: totalPages, count: totalCount })}
             </div>
             <div className="flex gap-2">
               <button
                 onClick={() => canPrev && setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={!canPrev}
                 className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-              >← Previous</button>
+              >{t('transactions.previousPage')}</button>
               <button
                 onClick={() => canNext && setCurrentPage(p => Math.min(totalPages, p + 1))}
                 disabled={!canNext}
                 className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-              >Next →</button>
+              >{t('transactions.nextPage')}</button>
             </div>
           </div>
         </div>

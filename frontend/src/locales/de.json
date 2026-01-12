@@ -173,9 +173,13 @@
   },
   "accountDetails": {
     "details": "Kontodetails",
-    "balance": "Guthaben",
     "filter": "Nach Datum filtern",
-    "noTransactions": "Keine Transaktionen gefunden"
+    "noTransactions": "Keine Transaktionen gefunden",
+    "balanceOverTime": "Kontostand im Zeitverlauf",
+    "loadingChart": "Diagramm wird geladen...",
+    "balance": "Kontostand",
+    "noDataAvailable": "Keine Daten verfügbar",
+    "failedToLoadAccount": "Konto konnte nicht geladen werden"
   },
   "validation": {
     "required": "Dieses Feld ist erforderlich",
