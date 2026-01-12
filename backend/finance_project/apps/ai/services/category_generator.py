@@ -18,9 +18,13 @@ class CategoryGeneratorService:
         """
         self.provider = provider
 
-    def analyze_transactions(self, user_id: int) -> List[Dict[str, Any]]:
+    def analyze_transactions(self, user_id: int, language: str = 'en') -> List[Dict[str, Any]]:
         """
         Analyze user's transactions and suggest categories.
+
+        Args:
+            user_id: User ID
+            language: Language code ('en', 'de', etc.) for AI-generated category names
 
         Returns:
             List of suggested categories with metadata:
@@ -54,7 +58,7 @@ class CategoryGeneratorService:
 
         # Enhance with AI if provider available
         if self.provider and suggestions:
-            suggestions = self._enhance_with_ai(user_id, suggestions, transactions)
+            suggestions = self._enhance_with_ai(user_id, suggestions, transactions, language)
 
         return suggestions
 
@@ -197,10 +201,16 @@ class CategoryGeneratorService:
 
         return suggestions
 
-    def _enhance_with_ai(self, user_id: int, suggestions: List[Dict], transactions) -> List[Dict]:
+    def _enhance_with_ai(self, user_id: int, suggestions: List[Dict], transactions, language: str = 'en') -> List[Dict]:
         """
         Use AI provider (Ollama GEMMA3) to generate intelligent category suggestions
         based on transaction descriptions and income/expense types.
+
+        Args:
+            user_id: User ID
+            suggestions: Pattern-based suggestions to enhance
+            transactions: Transaction data
+            language: Language code for AI-generated category names
         """
         if not self.provider:
             return suggestions
@@ -208,7 +218,7 @@ class CategoryGeneratorService:
         try:
             # Prepare transaction data for AI analysis
             transaction_samples = []
-            for tx in transactions[:200]:  # Analyze up to 50 transactions
+            for tx in transactions[:200]:  # Analyze up to 200 transactions
                 description = tx.get('description', '') or ''
                 amount = tx.get('amount', 0)
                 tx_type = tx.get('type', 'expense')
@@ -221,8 +231,8 @@ class CategoryGeneratorService:
                     'type': direction
                 })
 
-            # Build prompt for Ollama
-            prompt = self._build_ai_prompt(transaction_samples, suggestions)
+            # Build prompt for Ollama with language specification
+            prompt = self._build_ai_prompt(transaction_samples, suggestions, language)
 
             # Call Ollama provider
             ai_result = self._call_ollama(prompt)
@@ -241,11 +251,22 @@ class CategoryGeneratorService:
             logging.warning(f"AI enhancement failed: {e}, using pattern-based suggestions")
             return suggestions
 
-    def _build_ai_prompt(self, transaction_samples: List[Dict], existing_suggestions: List[Dict]) -> str:
-        """Build a structured prompt for Ollama to generate categories."""
-        prompt = """Analyze these financial transactions and suggest meaningful categories for organizing them.
+    def _build_ai_prompt(self, transaction_samples: List[Dict], existing_suggestions: List[Dict], language: str = 'en') -> str:
+        """
+        Build a structured prompt for Ollama to generate categories in the specified language.
 
-Transaction samples:
+        Args:
+            transaction_samples: Sample transactions to analyze
+            existing_suggestions: Existing pattern-based suggestions
+            language: Language code ('en', 'de', etc.)
+        """
+        lang_instruction = self._get_language_instruction(language)
+
+        prompt = f"""Analyze these financial transactions and suggest meaningful categories for organizing them.
+
+{lang_instruction}
+
+Sample transactions:
 """
         for i, tx in enumerate(transaction_samples[:30], 1):
             prompt += f"{i}. [{tx['type'].upper()}] {tx['description']}\n"
@@ -372,6 +393,14 @@ Focus on practical categories that reflect the user's actual spending and income
                 existing_names.add(ai_cat['name'].lower())
 
         return merged
+
+    def _get_language_instruction(self, language: str) -> str:
+        """Get language-specific instruction for AI category generation."""
+        language_instructions = {
+            'en': 'Generate category names in English. Use simple, clear category names.',
+            'de': 'Generiere Kategorienamen auf Deutsch. Verwende einfache, klare Kategorienamen.',
+        }
+        return language_instructions.get(language, language_instructions['en'])
 
     def _default_color(self) -> str:
         """Return a random default color."""

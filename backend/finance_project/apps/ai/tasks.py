@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 @shared_task(bind=True, max_retries=3)
-def generate_categories_task(self, user_id: int, auto_approve: bool = False):
+def generate_categories_task(self, user_id: int, auto_approve: bool = False, language: str = 'en'):
     """
     Background task to generate categories from user's transaction patterns using AI.
 
@@ -18,6 +18,7 @@ def generate_categories_task(self, user_id: int, auto_approve: bool = False):
     Args:
         user_id: User ID to generate categories for
         auto_approve: If True, automatically create categories with confidence > 0.7
+        language: Language code ('en', 'de', etc.) for AI-generated category names
 
     Returns:
         dict with suggestions and created categories
@@ -27,7 +28,7 @@ def generate_categories_task(self, user_id: int, auto_approve: bool = False):
     import os
 
     try:
-        logger.info(f"Starting AI-powered category generation for user_id={user_id}, auto_approve={auto_approve}")
+        logger.info(f"Starting AI-powered category generation for user_id={user_id}, auto_approve={auto_approve}, language={language}")
 
         # Initialize Ollama provider with GEMMA3 model
         ollama_host = os.environ.get("OLLAMA_HOST", "http://ollama:11434")
@@ -40,8 +41,8 @@ def generate_categories_task(self, user_id: int, auto_approve: bool = False):
         # Initialize service with AI provider
         service = CategoryGeneratorService(provider=provider)
 
-        # Analyze transactions (will use both pattern-based and AI enhancement)
-        suggestions = service.analyze_transactions(user_id)
+        # Analyze transactions with language preference (will use both pattern-based and AI enhancement)
+        suggestions = service.analyze_transactions(user_id, language=language)
         logger.info(f"Generated {len(suggestions)} category suggestions for user_id={user_id}")
 
         # Log sample suggestions
@@ -58,6 +59,7 @@ def generate_categories_task(self, user_id: int, auto_approve: bool = False):
 
         return {
             'user_id': user_id,
+            'language': language,
             'suggestions': suggestions,
             'created': created,
             'auto_approved': auto_approve,
