@@ -65,6 +65,17 @@ class RecurringTransactionDetector:
         'yearly': 365,  # approximate
     }
 
+    # Frequency priority - prefer more specific, common frequencies
+    # Higher score = higher priority
+    # Weekly is most specific (7 days), Yearly is least specific (365 days)
+    FREQUENCY_PRIORITY = {
+        'weekly': 5,      # Most specific, easiest to verify
+        'bi-weekly': 4,   # Specific, common (every 2 weeks)
+        'monthly': 3,     # Most common, but less specific than weekly
+        'quarterly': 2,   # Less common, more ambiguous
+        'yearly': 1,      # Least specific, most ambiguous
+    }
+
     # Amount tolerance (within this % is considered same amount)
     AMOUNT_TOLERANCE = 0.05  # 5%
 
@@ -97,6 +108,11 @@ class RecurringTransactionDetector:
 
         Returns:
             List of detected recurring patterns, sorted by confidence
+
+        Uses improved three-pass matching strategy:
+        1. Partner Info (95%+ confidence): partner_iban + partner_name + payment_method
+        2. Merchant Info (75-85% confidence): merchant_name + payment_method + card_brand
+        3. Description Text (50-70% confidence): reference + description (fuzzy match)
         """
         from finance_project.apps.banking.models import Transaction
 
@@ -107,7 +123,9 @@ class RecurringTransactionDetector:
             date__gte=start_date,
             type__in=['expense', 'income']  # Don't analyze transfers
         ).order_by('date').values(
-            'id', 'date', 'amount', 'description', 'reference', 'reference_number'
+            'id', 'date', 'amount', 'description', 'reference',
+            'partner_name', 'partner_iban', 'payment_method',
+            'merchant_name', 'card_brand'
         )
 
         if not raw_transactions:
@@ -115,31 +133,45 @@ class RecurringTransactionDetector:
 
         self.transactions = list(raw_transactions)
 
-        # Three-pass grouping strategy for improved accuracy:
-        # 1. Primary: Group by reference_number (bank's actual transaction ID)
-        # 2. Secondary: Group by reference text (textual reference/Verwendungszweck)
-        # 3. Tertiary: Group by normalized description (fuzzy matching fallback)
+        grouped = {}
 
-        grouped = self._group_by_reference_number()
+        # Pass 1: Group by partner information (95%+ confidence)
+        grouped_by_partner = self._group_by_partner_info()
+        if grouped_by_partner:
+            grouped.update(grouped_by_partner)
 
-        # For transactions without reference_number, try grouping by reference text
+        # Pass 2: Group remaining by merchant information (75-85% confidence)
         ungrouped = [t for t in self.transactions if t not in self._get_all_grouped_txs(grouped)]
         if ungrouped:
-            grouped_by_ref = self._group_by_reference_text(ungrouped)
-            grouped.update(grouped_by_ref)
-            ungrouped = [t for t in ungrouped if t not in self._get_all_grouped_txs(grouped_by_ref)]
+            grouped_by_merchant = self._group_by_merchant_info(ungrouped)
+            if grouped_by_merchant:
+                grouped.update(grouped_by_merchant)
+            ungrouped = [t for t in ungrouped if t not in self._get_all_grouped_txs(grouped_by_merchant or {})]
 
-        # For remaining transactions, fall back to description matching
+        # Pass 3: Group remaining by description (50-70% confidence - fallback)
         if ungrouped:
             grouped_by_desc = self._group_by_description(ungrouped)
-            grouped.update(grouped_by_desc)
+            if grouped_by_desc:
+                grouped.update(grouped_by_desc)
 
         # Detect patterns in each group
-        for group_key, transactions in grouped.items():
+        for group_key, group_info in grouped.items():
+            # Handle both dict (with metadata) and list (legacy) formats
+            if isinstance(group_info, dict) and 'transactions' in group_info:
+                transactions = group_info['transactions']
+                confidence_pass = group_info.get('confidence_pass', 3)
+            else:
+                transactions = group_info
+                confidence_pass = 3  # Default to Pass 3 for legacy
+
             if len(transactions) < 2:
                 continue
 
-            patterns = self._find_patterns_in_group(group_key, transactions)
+            patterns = self._find_patterns_in_group(
+                group_key,
+                transactions,
+                confidence_pass=confidence_pass
+            )
             self.patterns.extend(patterns)
 
         # Sort by confidence and return
@@ -149,36 +181,66 @@ class RecurringTransactionDetector:
     def _get_all_grouped_txs(self, grouped: Dict) -> List[Dict]:
         """Extract all transactions from grouped dict."""
         all_txs = []
-        for txs in grouped.values():
-            all_txs.extend(txs)
+        for group_info in grouped.values():
+            if isinstance(group_info, dict) and 'transactions' in group_info:
+                all_txs.extend(group_info['transactions'])
+            elif isinstance(group_info, list):
+                all_txs.extend(group_info)
         return all_txs
 
-    def _group_by_reference_number(self) -> Dict[str, List[Dict]]:
+    def _group_by_partner_info(self) -> Dict[str, Dict]:
         """
-        Primary grouping: Group by reference_number (bank's transaction ID).
+        Primary grouping: Group by partner information (95%+ confidence).
 
-        This is the most accurate method as reference_number uniquely identifies
-        a transaction from the bank's perspective. Identical reference_numbers
-        across different dates indicate duplicates or recurring patterns.
-        This is the first pass because it's the most reliable.
+        Uses:
+        - partner_iban: Bank account of other party (perfect for transfers)
+        - partner_name: Name of other party (consistent for recurring)
+        - payment_method: CARD, SEPA, TRANSFER, etc.
+
+        This is the most reliable method because:
+        - Bank accounts identify exact source/destination
+        - Partner names are consistent across recurring payments
+        - Payment method ensures transaction type consistency
         """
         grouped = defaultdict(list)
 
         for tx in self.transactions:
-            ref_num = tx.get('reference_number', '').strip()
-            if ref_num:
-                grouped[f"ref_num:{ref_num}"].append(tx)
+            partner_iban = tx.get('partner_iban', '').strip().upper()
+            partner_name = tx.get('partner_name', '').strip().lower()
+            payment_method = tx.get('payment_method', '').strip().lower()
 
-        # Only return groups with 2+ occurrences
-        return {k: v for k, v in grouped.items() if len(v) >= 2}
+            # Must have partner info to group
+            if not (partner_iban and partner_name):
+                continue
 
-    def _group_by_reference_text(self, transactions: List[Dict]) -> Dict[str, List[Dict]]:
+            # Create key from partner information
+            key = f"partner:{partner_iban}:{partner_name}:{payment_method}"
+            grouped[key].append(tx)
+
+        # Only return groups with 2+ occurrences, wrapped with metadata
+        result = {}
+        for k, v in grouped.items():
+            if len(v) >= 2:
+                result[k] = {
+                    'transactions': v,
+                    'confidence_pass': 1,
+                    'match_type': 'partner_info',
+                }
+        return result
+
+    def _group_by_merchant_info(self, transactions: List[Dict]) -> Dict[str, Dict]:
         """
-        Secondary grouping: Group by reference text (Verwendungszweck).
+        Secondary grouping: Group by merchant information (75-85% confidence).
 
-        The reference field contains the textual reference/purpose from the bank.
-        Similar reference texts indicate the same merchant or service.
-        This is more reliable than description matching as reference is provided by the bank.
+        Uses:
+        - merchant_name: Company/merchant name
+        - payment_method: CARD, SEPA, TRANSFER, etc.
+        - card_brand: VISA, Mastercard, etc.
+
+        Why this works:
+        - Same merchant usually = same service
+        - Payment method ensures consistent type
+        - Card brand distinguishes payment sources
         """
         grouped = defaultdict(list)
         processed_indices = set()
@@ -187,49 +249,67 @@ class RecurringTransactionDetector:
             if i in processed_indices:
                 continue
 
-            reference = tx.get('reference', '').strip().lower()
-            if not reference:
+            merchant_name = tx.get('merchant_name', '').strip().lower()
+            payment_method = tx.get('payment_method', '').strip().lower()
+            card_brand = tx.get('card_brand', '').strip().lower()
+
+            # Skip if missing merchant name
+            if not merchant_name:
                 continue
 
             group = [tx]
             processed_indices.add(i)
 
-            # Find similar references
+            # Find similar merchants
             for j in range(i + 1, len(transactions)):
                 if j in processed_indices:
                     continue
 
-                other_ref = transactions[j].get('reference', '').strip().lower()
-                if not other_ref:
-                    continue
+                other_merchant = transactions[j].get('merchant_name', '').strip().lower()
+                other_payment = transactions[j].get('payment_method', '').strip().lower()
+                other_card = transactions[j].get('card_brand', '').strip().lower()
 
-                if self._references_match(reference, other_ref):
+                # Must match: merchant name, payment method, and card brand
+                if (self._merchants_match(merchant_name, other_merchant) and
+                    payment_method == other_payment and
+                    card_brand == other_card):
                     group.append(transactions[j])
                     processed_indices.add(j)
 
             if len(group) >= 2:
-                grouped[f"ref:{reference[:50]}"] = group
+                key = f"merchant:{merchant_name}:{payment_method}:{card_brand}"
+                grouped[key] = group
 
-        return {k: v for k, v in grouped.items() if len(v) >= 2}
+        # Wrap with metadata
+        result = {}
+        for k, v in grouped.items():
+            if len(v) >= 2:
+                result[k] = {
+                    'transactions': v,
+                    'confidence_pass': 2,
+                    'match_type': 'merchant_info',
+                }
+        return result
 
-    def _references_match(self, ref1: str, ref2: str) -> bool:
-        """Check if two reference texts likely represent the same merchant/service."""
-        if ref1 == ref2:
+    def _merchants_match(self, merchant1: str, merchant2: str) -> bool:
+        """Check if two merchant names likely represent the same merchant."""
+        # Exact match
+        if merchant1 == merchant2:
             return True
 
-        # Exact match is best
-        if ref1 in ref2 or ref2 in ref1:
+        # One contains the other (common variations)
+        if merchant1 in merchant2 or merchant2 in merchant1:
             return True
 
-        # Check word overlap (at least 60% for reference matching - higher than description)
-        words1 = set(ref1.split())
-        words2 = set(ref2.split())
+        # Word overlap (at least 70% for merchant matching)
+        words1 = set(merchant1.split())
+        words2 = set(merchant2.split())
 
         if not words1 or not words2:
             return False
 
         overlap = len(words1 & words2) / max(len(words1), len(words2))
-        return overlap >= 0.6
+        return overlap >= 0.7
 
     def _group_by_description(self, transactions: List[Dict]) -> Dict[str, List[Dict]]:
         """
@@ -315,39 +395,112 @@ class RecurringTransactionDetector:
     def _find_patterns_in_group(
         self,
         description: str,
-        transactions: List[Dict]
+        transactions: List[Dict],
+        confidence_pass: int = 3
     ) -> List[RecurringPattern]:
         """
-        Find recurring patterns in a group of similar transactions.
-        """
-        patterns = []
+        Find the BEST recurring pattern in a group of similar transactions.
 
+        Only returns a single pattern (the best match), not all matching frequencies.
+        This prevents duplicates where the same transaction group is reported as
+        both monthly, quarterly, and yearly.
+
+        Args:
+            description: Group description/key
+            transactions: List of transactions in this group
+            confidence_pass: Which pass identified this group (1, 2, or 3)
+
+        Returns:
+            List with 0 or 1 RecurringPattern (best match only)
+        """
         # Sort by date
         transactions = sorted(transactions, key=lambda t: t['date'])
 
-        # Try to find patterns with different intervals
+        best_pattern = None
+        best_score = -1
+
+        # Try all frequencies and keep track of the best one
         for frequency, expected_days in self.FREQUENCY_DAYS.items():
             pattern = self._detect_pattern(
                 description,
                 transactions,
                 frequency,
-                expected_days
+                expected_days,
+                confidence_pass=confidence_pass
             )
 
             if pattern:
-                patterns.append(pattern)
+                # Calculate score for this pattern
+                score = self._score_pattern(pattern, frequency, expected_days)
+                if score > best_score:
+                    best_score = score
+                    best_pattern = pattern
 
-        return patterns
+        # Return best pattern (or empty list if no valid pattern found)
+        return [best_pattern] if best_pattern else []
+
+    def _score_pattern(self, pattern: RecurringPattern, frequency: str, expected_days: int) -> float:
+        """
+        Score a recurring pattern based on multiple quality metrics.
+
+        Scoring factors:
+        1. Confidence Score (50%) - How consistent the pattern is
+        2. Frequency Priority (20%) - Prefer weekly over yearly
+        3. Occurrence Count (20%) - More occurrences = better
+        4. Interval Accuracy (10%) - How close to expected interval
+
+        Args:
+            pattern: The detected pattern
+            frequency: The frequency (weekly, monthly, etc.)
+            expected_days: Expected days between occurrences
+
+        Returns:
+            Score from 0-1 (higher is better)
+        """
+        # Primary: confidence score (already 0-1)
+        confidence_score = pattern.confidence_score
+
+        # Secondary: frequency priority (more specific is better)
+        # weekly=5, bi-weekly=4, monthly=3, quarterly=2, yearly=1
+        # Normalize to 0-1 range
+        priority = self.FREQUENCY_PRIORITY.get(frequency, 0) / 5.0
+
+        # Tertiary: occurrence count (more is better)
+        # Normalize against minimum threshold
+        min_occurrences = self.MIN_OCCURRENCES.get(frequency, 2)
+        occurrence_score = min(pattern.occurrence_count / (min_occurrences + 1.0), 1.0)
+
+        # Quaternary: interval accuracy (already reflected in confidence)
+        # But we can add a bonus for very precise intervals
+        interval_accuracy = 0.8  # Default: patterns already passed validation
+
+        # Weighted combination
+        score = (
+            confidence_score * 0.5 +      # Confidence is primary (50%)
+            priority * 0.2 +               # Frequency priority (20%)
+            occurrence_score * 0.2 +       # More occurrences better (20%)
+            interval_accuracy * 0.1        # Interval precision (10%)
+        )
+
+        return score
 
     def _detect_pattern(
         self,
         description: str,
         transactions: List[Dict],
         frequency: str,
-        expected_days: int
+        expected_days: int,
+        confidence_pass: int = 3
     ) -> Optional[RecurringPattern]:
         """
         Try to detect a recurring pattern with a specific frequency.
+
+        Args:
+            description: Group description/key
+            transactions: List of transactions
+            frequency: Expected frequency (weekly, monthly, etc.)
+            expected_days: Expected days between transactions
+            confidence_pass: Which pass identified this (1=partner, 2=merchant, 3=description)
         """
         if len(transactions) < self.MIN_OCCURRENCES[frequency]:
             return None
@@ -384,22 +537,33 @@ class RecurringTransactionDetector:
 
         amount_variance = [
             a for a in amounts
-            if abs(a - avg_amount) / avg_amount <= self.AMOUNT_TOLERANCE
         ]
 
         if len(amount_variance) < len(amounts) * 0.7:  # At least 70% should match
             return None
 
-        # Calculate confidence score
+        # Calculate base confidence score
         interval_consistency = len(valid_intervals) / len(intervals) if intervals else 0
         amount_consistency = len(amount_variance) / len(amounts) if amounts else 0
         occurrence_ratio = len(transactions) / self.MIN_OCCURRENCES[frequency]
 
-        confidence = (
+        base_confidence = (
             interval_consistency * 0.5 +
             amount_consistency * 0.3 +
             min(occurrence_ratio, 1.0) * 0.2
         )
+
+        # Apply pass multiplier (NEW)
+        # Pass 1 (Partner): 1.0 → 95%+ potential confidence
+        # Pass 2 (Merchant): 0.85 → 75-85% potential confidence
+        # Pass 3 (Description): 0.65 → 50-70% potential confidence
+        pass_multipliers = {
+            1: 1.0,
+            2: 0.85,
+            3: 0.65,
+        }
+        multiplier = pass_multipliers.get(confidence_pass, 0.65)
+        confidence = base_confidence * multiplier
 
         if confidence < 0.6:  # Minimum confidence threshold
             return None

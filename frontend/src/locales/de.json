@@ -171,10 +171,10 @@
     "confidence": "Zuverlässigkeit",
     "actions": "Aktionen",
     "detectRecurring": "Regelmäßige Zahlungen erkennen",
-    "detectDescription": "Analysieren Sie Ihren Transaktionsverlauf, um regelmäßige Zahlungen und Abos automatisch zu identifizieren.",
+    "detectDescription": "Analysieren Sie Ihren Transaktionsverlauf, um regelmäßige Zahlungen und Abos automatisch zu identifizieren. Jedes Abo wird nach seinem wahrscheinlichsten Häufigkeitsmuster klassifiziert (wöchentlich, monatlich, jährlich usw.).",
     "lookBackDays": "Analysezeitraum",
-    "defaultLookBack": "Wir werden die letzten 365 Tage Ihres Transaktionsverlaufs analysieren",
-    "detectionNote": "Die Erkennung dauert normalerweise 10-30 Sekunden. Die Ergebnisse sehen Sie auf dieser Seite, wenn sie abgeschlossen sind.",
+    "defaultLookBack": "Wir werden die letzten 1825 Tage (5 Jahre) Ihres Transaktionsverlaufs analysieren",
+    "detectionNote": "Die Erkennung dauert normalerweise 10-30 Sekunden. Die Ergebnisse sehen Sie auf dieser Seite, wenn sie abgeschlossen sind. Jede regelmäßige Transaktion erhält eine einzelne Häufigkeitsklassifizierung basierend auf ihrem Muster.",
     "cancel": "Abbrechen",
     "startDetection": "Erkennung starten",
     "detecting": "Wird erkannt...",
@@ -185,7 +185,9 @@
     "unignoreLabel": "Nicht ignorieren",
     "addNoteLabel": "Notiz hinzufügen",
     "monthlyEquivalent": "/Monat",
-    "yearlyEquivalent": "/Jahr"
+    "yearlyEquivalent": "/Jahr",
+    "years": "Jahre",
+    "days": "Tage"
   },
   "insights": {
     "title": "KI-Finanzeinblicke",

@@ -135,7 +135,7 @@
     "errorUpdating": "Error updating rule",
     "errorApplying": "Error applying rules:"
   },
-  "recurring": {
+    "recurring": {
     "title": "Subscriptions & Recurring Payments",
     "description": "Track and manage your recurring transactions and subscriptions",
     "detectButton": "Detect Recurring",
@@ -171,10 +171,10 @@
     "confidence": "Confidence",
     "actions": "Actions",
     "detectRecurring": "Detect Recurring Payments",
-    "detectDescription": "Analyze your transaction history to automatically identify recurring payments and subscriptions.",
+    "detectDescription": "Analyze your transaction history to automatically identify recurring payments and subscriptions. Each subscription is classified by its most likely frequency pattern (weekly, monthly, yearly, etc.).",
     "lookBackDays": "Analysis Period",
-    "defaultLookBack": "We'll analyze the last 365 days of your transaction history",
-    "detectionNote": "Detection usually takes 10-30 seconds. You'll see results on this page when complete.",
+    "defaultLookBack": "We'll analyze the last 1825 days (5 years) of your transaction history",
+    "detectionNote": "Detection usually takes 10-30 seconds. You'll see results on this page when complete. Each recurring transaction is assigned a single frequency classification based on its pattern.",
     "cancel": "Cancel",
     "startDetection": "Start Detection",
     "detecting": "Detecting...",
@@ -185,7 +185,9 @@
     "unignoreLabel": "Unignore",
     "addNoteLabel": "Add Note",
     "monthlyEquivalent": "/month",
-    "yearlyEquivalent": "/year"
+    "yearlyEquivalent": "/year",
+    "years": "years",
+    "days": "days"
   },
   "insights": {
     "title": "AI Financial Insights",
