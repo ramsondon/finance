@@ -257,6 +257,7 @@ User (Django auth)
 - description: String (1024 chars max - transaction description)
 - category: FK (Category, nullable)
 - type: Choice (income/expense/transfer)
+  # Automatically set to "transfer" if partner_iban matches user's account (see below)
 
 # Extended fields for rich data (from bank imports)
 - partner_name, partner_iban, partner_account_number
@@ -272,7 +273,22 @@ User (Django auth)
 - created_at, updated_at
 ```
 
-**Category** (User-defined)
+**Transaction Type Classification:**
+- **income:** Money coming into the account (salary, refunds, transfers from others)
+- **expense:** Money going out to merchants or external parties (purchases, bills, payments)
+- **transfer:** Money moving between accounts owned by the same user (auto-detected if partner_iban matches user's account IBAN)
+
+**Automatic Transfer Detection (NEW):**
+During CSV/JSON import, transactions are automatically labeled as "transfer" when:
+- The `partner_iban` field matches an IBAN of any bank account owned by the user
+- Detection is case-insensitive and whitespace-tolerant
+- If detected, overrides any explicit type in the CSV
+- Example: Transferring $1000 to your savings account automatically gets labeled "transfer", not "expense"
+- Logged for monitoring: Info log when internal transfer detected, debug log when no match found
+
+---
+
+## **Category** (User-defined)
 ```python
 - user: FK
 - name: String (max 100, unique per user)
@@ -2019,6 +2035,41 @@ curl http://localhost:8000/api/banking/recurring/?account_id=1
 - Filter and search capabilities
 - Pagination support
 
+### **4. Automatic Internal Transfer Detection (NEW)**
+
+**What It Does:**
+- During CSV/JSON import, automatically detects when a transaction is a transfer between user's own accounts
+- Labels transaction as "transfer" if `partner_iban` matches any of the user's bank account IBANs
+- No manual CSV labeling needed
+
+**How It Works:**
+1. Extracts `partner_iban` from imported transaction
+2. Queries user's bank account IBANs from database
+3. Compares partner IBAN against user's IBANs (case-insensitive, whitespace-tolerant)
+4. If match found → automatically sets `type = "transfer"`
+5. Otherwise → uses CSV value (or defaults to "expense")
+6. Logs all detections for monitoring
+
+**Examples:**
+```
+Transfer $1000 to your savings account:
+  CSV has: type="expense", partner_iban="DE89370400440532013001"
+  Your account: DE89370400440532013001
+  Result: Automatically labeled "transfer" ✅
+
+Payment to friend:
+  CSV has: type="expense", partner_iban="AT20123456789"
+  Your accounts: DE89370400440532013000, DE89370400440532013001
+  Result: Stays "expense" (no match) ✅
+```
+
+**Benefits:**
+- ✅ No manual CSV type specification needed for internal transfers
+- ✅ Uses IBAN (most reliable identifier)
+- ✅ Case-insensitive and whitespace-tolerant matching
+- ✅ Minimal performance impact (single DB query per import)
+- ✅ All detections logged for monitoring
+
 ---
 
 ## 📚 Documentation Files Created
@@ -2034,6 +2085,9 @@ curl http://localhost:8000/api/banking/recurring/?account_id=1
 9. **RECURRING_DETECTION_IMPLEMENTATION.md** - Code implementation guide
 10. **DUPLICATION_FIX_IMPLEMENTED.md** - Frequency selection fix
 11. **DEPLOYMENT_COMPLETE.md** - Recent deployment status
+12. **INTERNAL_TRANSFER_DETECTION.md** - Transfer detection implementation
+13. **TRANSFER_ANALYSIS_SUMMARY.md** - Transfer transaction analysis
+14. **INTERNAL_TRANSFER_IMPLEMENTATION.md** - Implementation summary
 
 All in: `/Users/matthiasschmid/Projects/finance/`
 
@@ -2051,6 +2105,7 @@ All in: `/Users/matthiasschmid/Projects/finance/`
 - [x] Best-match frequency selection added
 - [x] Admin dashboard enhanced
 - [x] Duplication issue fixed
+- [x] Automatic internal transfer detection implemented
 - [x] Error #1 fixed (serialization)
 - [x] Error #2 fixed (division by zero)
 - [x] Error #3 fixed (decimal type)
@@ -2070,6 +2125,7 @@ All in: `/Users/matthiasschmid/Projects/finance/`
 - [x] Dark mode compatible
 - [x] Best-match frequency assignment
 - [x] No duplicate recurring transactions
+- [x] Automatic transfer labeling for internal accounts
 
 ---
 

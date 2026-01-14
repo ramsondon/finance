@@ -92,13 +92,32 @@ def import_transactions_task(self, account_id: int, rows: list[dict]):
 
                 # Validate and truncate all fields
                 logger.debug(f"Row {idx}: Validating fields")
+
+                # Determine transaction type: label as "transfer" if partner_iban matches internal account
+                transaction_type = row.get("type", "expense")
+                partner_iban = row.get("partner_iban", "").strip().upper()
+
+                if partner_iban:
+                    # Check if partner_iban matches any of the user's bank accounts
+                    user_account_ibans = BankAccount.objects.filter(
+                        user=account.user
+                    ).values_list('iban', flat=True)
+
+                    user_account_ibans_upper = [iban.strip().upper() for iban in user_account_ibans if iban]
+
+                    if partner_iban in user_account_ibans_upper:
+                        transaction_type = "transfer"
+                        logger.info(f"Row {idx}: Detected internal transfer. Partner IBAN matches user account. Setting type='transfer'")
+                    else:
+                        logger.debug(f"Row {idx}: Partner IBAN '{partner_iban}' does not match any user accounts")
+
                 tx_data = {
                     "account": account,
                     "date": date,
                     "amount": amount,
                     "reference": truncate_field("reference", row.get("reference", "")),
                     "description": truncate_field("description", row.get("description", "")),
-                    "type": row.get("type", "expense"),
+                    "type": transaction_type,
                     # Extended fields
                     "partner_name": truncate_field("partner_name", row.get("partner_name", "")),
                     "partner_iban": truncate_field("partner_iban", row.get("partner_iban", "")),
