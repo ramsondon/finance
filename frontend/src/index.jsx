@@ -5,6 +5,7 @@ import TransactionsTable from './components/TransactionsTable'
 import ImportCsvModal from './components/ImportCsvModal'
 import RulesManager from './components/RulesManager'
 import CategoriesManager from './components/CategoriesManager'
+import RecurringTransactionsView from './components/RecurringTransactionsView'
 import InsightsPanel from './components/InsightsPanel'
 import LoginPage from './components/LoginPage'
 import LandingPage from './components/LandingPage'
@@ -128,6 +129,7 @@ function AppContent() {
   const menuItems = [
     { id: 'dashboard', label: t('nav.dashboard'), icon: '📊' },
     { id: 'transactions', label: t('nav.transactions'), icon: '💳' },
+    { id: 'recurring', label: t('nav.recurring'), icon: '🔄' },
     { id: 'categories', label: t('nav.categories'), icon: '📁' },
     { id: 'rules', label: t('nav.rules'), icon: '⚙️' },
     { id: 'insights', label: t('nav.insights'), icon: '🤖' },
@@ -294,6 +296,7 @@ function AppContent() {
           <div className="max-w-7xl mx-auto">
             {activeTab === 'dashboard' && <Dashboard />}
             {activeTab === 'transactions' && <TransactionsTable />}
+            {activeTab === 'recurring' && <RecurringTransactionsView />}
             {activeTab === 'categories' && <CategoriesManager />}
             {activeTab === 'rules' && <RulesManager />}
             {activeTab === 'insights' && <InsightsPanel />}

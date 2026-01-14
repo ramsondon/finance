@@ -99,11 +99,11 @@ class RecurringTransactionViewSet(viewsets.ModelViewSet):
                 'total_amount': str(total_amount),
             }
 
-        # Top recurring
-        top_recurring = queryset.filter(is_active=True).order_by(
+        # Top recurring - serialize properly
+        top_recurring_qs = queryset.filter(is_active=True).order_by(
             '-confidence_score', '-occurrence_count'
         )[:5]
-        top_serializer = RecurringTransactionSerializer(top_recurring, many=True)
+        top_recurring_data = RecurringTransactionSerializer(top_recurring_qs, many=True).data
 
         # Overdue count
         from datetime import datetime
@@ -114,18 +114,16 @@ class RecurringTransactionViewSet(viewsets.ModelViewSet):
             next_expected_date__lt=now
         ).count()
 
-        summary_data = {
+        # Return plain dict response (don't use the summary serializer)
+        return Response({
             'total_count': total_count,
             'active_count': active_count,
             'monthly_recurring_cost': str(monthly_recurring.quantize(Decimal('0.01'))),
             'yearly_recurring_cost': str(yearly_recurring.quantize(Decimal('0.01'))),
             'by_frequency': by_frequency,
-            'top_recurring': top_serializer.data,
+            'top_recurring': top_recurring_data,
             'overdue_count': overdue_count,
-        }
-
-        serializer = RecurringTransactionSummarySerializer(summary_data)
-        return Response(serializer.data)
+        })
 
     @action(detail=False, methods=['post'])
     def detect(self, request):
