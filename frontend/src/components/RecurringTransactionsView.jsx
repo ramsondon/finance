@@ -4,7 +4,9 @@ import { useTranslate } from '../hooks/useLanguage'
 
 /**
  * RecurringTransactionsView
- * Displays detected recurring transactions with summary, list, and filters
+ * Displays detected recurring transactions with summary, list, pagination and filters
+ *
+ * Uses backend pagination to handle large datasets efficiently.
  */
 export default function RecurringTransactionsView() {
   const t = useTranslate()
@@ -14,6 +16,9 @@ export default function RecurringTransactionsView() {
   const [error, setError] = useState(null)
   const [selectedAccount, setSelectedAccount] = useState(null)
   const [accounts, setAccounts] = useState([])
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 25
+  const [totalCount, setTotalCount] = useState(0)
   const [filters, setFilters] = useState({
     frequency: '',
     is_active: true,
@@ -27,12 +32,12 @@ export default function RecurringTransactionsView() {
     fetchAccounts()
   }, [])
 
-  // Fetch recurring data when account changes
+  // Fetch recurring data when account, filters, or page changes
   useEffect(() => {
     if (selectedAccount) {
       fetchRecurringData()
     }
-  }, [selectedAccount, filters])
+  }, [selectedAccount, filters, currentPage])
 
   const fetchAccounts = async () => {
     try {
@@ -57,15 +62,26 @@ export default function RecurringTransactionsView() {
       )
       setSummary(summaryRes.data)
 
-      // Fetch list
-      const params = {
-        account_id: selectedAccount,
-        is_active: filters.is_active
-      }
-      if (filters.frequency) params.frequency = filters.frequency
+      // Fetch list with pagination and filters
+      const params = new URLSearchParams()
+      params.append('account_id', selectedAccount)
+      params.append('page', String(currentPage))
+      params.append('page_size', String(itemsPerPage))
+      params.append('is_active', String(filters.is_active))
 
-      const listRes = await axios.get('/api/banking/recurring/', { params })
-      setRecurring(listRes.data.results || listRes.data)
+      if (filters.frequency) {
+        params.append('frequency', filters.frequency)
+      }
+
+      // Add search filter if provided (search in description and merchant_name)
+      if (filters.search) {
+        params.append('search', filters.search)
+      }
+
+      const listRes = await axios.get(`/api/banking/recurring/?${params.toString()}`)
+      const data = listRes.data
+      setRecurring(data.results || data)
+      setTotalCount(data.count || (data.results?.length || 0))
       setError(null)
     } catch (err) {
       console.error('Failed to load recurring data:', err)
@@ -78,10 +94,13 @@ export default function RecurringTransactionsView() {
   const triggerDetection = async () => {
     setDetecting(true)
     try {
-      await axios.post(`/api/banking/recurring/detect/?account_id=${selectedAccount}&days_back=365`)
+      await axios.post(`/api/banking/recurring/detect/?account_id=${selectedAccount}&days_back=${365 * 5}`)
       setShowDetectModal(false)
       // Wait a moment then refresh
-      setTimeout(() => fetchRecurringData(), 2000)
+      setTimeout(() => {
+        setCurrentPage(1)
+        fetchRecurringData()
+      }, 2000)
     } catch (err) {
       console.error('Detection failed:', err)
       setError('Failed to trigger detection')
@@ -99,6 +118,10 @@ export default function RecurringTransactionsView() {
       console.error('Failed to toggle ignore:', err)
     }
   }
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / itemsPerPage))
+  const canPrev = currentPage > 1
+  const canNext = currentPage < totalPages
 
   if (!selectedAccount) {
     return (
@@ -195,14 +218,17 @@ export default function RecurringTransactionsView() {
 
       {/* Filters */}
       <div className="bg-white rounded-lg border border-gray-200 p-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               {t('recurring.filterFrequency')}
             </label>
             <select
               value={filters.frequency}
-              onChange={(e) => setFilters({...filters, frequency: e.target.value})}
+              onChange={(e) => {
+                setFilters({...filters, frequency: e.target.value})
+                setCurrentPage(1)
+              }}
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
             >
               <option value="">{t('recurring.allFrequencies')}</option>
@@ -220,7 +246,10 @@ export default function RecurringTransactionsView() {
             </label>
             <select
               value={filters.is_active ? 'active' : 'all'}
-              onChange={(e) => setFilters({...filters, is_active: e.target.value === 'active'})}
+              onChange={(e) => {
+                setFilters({...filters, is_active: e.target.value === 'active'})
+                setCurrentPage(1)
+              }}
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
             >
               <option value="all">{t('recurring.allStatus')}</option>
@@ -228,7 +257,7 @@ export default function RecurringTransactionsView() {
             </select>
           </div>
 
-          <div>
+          <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               {t('recurring.search')}
             </label>
@@ -236,7 +265,10 @@ export default function RecurringTransactionsView() {
               type="text"
               placeholder={t('recurring.searchPlaceholder')}
               value={filters.search}
-              onChange={(e) => setFilters({...filters, search: e.target.value})}
+              onChange={(e) => {
+                setFilters({...filters, search: e.target.value})
+                setCurrentPage(1)
+              }}
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
             />
           </div>
@@ -273,7 +305,7 @@ export default function RecurringTransactionsView() {
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200">
           <h3 className="font-semibold text-gray-900">
-            {t('recurring.transactionsList')} ({recurring.length})
+            {t('recurring.transactionsList')} ({totalCount})
           </h3>
         </div>
 
@@ -286,41 +318,84 @@ export default function RecurringTransactionsView() {
             {t('recurring.noRecurring')}
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700">
-                    {t('recurring.merchant')}
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700">
-                    {t('recurring.frequency')}
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700">
-                    {t('recurring.amount')}
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700">
-                    {t('recurring.nextPayment')}
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700">
-                    {t('recurring.confidence')}
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-semibold text-gray-700">
-                    {t('recurring.actions')}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {recurring.map((txn) => (
-                  <RecurringTransactionRow
-                    key={txn.id}
-                    transaction={txn}
-                    onToggleIgnore={toggleIgnore}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700">
+                      {t('recurring.merchant')}
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700">
+                      {t('recurring.frequency')}
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700">
+                      {t('recurring.amount')}
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700">
+                      {t('recurring.nextPayment')}
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700">
+                      {t('recurring.confidence')}
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-semibold text-gray-700">
+                      {t('recurring.actions')}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recurring.map((txn) => (
+                    <RecurringTransactionRow
+                      key={txn.id}
+                      transaction={txn}
+                      onToggleIgnore={toggleIgnore}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+                <div className="text-sm text-gray-600">
+                  {t('transactions.page')} <strong>{currentPage}</strong> {t('transactions.of')} <strong>{totalPages}</strong> ({totalCount} {t('transactions.items')})
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setCurrentPage(1)}
+                    disabled={!canPrev}
+                    className="px-3 py-2 bg-gray-100 text-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200"
+                    title={t('transactions.firstPage')}
+                  >
+                    ⏮
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                    disabled={!canPrev}
+                    className="px-3 py-2 bg-gray-100 text-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200"
+                  >
+                    ← {t('transactions.previous')}
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                    disabled={!canNext}
+                    className="px-3 py-2 bg-gray-100 text-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200"
+                  >
+                    {t('transactions.next')} →
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={!canNext}
+                    className="px-3 py-2 bg-gray-100 text-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200"
+                    title={t('transactions.lastPage')}
+                  >
+                    ⏭
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -461,12 +536,12 @@ function DetectModal({ onClose, onDetect, detecting }) {
               {t('recurring.lookBackDays')}
             </label>
             <div className="text-sm text-gray-500">
-              {t('recurring.defaultLookBack')}
+              1825 {t('recurring.days')} (5 {t('recurring.years')})
             </div>
           </div>
 
           <div className="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-800">
-            ℹ️ {t('recurring.detectionNote')}
+            ℹ️ This detector analyzes 5 years of transaction history to identify recurring patterns including yearly subscriptions and annual fees.
           </div>
         </div>
 

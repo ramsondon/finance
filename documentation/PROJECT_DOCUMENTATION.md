@@ -519,16 +519,84 @@ date,amount,description,type,category,partner_name,iban
 
 ## 🔄 Recurring Transactions
 
-### **Detection Algorithm**
-Analyzes transaction history (default 365 days) to find:
-- Weekly, bi-weekly, monthly, quarterly, yearly patterns
-- Minimum 2 occurrences required
-- 30% interval tolerance (for calendar variation)
-- 5% amount tolerance (for price changes)
-- Confidence score (0-1 scale) based on:
-  - Interval consistency: 50% weight
-  - Amount consistency: 30% weight
-  - Occurrence ratio: 20% weight
+### **Detection Algorithm - Three-Pass Strategy**
+
+The improved detection system uses a **three-pass matching strategy** that significantly improves accuracy and reduces false positives:
+
+**Pass 1: Reference Number Matching (Primary - Most Accurate)**
+- Matches transactions by `reference_number` (bank's unique transaction ID)
+- This is the most reliable method as reference numbers are unique identifiers from the bank
+- Identical reference numbers across different dates indicate duplicates or recurring patterns
+- **Why improved:** Bank-provided transaction IDs are far more reliable than text descriptions
+
+**Pass 2: Reference Text Matching (Secondary)**
+- Matches transactions by `reference` field (Verwendungszweck/transaction purpose)
+- Groups similar reference texts that likely indicate the same merchant or service
+- Uses 60% word-overlap threshold (higher than description matching for better accuracy)
+- **Why improved:** Reference text from banks is more standardized than descriptions, reducing false matches
+
+**Pass 3: Description Matching (Tertiary - Fallback)**
+- Fuzzy matches normalized transaction descriptions
+- Groups similar descriptions like "NETFLIX", "NETFLIX.COM", "Netflix"
+- Only used for transactions without reference_number or reference fields
+- Uses 50% word-overlap threshold for matching
+
+### **Detection Parameters**
+
+**Lookback Period:** 1825 days (365 × 5 years)
+- Extended from 365 days to capture yearly subscriptions and annual fees
+- Enables detection of:
+  - Annual insurance policies
+  - Yearly membership renewals
+  - Birthday reminders
+  - Tax returns
+  - Holiday spending patterns
+
+**Minimum Occurrences:**
+- Weekly: 3 occurrences (3 weeks)
+- Bi-weekly: 3 occurrences (6 weeks)
+- Monthly: 2 occurrences (2 months)
+- Quarterly: 2 occurrences (6 months)
+- **Yearly: 2 occurrences (2 years)** ← Updated from 1
+
+**Tolerances:**
+- Amount tolerance: 5% (for small price variations)
+- Interval tolerance: 30% of expected days (e.g., ±9 days for monthly)
+
+**Confidence Scoring (0-1 scale):**
+- Interval consistency: 50% weight
+  - How consistently the transaction occurs at expected intervals
+- Amount consistency: 30% weight
+  - How stable the transaction amount is across occurrences
+- Occurrence ratio: 20% weight
+  - Bonus for having many occurrences of the pattern
+- Minimum threshold: 60% (transactions below this are filtered out)
+
+### **Why This Is Improved**
+
+1. **Bank-Provided Data First:** Uses reference_number before description
+   - Bank transaction IDs are unique and reliable
+   - Eliminates ambiguity from merchant name variations
+   - Reduces false positives from merchants with similar names
+
+2. **Structured Text Second:** Uses reference field before description
+   - Reference is controlled by the bank/merchant
+   - More consistent than transaction descriptions
+   - Already normalized for standardization
+
+3. **Longer Historical Period:** 5 years instead of 1 year
+   - Captures annual subscriptions (insurance, memberships, etc.)
+   - Detects seasonal patterns (holidays, tax time, etc.)
+   - Increases confidence for infrequent but regular payments
+
+4. **Higher Bar for Yearly:** Requires 2 occurrences instead of 1
+   - Prevents false positives from one-time yearly events
+   - Ensures pattern recurrence before flagging as recurring
+
+5. **Progressive Fallback:** Tries most reliable methods first
+   - Uses exact matches (reference_number) where available
+   - Falls back to text-based matching only when needed
+   - Reduces computation on already-matched transactions
 
 ### **User Management**
 - Can ignore false positives
@@ -537,8 +605,31 @@ Analyzes transaction history (default 365 days) to find:
 - Get alerts for overdue subscriptions
 - View monthly/yearly cost equivalents
 
+### **Admin Dashboard** (Django Admin)
+- Full CRUD interface for reviewing detected patterns
+- Display name, merchant, frequency, amount, confidence score
+- Visual confidence indicators (green/blue/yellow/red)
+- Filter by frequency, status (active/ignored), account
+- Search by description, merchant name, account
+- View matching transaction IDs and similar descriptions
+- Readonly confidence calculation details
+- Superuser-only delete permission
+- Manual creation disabled (only via detection)
+
 ### **API - 7 Endpoints**
-✅ List, summary, overdue, upcoming, detect, ignore, add notes
+✅ List (with pagination/filtering), summary, overdue, upcoming, detect, ignore/unignore, add notes
+
+### **Frontend Components**
+- **RecurringTransactionsView:** Complete dashboard with pagination
+  - Account selection
+  - Summary cards (total, active, monthly/yearly costs)
+  - Frequency breakdown
+  - Searchable, filterable list (25 items per page)
+  - Pagination controls
+  - Ignore/unignore transactions
+  - Add user notes
+- **Overdue alerts:** Visual warnings for missed recurring transactions
+- **Confidence scores:** Color-coded percentages (90%+ green, 75%+ blue, 60%+ yellow, <60% red)
 
 ---
 
@@ -640,6 +731,68 @@ AppContent (main)
 
 ## 🎯 UI Components & Features
 
+### **Backend Pagination (Best Practice)**
+
+**All list views use backend pagination for efficiency and scalability.**
+
+When building list views that display large datasets, always use backend pagination:
+
+1. **Request Format:**
+```javascript
+// Always include pagination parameters
+const params = new URLSearchParams()
+params.append('page', String(currentPage))
+params.append('page_size', String(itemsPerPage))
+params.append('ordering', '-date')  // Optional: sorting
+
+// Add filters as needed
+if (filters.category) params.append('category', filters.category)
+if (filters.search) params.append('search', filters.search)
+
+const res = await axios.get(`/api/endpoint/?${params.toString()}`)
+```
+
+2. **Response Structure:**
+```json
+{
+  "count": 1234,
+  "next": "http://api/endpoint/?page=2",
+  "previous": null,
+  "results": [...]
+}
+```
+
+3. **Frontend Handling:**
+```javascript
+const [currentPage, setCurrentPage] = useState(1)
+const itemsPerPage = 25  // Standard page size
+const [totalCount, setTotalCount] = useState(0)
+const [items, setItems] = useState([])
+
+// Calculate total pages
+const totalPages = Math.ceil(totalCount / itemsPerPage)
+
+// Load data when filters or page changes
+useEffect(() => {
+  loadData()
+}, [filters, currentPage])
+```
+
+4. **Pagination Controls:**
+- First page button (⏮)
+- Previous button (←)
+- Current page display (Page X of Y)
+- Next button (→)
+- Last page button (⏭)
+- Disable buttons when not applicable
+
+5. **Where Used:**
+- ✅ TransactionsTable (25 items per page)
+- ✅ RecurringTransactionsView (25 items per page)
+- ✅ Categories list
+- ✅ Rules list
+- All future list views
+
 ### **Dashboard** (Landing)
 - 4 summary cards (total balance, active accounts, income/expenses, trends)
 - Category expense pie chart
@@ -650,12 +803,27 @@ AppContent (main)
 
 ### **Transactions Table**
 - Sortable columns (date, amount, description, category)
-- Filters: date range, amount range, category, type
-- Search: full-text across all fields
+- Filters: date range, amount range, category, type, search
+- Full-text search across all fields
 - Edit inline: change category with dropdown
-- Pagination: 25 items per page
+- **Backend pagination: 25 items per page** (with controls)
 - Sensitive Mode: blur amounts
 - Type badges: income (green), expense (red), transfer (gray)
+- Page navigation with first/previous/next/last buttons
+
+### **Recurring Transactions View**
+- Account selector
+- Summary cards (total subscriptions, active, monthly/yearly costs, overdue count)
+- Frequency breakdown (visual cards for each frequency)
+- Overdue alerts (yellow warning box)
+- Searchable, filterable list with:
+  - Merchant name, frequency, amount, next payment, confidence score
+  - Ignore/unignore buttons per transaction
+  - Add notes functionality
+- **Backend pagination: 25 items per page** (with page navigation)
+- Filters reset pagination to page 1
+- Detect modal for triggering 5-year history analysis
+- Admin dashboard for viewing/managing patterns
 
 ### **Account Details Modal**
 - Wide balance-over-time line chart

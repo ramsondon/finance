@@ -7,14 +7,21 @@ Detects patterns in transactions such as:
 - Monthly (same day each month)
 - Quarterly (every 3 months)
 - Yearly (same date each year)
+
+Uses a three-pass detection strategy:
+1. Primary: Group by reference_number (actual bank transaction ID) for exact matching
+2. Secondary: Group by reference text for pattern matching across similar merchants
+3. Tertiary: Group by normalized description for fuzzy matching
+
+This multi-pass approach significantly improves detection accuracy by leveraging
+bank-provided transaction identifiers alongside textual references.
 """
 
 from datetime import datetime, timedelta
 from collections import defaultdict
 from decimal import Decimal
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Optional
 from dataclasses import dataclass
-from django.db.models import QuerySet, Q
 
 @dataclass
 class RecurringPattern:
@@ -67,7 +74,7 @@ class RecurringTransactionDetector:
         'bi-weekly': 3,  # 6 weeks
         'monthly': 2,  # 2 months
         'quarterly': 2,  # 6 months
-        'yearly': 1,  # 1 year
+        'yearly': 2,  # 2 years (to detect annual subscriptions like birthdays, renewals)
     }
 
     def __init__(self, account_id: int):
@@ -81,12 +88,12 @@ class RecurringTransactionDetector:
         self.transactions = []
         self.patterns: List[RecurringPattern] = []
 
-    def detect(self, days_back: int = 365) -> List[RecurringPattern]:
+    def detect(self, days_back: int = 365 * 5) -> List[RecurringPattern]:
         """
         Detect recurring transactions in the account.
 
         Args:
-            days_back: How far back to look for patterns (default: 365 days)
+            days_back: How far back to look for patterns (default: 1825 days / 5 years)
 
         Returns:
             List of detected recurring patterns, sorted by confidence
@@ -95,41 +102,147 @@ class RecurringTransactionDetector:
 
         # Get transactions from the past N days
         start_date = datetime.now().date() - timedelta(days=days_back)
-        self.transactions = Transaction.objects.filter(
+        raw_transactions = Transaction.objects.filter(
             account_id=self.account_id,
             date__gte=start_date,
             type__in=['expense', 'income']  # Don't analyze transfers
-        ).order_by('date').values('id', 'date', 'amount', 'description')
+        ).order_by('date').values(
+            'id', 'date', 'amount', 'description', 'reference', 'reference_number'
+        )
 
-        if not self.transactions:
+        if not raw_transactions:
             return []
 
-        # Group transactions by similar descriptions
-        grouped = self._group_by_description()
+        self.transactions = list(raw_transactions)
+
+        # Three-pass grouping strategy for improved accuracy:
+        # 1. Primary: Group by reference_number (bank's actual transaction ID)
+        # 2. Secondary: Group by reference text (textual reference/Verwendungszweck)
+        # 3. Tertiary: Group by normalized description (fuzzy matching fallback)
+
+        grouped = self._group_by_reference_number()
+
+        # For transactions without reference_number, try grouping by reference text
+        ungrouped = [t for t in self.transactions if t not in self._get_all_grouped_txs(grouped)]
+        if ungrouped:
+            grouped_by_ref = self._group_by_reference_text(ungrouped)
+            grouped.update(grouped_by_ref)
+            ungrouped = [t for t in ungrouped if t not in self._get_all_grouped_txs(grouped_by_ref)]
+
+        # For remaining transactions, fall back to description matching
+        if ungrouped:
+            grouped_by_desc = self._group_by_description(ungrouped)
+            grouped.update(grouped_by_desc)
 
         # Detect patterns in each group
-        for description, transactions in grouped.items():
+        for group_key, transactions in grouped.items():
             if len(transactions) < 2:
                 continue
 
-            patterns = self._find_patterns_in_group(description, transactions)
+            patterns = self._find_patterns_in_group(group_key, transactions)
             self.patterns.extend(patterns)
 
         # Sort by confidence and return
         self.patterns.sort(key=lambda p: (p.confidence_score, p.occurrence_count), reverse=True)
         return self.patterns
 
-    def _group_by_description(self) -> Dict[str, List[Dict]]:
+    def _get_all_grouped_txs(self, grouped: Dict) -> List[Dict]:
+        """Extract all transactions from grouped dict."""
+        all_txs = []
+        for txs in grouped.values():
+            all_txs.extend(txs)
+        return all_txs
+
+    def _group_by_reference_number(self) -> Dict[str, List[Dict]]:
         """
-        Group transactions by similar descriptions.
+        Primary grouping: Group by reference_number (bank's transaction ID).
+
+        This is the most accurate method as reference_number uniquely identifies
+        a transaction from the bank's perspective. Identical reference_numbers
+        across different dates indicate duplicates or recurring patterns.
+        This is the first pass because it's the most reliable.
+        """
+        grouped = defaultdict(list)
+
+        for tx in self.transactions:
+            ref_num = tx.get('reference_number', '').strip()
+            if ref_num:
+                grouped[f"ref_num:{ref_num}"].append(tx)
+
+        # Only return groups with 2+ occurrences
+        return {k: v for k, v in grouped.items() if len(v) >= 2}
+
+    def _group_by_reference_text(self, transactions: List[Dict]) -> Dict[str, List[Dict]]:
+        """
+        Secondary grouping: Group by reference text (Verwendungszweck).
+
+        The reference field contains the textual reference/purpose from the bank.
+        Similar reference texts indicate the same merchant or service.
+        This is more reliable than description matching as reference is provided by the bank.
+        """
+        grouped = defaultdict(list)
+        processed_indices = set()
+
+        for i, tx in enumerate(transactions):
+            if i in processed_indices:
+                continue
+
+            reference = tx.get('reference', '').strip().lower()
+            if not reference:
+                continue
+
+            group = [tx]
+            processed_indices.add(i)
+
+            # Find similar references
+            for j in range(i + 1, len(transactions)):
+                if j in processed_indices:
+                    continue
+
+                other_ref = transactions[j].get('reference', '').strip().lower()
+                if not other_ref:
+                    continue
+
+                if self._references_match(reference, other_ref):
+                    group.append(transactions[j])
+                    processed_indices.add(j)
+
+            if len(group) >= 2:
+                grouped[f"ref:{reference[:50]}"] = group
+
+        return {k: v for k, v in grouped.items() if len(v) >= 2}
+
+    def _references_match(self, ref1: str, ref2: str) -> bool:
+        """Check if two reference texts likely represent the same merchant/service."""
+        if ref1 == ref2:
+            return True
+
+        # Exact match is best
+        if ref1 in ref2 or ref2 in ref1:
+            return True
+
+        # Check word overlap (at least 60% for reference matching - higher than description)
+        words1 = set(ref1.split())
+        words2 = set(ref2.split())
+
+        if not words1 or not words2:
+            return False
+
+        overlap = len(words1 & words2) / max(len(words1), len(words2))
+        return overlap >= 0.6
+
+    def _group_by_description(self, transactions: List[Dict]) -> Dict[str, List[Dict]]:
+        """
+        Tertiary grouping: Group by normalized description (fuzzy matching fallback).
 
         Uses fuzzy matching to group similar transaction descriptions.
+        This is used as a fallback for transactions without reference_number or reference.
         E.g., "NETFLIX" and "NETFLIX.COM" and "Netflix" are grouped together.
         """
         grouped = defaultdict(list)
         processed_indices = set()
 
-        for i, tx in enumerate(self.transactions):
+        for i, tx in enumerate(transactions):
             if i in processed_indices:
                 continue
 
@@ -138,21 +251,22 @@ class RecurringTransactionDetector:
             processed_indices.add(i)
 
             # Find similar descriptions
-            for j in range(i + 1, len(self.transactions)):
+            for j in range(i + 1, len(transactions)):
                 if j in processed_indices:
                     continue
 
                 other_desc = self._normalize_description(
-                    self.transactions[j]['description']
+                    transactions[j]['description']
                 )
 
                 if self._descriptions_match(description, other_desc):
-                    group.append(self.transactions[j])
+                    group.append(transactions[j])
                     processed_indices.add(j)
 
-            grouped[description] = group
+            if len(group) >= 2:
+                grouped[description] = group
 
-        return grouped
+        return {k: v for k, v in grouped.items() if len(v) >= 2}
 
     def _normalize_description(self, desc: str) -> str:
         """

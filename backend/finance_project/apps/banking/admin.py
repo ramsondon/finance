@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from django.contrib import messages
-from .models import BankAccount, Transaction, Category, Rule
+from .models import BankAccount, Transaction, Category, Rule, RecurringTransaction
 
 
 @admin.register(BankAccount)
@@ -166,4 +166,209 @@ class RuleAdmin(admin.ModelAdmin):
     list_display = ("name", "user", "category", "priority", "active")
     list_filter = ("active",)
     search_fields = ("name",)
+
+
+@admin.register(RecurringTransaction)
+class RecurringTransactionAdmin(admin.ModelAdmin):
+    list_display = (
+        "get_display_name",
+        "user",
+        "account",
+        "amount_display",
+        "frequency",
+        "next_expected_date",
+        "occurrence_count",
+        "confidence_score_display",
+        "is_active",
+        "is_ignored",
+    )
+    list_filter = (
+        "frequency",
+        "is_active",
+        "is_ignored",
+        "account",
+        ("confidence_score", admin.NumericRangeFilter) if hasattr(admin, "NumericRangeFilter") else "confidence_score",
+        "detected_at",
+    )
+    search_fields = (
+        "description",
+        "merchant_name",
+        "user__username",
+        "account__name",
+    )
+    readonly_fields = (
+        "detected_at",
+        "updated_at",
+        "transaction_ids_display",
+        "similar_descriptions_display",
+        "confidence_details",
+    )
+    fieldsets = (
+        (
+            "Pattern Information",
+            {
+                "fields": (
+                    "user",
+                    "account",
+                    "description",
+                    "merchant_name",
+                    "amount",
+                    "frequency",
+                )
+            },
+        ),
+        (
+            "Timing",
+            {
+                "fields": (
+                    "last_occurrence_date",
+                    "next_expected_date",
+                    "occurrence_count",
+                )
+            },
+        ),
+        (
+            "Detection Quality",
+            {
+                "fields": (
+                    "confidence_score",
+                    "confidence_details",
+                ),
+                "classes": ("collapse",),
+            },
+        ),
+        (
+            "Status",
+            {
+                "fields": (
+                    "is_active",
+                    "is_ignored",
+                    "user_notes",
+                )
+            },
+        ),
+        (
+            "Transaction Matching",
+            {
+                "fields": (
+                    "transaction_ids_display",
+                    "similar_descriptions_display",
+                ),
+                "classes": ("collapse",),
+            },
+        ),
+        (
+            "Metadata",
+            {
+                "fields": (
+                    "detected_at",
+                    "updated_at",
+                ),
+                "classes": ("collapse",),
+            },
+        ),
+    )
+    date_hierarchy = "next_expected_date"
+    ordering = ["-confidence_score", "-occurrence_count"]
+
+    def get_display_name(self, obj):
+        """Get the best display name for this recurring transaction."""
+        return obj.get_display_name()
+
+    get_display_name.short_description = "Name"
+
+    def amount_display(self, obj):
+        """Display amount with currency."""
+        return format_html(
+            '<strong style="color: #ef4444;">{} {}</strong>',
+            obj.account.currency,
+            format(obj.amount, '.2f'),
+        )
+
+    amount_display.short_description = "Amount"
+    amount_display.admin_order_field = "amount"
+
+    def confidence_score_display(self, obj):
+        """Display confidence score as a percentage with color coding."""
+        score_pct = obj.confidence_score * 100
+        if obj.confidence_score >= 0.9:
+            color = "#10b981"  # green
+        elif obj.confidence_score >= 0.75:
+            color = "#3b82f6"  # blue
+        elif obj.confidence_score >= 0.6:
+            color = "#f59e0b"  # amber
+        else:
+            color = "#ef4444"  # red
+
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 3px 8px; border-radius: 3px; font-weight: bold;">{}%</span>',
+            color,
+            format(score_pct, '.0f'),
+        )
+
+    confidence_score_display.short_description = "Confidence"
+    confidence_score_display.admin_order_field = "confidence_score"
+
+    def confidence_details(self, obj):
+        """Display explanation of confidence score calculation."""
+        return format_html(
+            '<div style="padding: 10px; background-color: #f3f4f6; border-radius: 4px; font-family: monospace; font-size: 12px;">'
+            '<strong>Confidence Score: {}%</strong><br>'
+            '<br>'
+            'Calculated from:<br>'
+            '• Interval consistency (50% weight)<br>'
+            '• Amount consistency (30% weight)<br>'
+            '• Occurrence count (20% weight)<br>'
+            '<br>'
+            'Minimum threshold: 60%<br>'
+            'Occurrences: {}'
+            '</div>',
+            format(obj.confidence_score * 100, '.1f'),
+            obj.occurrence_count,
+        )
+
+    confidence_details.short_description = "How Confidence is Calculated"
+
+    def transaction_ids_display(self, obj):
+        """Display the transaction IDs that form this pattern."""
+        ids = obj.transaction_ids or []
+        if not ids:
+            return "-"
+        id_list = ", ".join(str(tid) for tid in ids)
+        return format_html(
+            '<code style="background-color: #f3f4f6; padding: 4px 8px; border-radius: 4px;">{}</code>',
+            id_list,
+        )
+
+    transaction_ids_display.short_description = "Matching Transaction IDs"
+
+    def similar_descriptions_display(self, obj):
+        """Display all similar descriptions found for this pattern."""
+        descriptions = obj.similar_descriptions or []
+        if not descriptions:
+            return "-"
+        desc_html = "<br>".join(
+            format_html(
+                '<div style="margin: 4px 0; padding: 4px 8px; background-color: #f3f4f6; border-radius: 4px;">• {}</div>',
+                desc,
+            )
+            for desc in descriptions[:10]  # Show first 10
+        )
+        if len(descriptions) > 10:
+            desc_html += format_html(
+                '<div style="margin: 4px 0; padding: 4px 8px; color: #6b7280;">... and {} more</div>',
+                len(descriptions) - 10,
+            )
+        return format_html("<div>{}</div>", desc_html)
+
+    similar_descriptions_display.short_description = "Similar Descriptions Found"
+
+    def has_add_permission(self, request):
+        """Disable manual creation - only via detection."""
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        """Allow deletion only for superusers."""
+        return request.user.is_superuser
+
 
