@@ -253,7 +253,8 @@ User (Django auth)
 - account: FK (BankAccount)
 - date: Date
 - amount: Decimal (max_digits=12, decimal_places=2)
-- description: String (1024 chars max - increased from 255)
+- reference: String (512 chars max - transaction reference/ID from bank)
+- description: String (1024 chars max - transaction description)
 - category: FK (Category, nullable)
 - type: Choice (income/expense/transfer)
 
@@ -1069,6 +1070,18 @@ celery -A finance_project beat -l info
 - Blur feature allows showing without revealing numbers
 - Keyboard shortcut for quick toggle
 
+### **Why Reference Field (512 chars)**
+- Bank transactions have unique reference/transaction IDs from importers
+- Different banks use different field names: "reference", "referenceNumber", "transactionID", etc.
+- Dedicated reference field (separate from description) provides:
+  - **Primary display**: Shows reference as main identifier
+  - **Tooltip description**: Shows full description on hover
+  - **Search/filter**: Reference values are searchable in admin
+  - **Flexibility**: Works with any import format via field mapping
+- Reference field is required (must be populated on import)
+- Description field remains optional (for additional context)
+- Both stored separately to avoid data loss if one is missing
+
 ---
 
 ## 🐛 Critical Bugs Fixed
@@ -1106,6 +1119,38 @@ return float(obj.amount * 4.33)  # TypeError
 from decimal import Decimal
 return float(obj.amount * Decimal('4.33'))  # OK
 ```
+
+### **Feature #1: Reference Field Implementation (Jan 14, 2026)**
+**Problem:** Transactions need a unique reference/ID field from bank imports, separate from description.
+
+**Implementation:**
+```python
+# Model: CharField(max_length=512), required
+reference = models.CharField(max_length=512)
+
+# Display: Show reference as primary, description as tooltip
+<div title={tx.description || '-'}>{tx.reference || '-'}</div>
+
+# Import Support: CSV and JSON extract reference field
+# Field Mapper: Supports custom field mapping (e.g., "refNumber" → "reference")
+# Admin: Reference searchable and editable
+
+# Migration: 0005_transaction_reference.py (adds column)
+```
+
+**Files Modified:**
+- Backend: models, admin, serializers, views, tasks (8 files)
+- Frontend: TransactionsTable, AccountDetailsView, locales (4 files)
+- Database: migration 0005_transaction_reference.py
+
+**Features:**
+- ✅ Reference field (512 chars, required) in Transaction model
+- ✅ Displayed in Django admin (searchable, editable)
+- ✅ CSV/JSON importers extract "reference" field
+- ✅ Field mapper supports custom reference field mapping
+- ✅ Frontend shows reference in tables (description as tooltip)
+- ✅ Localization support (EN: "Reference", DE: "Referenz")
+- ✅ Backward compatible (description used as fallback if reference missing)
 
 ---
 

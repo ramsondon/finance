@@ -357,7 +357,7 @@ export default function AccountDetailsView({ accountId, onClose }) {
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700">{t('transactions.date')}</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700">{t('transactions.fieldDescription')}</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700">{t('transactions.fieldReference')}</th>
                     <th className="text-right py-3 px-4 text-xs font-semibold text-gray-700">{t('transactions.amount')}</th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700">{t('transactions.type')}</th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700">{t('transactions.category')}</th>
@@ -368,8 +368,8 @@ export default function AccountDetailsView({ accountId, onClose }) {
                     transactions.map(tx => (
                       <tr key={tx.id} className="border-b border-gray-100 hover:bg-gray-50">
                         <td className="py-3 px-4 whitespace-nowrap">{new Date(tx.date).toLocaleDateString()}</td>
-                        <td className="py-3 px-4 text-sm max-w-xs truncate" title={tx.description || tx.partner_name || '-'}>
-                          {tx.description || tx.partner_name || '-'}
+                        <td className="py-3 px-4 text-sm max-w-xs truncate" title={tx.description || '-'}>
+                          {tx.reference || '-'}
                         </td>
                         <td className="py-3 px-4 text-right font-medium whitespace-nowrap">
                           <span style={{ color: parseFloat(tx.amount) >= 0 ? '#10b981' : '#ef4444' }}>

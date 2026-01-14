@@ -115,9 +115,9 @@ class BankAccountAdmin(admin.ModelAdmin):
 
 @admin.register(Transaction)
 class TransactionAdmin(admin.ModelAdmin):
-    list_display = ("id", "account", "date", "amount_display", "type", "category", "description_preview", "partner_name")
+    list_display = ("id", "account", "date", "amount_display", "type", "category", "reference", "description_preview", "partner_name")
     list_filter = ("type", "category", "account", "date")
-    search_fields = ("description", "partner_name", "reference_number")
+    search_fields = ("reference", "description", "partner_name", "reference_number")
     date_hierarchy = "date"
     readonly_fields = ("created_at",)
     actions = ["truncate_transactions"]

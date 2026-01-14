@@ -88,6 +88,7 @@ class JSONImporter:
         # Safe nested object access - use or {} if the nested object is None
         partner_account = item.get("partnerAccount") or {}
         extra_fields = {
+            "reference": item.get("reference"),
             "partner_name": item.get("partnerName"),
             "partner_iban": partner_account.get("iban") if isinstance(partner_account, dict) else None,
             "partner_account": partner_account.get("number") if isinstance(partner_account, dict) else None,

@@ -23,6 +23,7 @@ class FieldMappingRegistry:
         # Core fields
         "date": FieldMapping("date", "date", "date", required=True),
         "amount": FieldMapping("amount", "amount", "decimal", required=True),
+        "reference": FieldMapping("reference", "reference", "string"),
         "description": FieldMapping("description", "description", "string"),
         "type": FieldMapping("type", "type", "string"),
 

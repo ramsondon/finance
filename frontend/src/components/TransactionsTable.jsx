@@ -195,7 +195,7 @@ export default function TransactionsTable() {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{t('transactions.date')}</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{t('transactions.fieldDescription')}</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{t('transactions.fieldReference')}</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{t('transactions.category')}</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{t('transactions.type')}</th>
                   <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">{t('transactions.amount')}</th>
@@ -211,7 +211,7 @@ export default function TransactionsTable() {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="text-sm text-gray-900 font-medium truncate max-w-xs" title={tx.description || '-'}>{tx.description || '-'}</div>
+                      <div className="text-sm text-gray-900 font-medium truncate max-w-xs" title={tx.description || '-'}>{tx.reference || '-'}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {tx.category_name ? (

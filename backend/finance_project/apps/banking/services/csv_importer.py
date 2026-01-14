@@ -58,9 +58,10 @@ class CSVImporter:
         return rows, errors
 
     def _parse_default_format(self, raw: Dict, row_idx: int) -> ParsedRow:
-        """Parse row using default format (date, amount, description, type, category)."""
+        """Parse row using default format (date, amount, reference, description, type, category)."""
         date_str = (raw.get("date") or "").strip()
         amount_str = (raw.get("amount") or "").replace(",", ".").strip()
+        reference = (raw.get("reference") or "").strip()
         description = (raw.get("description") or "").strip()
         type_ = (raw.get("type") or "").strip().lower()
         category_name = raw.get("category") or None
@@ -86,7 +87,7 @@ class CSVImporter:
             description=description,
             type=type_,
             category_name=category_name,
-            extra_fields={}
+            extra_fields={"reference": reference} if reference else {}
         )
 
     def _map_to_parsed_row(self, mapped: Dict, row_idx: int) -> ParsedRow:

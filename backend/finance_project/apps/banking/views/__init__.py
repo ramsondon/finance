@@ -77,6 +77,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
             {
                 "date": r.date.strftime("%Y-%m-%d"),
                 "amount": str(r.amount),
+                "reference": r.description,  # Use description as reference
                 "description": r.description,
                 "type": r.type,
                 "category_name": r.category_name,
@@ -107,6 +108,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
             {
                 "date": r.date.strftime("%Y-%m-%d"),
                 "amount": str(r.amount),
+                "reference": r.description,  # Use description as reference
                 "description": r.description,
                 "type": r.type,
                 "category_name": r.category_name,
@@ -192,6 +194,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
             row = {
                 "date": r.date.strftime("%Y-%m-%d"),
                 "amount": str(r.amount),
+                "reference": r.description,  # Use parsed description as reference for basic importers
                 "description": r.description,
                 "type": r.type,
                 "category_name": r.category_name,
@@ -199,6 +202,9 @@ class TransactionViewSet(viewsets.ModelViewSet):
 
             # Add extra fields if present
             if hasattr(r, 'extra_fields') and r.extra_fields:
+                # If reference is in extra_fields, use it instead
+                if 'reference' in r.extra_fields:
+                    row['reference'] = r.extra_fields['reference']
                 row.update(r.extra_fields)
 
             rows.append(row)

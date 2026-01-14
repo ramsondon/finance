@@ -65,6 +65,7 @@
     "importCSV": "Importieren Sie eine CSV-Datei, um die Verfolgung von Transaktionen zu starten",
     "date": "Datum",
     "fieldDescription": "Beschreibung",
+    "fieldReference": "Referenz",
     "category": "Kategorie",
     "type": "Typ",
     "amount": "Betrag",

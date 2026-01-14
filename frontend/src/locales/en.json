@@ -65,6 +65,7 @@
     "importCSV": "Import a CSV to get started with transaction tracking",
     "date": "Date",
     "fieldDescription": "Description",
+    "fieldReference": "Reference",
     "category": "Category",
     "type": "Type",
     "amount": "Amount",

@@ -45,6 +45,7 @@ class Transaction(models.Model):
     account = models.ForeignKey(BankAccount, on_delete=models.CASCADE, related_name="transactions")
     date = models.DateField()
     amount = models.DecimalField(max_digits=12, decimal_places=2)
+    reference = models.CharField(max_length=512)
     description = models.CharField(max_length=1024, blank=True)
     category = models.ForeignKey(Category, null=True, blank=True, on_delete=models.SET_NULL)
     type = models.CharField(max_length=10, choices=TYPE_CHOICES)

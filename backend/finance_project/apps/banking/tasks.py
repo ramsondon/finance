@@ -20,6 +20,7 @@ def import_transactions_task(self, account_id: int, rows: list[dict]):
 
     # Field length limits to prevent database errors
     FIELD_LIMITS = {
+        "reference": 512,
         "description": 1024,
         "partner_name": 255,
         "partner_iban": 34,
@@ -95,6 +96,7 @@ def import_transactions_task(self, account_id: int, rows: list[dict]):
                     "account": account,
                     "date": date,
                     "amount": amount,
+                    "reference": truncate_field("reference", row.get("reference", "")),
                     "description": truncate_field("description", row.get("description", "")),
                     "type": row.get("type", "expense"),
                     # Extended fields
