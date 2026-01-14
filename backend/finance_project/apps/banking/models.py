@@ -103,3 +103,75 @@ class Rule(models.Model):
 
     def __str__(self) -> str:
         return f"Rule({self.name})"
+
+
+class RecurringTransaction(models.Model):
+    """
+    Stores detected recurring transaction patterns.
+
+    Used to track subscriptions, regular payments, and other recurring costs.
+    """
+    FREQUENCY_CHOICES = [
+        ("weekly", "Weekly"),
+        ("bi-weekly", "Bi-weekly"),
+        ("monthly", "Monthly"),
+        ("quarterly", "Quarterly"),
+        ("yearly", "Yearly"),
+    ]
+
+    account = models.ForeignKey(BankAccount, on_delete=models.CASCADE, related_name="recurring_transactions")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+
+    # Pattern details
+    description = models.CharField(max_length=255)
+    merchant_name = models.CharField(max_length=255, blank=True)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    frequency = models.CharField(max_length=20, choices=FREQUENCY_CHOICES)
+
+    # Timing
+    next_expected_date = models.DateField()
+    last_occurrence_date = models.DateField()
+
+    # Statistics
+    occurrence_count = models.PositiveIntegerField(default=1)
+    confidence_score = models.FloatField(default=0.0, help_text="0-1 confidence that this is truly recurring")
+
+    # Tracking
+    is_active = models.BooleanField(default=True)
+    is_ignored = models.BooleanField(default=False, help_text="User marked this as not relevant")
+    user_notes = models.TextField(blank=True, help_text="User's notes about this recurring transaction")
+
+    # Meta
+    similar_descriptions = models.JSONField(default=list, help_text="All transaction descriptions that matched this pattern")
+    transaction_ids = models.JSONField(default=list, help_text="IDs of transactions that form this pattern")
+
+    detected_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-confidence_score", "-occurrence_count"]
+        unique_together = ("account", "description", "frequency")
+        indexes = [
+            models.Index(fields=["user", "is_active"]),
+            models.Index(fields=["account", "is_active"]),
+            models.Index(fields=["frequency", "next_expected_date"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.description} ({self.frequency})"
+
+    def get_display_name(self) -> str:
+        """Get the best display name for this recurring transaction."""
+        return self.merchant_name or self.description
+
+    def is_overdue(self) -> bool:
+        """Check if this recurring transaction is overdue (missed)."""
+        from datetime import datetime
+        return datetime.now().date() > self.next_expected_date
+
+    def days_until_next(self) -> int:
+        """Days until next expected occurrence."""
+        from datetime import datetime
+        delta = self.next_expected_date - datetime.now().date()
+        return delta.days
+

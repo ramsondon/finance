@@ -1,12 +1,14 @@
 from django.urls import path, include
 from rest_framework.routers import SimpleRouter
 from .views import BankAccountViewSet, TransactionViewSet, CategoryViewSet, RuleViewSet, currencies_view, available_fields_view
+from .views.recurring import RecurringTransactionViewSet
 
 router = SimpleRouter()
 router.register(r"accounts", BankAccountViewSet, basename="bankaccount")
 router.register(r"transactions", TransactionViewSet, basename="transaction")
 router.register(r"categories", CategoryViewSet, basename="category")
 router.register(r"rules", RuleViewSet, basename="rule")
+router.register(r"recurring", RecurringTransactionViewSet, basename="recurring")
 
 urlpatterns = [
     path("", include(router.urls)),

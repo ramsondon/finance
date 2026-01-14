@@ -1,0 +1,239 @@
+"""
+ViewSets for recurring transaction management.
+"""
+
+from rest_framework import viewsets, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.filters import OrderingFilter
+from django.db.models import Sum, Q
+from decimal import Decimal
+
+from ..models import RecurringTransaction, BankAccount
+from ..serializers.recurring import (
+    RecurringTransactionSerializer,
+    RecurringTransactionSummarySerializer
+)
+from ..tasks import detect_recurring_transactions_task
+
+
+class RecurringTransactionViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing recurring transaction patterns.
+
+    Allows users to:
+    - View detected recurring transactions
+    - Mark transactions as ignored
+    - Add notes to transactions
+    - View summary statistics
+    - Manually trigger recurring detection
+    """
+
+    serializer_class = RecurringTransactionSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, OrderingFilter]
+    filterset_fields = ['account_id', 'frequency', 'is_active', 'is_ignored']
+    ordering_fields = ['confidence_score', 'amount', 'next_expected_date', 'occurrence_count']
+    ordering = ['-confidence_score', '-occurrence_count']
+
+    def get_queryset(self):
+        """Return recurring transactions for the current user."""
+        return RecurringTransaction.objects.filter(user=self.request.user)
+
+    @action(detail=False, methods=['get'])
+    def summary(self, request):
+        """
+        Get summary statistics for recurring transactions.
+
+        Returns:
+        - Total count of recurring patterns
+        - Active count
+        - Monthly/yearly recurring costs
+        - Breakdown by frequency
+        - Top recurring transactions
+        - Overdue transactions count
+        """
+        user = request.user
+        queryset = self.get_queryset()
+
+        # Filter by account if specified
+        account_id = request.query_params.get('account_id')
+        if account_id:
+            queryset = queryset.filter(account_id=account_id)
+
+        # Calculate totals
+        total_count = queryset.count()
+        active_count = queryset.filter(is_active=True).count()
+
+        # Calculate costs
+        monthly_recurring = Decimal('0')
+        yearly_recurring = Decimal('0')
+
+        for recurring in queryset.filter(is_active=True):
+            if recurring.frequency == 'weekly':
+                monthly_recurring += recurring.amount * Decimal('4.33')
+                yearly_recurring += recurring.amount * Decimal('52')
+            elif recurring.frequency == 'bi-weekly':
+                monthly_recurring += recurring.amount * Decimal('2.17')
+                yearly_recurring += recurring.amount * Decimal('26')
+            elif recurring.frequency == 'monthly':
+                monthly_recurring += recurring.amount
+                yearly_recurring += recurring.amount * Decimal('12')
+            elif recurring.frequency == 'quarterly':
+                monthly_recurring += recurring.amount / Decimal('3')
+                yearly_recurring += recurring.amount * Decimal('4')
+            elif recurring.frequency == 'yearly':
+                monthly_recurring += recurring.amount / Decimal('12')
+                yearly_recurring += recurring.amount
+
+        # Breakdown by frequency
+        by_frequency = {}
+        for freq, _ in RecurringTransaction.FREQUENCY_CHOICES:
+            freq_qs = queryset.filter(frequency=freq, is_active=True)
+            count = freq_qs.count()
+            total_amount = freq_qs.aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
+            by_frequency[freq] = {
+                'count': count,
+                'total_amount': str(total_amount),
+            }
+
+        # Top recurring
+        top_recurring = queryset.filter(is_active=True).order_by(
+            '-confidence_score', '-occurrence_count'
+        )[:5]
+        top_serializer = RecurringTransactionSerializer(top_recurring, many=True)
+
+        # Overdue count
+        from datetime import datetime
+        now = datetime.now().date()
+        overdue_count = queryset.filter(
+            is_active=True,
+            is_ignored=False,
+            next_expected_date__lt=now
+        ).count()
+
+        summary_data = {
+            'total_count': total_count,
+            'active_count': active_count,
+            'monthly_recurring_cost': str(monthly_recurring.quantize(Decimal('0.01'))),
+            'yearly_recurring_cost': str(yearly_recurring.quantize(Decimal('0.01'))),
+            'by_frequency': by_frequency,
+            'top_recurring': top_serializer.data,
+            'overdue_count': overdue_count,
+        }
+
+        serializer = RecurringTransactionSummarySerializer(summary_data)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['post'])
+    def detect(self, request):
+        """
+        Manually trigger recurring transaction detection.
+
+        Query Parameters:
+        - account_id (required): Bank account to analyze
+        - days_back (optional, default=365): How far back to look
+
+        Returns:
+        - Success message with number of patterns detected
+        """
+        account_id = request.query_params.get('account_id')
+        days_back = int(request.query_params.get('days_back', 365))
+
+        if not account_id:
+            return Response(
+                {'error': 'account_id is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # Verify account belongs to user
+            account = BankAccount.objects.get(id=account_id, user=request.user)
+        except BankAccount.DoesNotExist:
+            return Response(
+                {'error': 'Account not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Trigger detection task
+        detect_recurring_transactions_task.delay(
+            account_id=account_id,
+            days_back=days_back
+        )
+
+        return Response({
+            'message': 'Recurring transaction detection started',
+            'account_id': account_id,
+            'days_back': days_back,
+            'status': 'processing'
+        })
+
+    @action(detail=True, methods=['post'])
+    def ignore(self, request, pk=None):
+        """Mark a recurring transaction as ignored."""
+        recurring = self.get_object()
+        recurring.is_ignored = True
+        recurring.save(update_fields=['is_ignored'])
+
+        return Response(RecurringTransactionSerializer(recurring).data)
+
+    @action(detail=True, methods=['post'])
+    def unignore(self, request, pk=None):
+        """Unignore a recurring transaction."""
+        recurring = self.get_object()
+        recurring.is_ignored = False
+        recurring.save(update_fields=['is_ignored'])
+
+        return Response(RecurringTransactionSerializer(recurring).data)
+
+    @action(detail=True, methods=['patch'])
+    def add_note(self, request, pk=None):
+        """Add or update a note for a recurring transaction."""
+        recurring = self.get_object()
+        note = request.data.get('note', '')
+        recurring.user_notes = note
+        recurring.save(update_fields=['user_notes'])
+
+        return Response(RecurringTransactionSerializer(recurring).data)
+
+    @action(detail=False, methods=['get'])
+    def overdue(self, request):
+        """Get overdue recurring transactions."""
+        from datetime import datetime
+        now = datetime.now().date()
+
+        overdue_qs = self.get_queryset().filter(
+            is_active=True,
+            is_ignored=False,
+            next_expected_date__lt=now
+        ).order_by('next_expected_date')
+
+        serializer = self.get_serializer(overdue_qs, many=True)
+        return Response({
+            'count': overdue_qs.count(),
+            'recurring_transactions': serializer.data
+        })
+
+    @action(detail=False, methods=['get'])
+    def upcoming(self, request):
+        """Get upcoming recurring transactions."""
+        from datetime import datetime, timedelta
+
+        now = datetime.now().date()
+        days_ahead = int(request.query_params.get('days', 30))
+        future_date = now + timedelta(days=days_ahead)
+
+        upcoming_qs = self.get_queryset().filter(
+            is_active=True,
+            next_expected_date__range=[now, future_date]
+        ).order_by('next_expected_date')
+
+        serializer = self.get_serializer(upcoming_qs, many=True)
+        return Response({
+            'count': upcoming_qs.count(),
+            'days_ahead': days_ahead,
+            'recurring_transactions': serializer.data
+        })
+

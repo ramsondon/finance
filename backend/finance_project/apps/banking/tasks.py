@@ -203,3 +203,91 @@ def apply_rules_task(self, user_id: int):
     qs = Transaction.objects.filter(account__user_id=user_id, category__isnull=True)
     for tx in qs.iterator():
         engine.apply_rules(user_id, tx)
+
+
+@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=5, max_retries=3)
+def detect_recurring_transactions_task(self, account_id: int, days_back: int = 365):
+    """
+    Detect recurring transaction patterns for a bank account.
+
+    This task analyzes transaction history and identifies recurring payments
+    such as subscriptions, regular expenses, and income deposits.
+    """
+    from .services.recurring_detector import RecurringTransactionDetector
+    from .models import RecurringTransaction
+
+    logger.info(f"Starting recurring transaction detection for account_id={account_id}, looking back {days_back} days")
+
+    try:
+        account = BankAccount.objects.get(id=account_id)
+        detector = RecurringTransactionDetector(account_id)
+        patterns = detector.detect(days_back=days_back)
+
+        logger.info(f"Detected {len(patterns)} recurring patterns for account {account_id}")
+
+        # Store detected patterns in database
+        created_count = 0
+        updated_count = 0
+
+        for pattern in patterns:
+            # Try to update existing or create new
+            recurring, created = RecurringTransaction.objects.update_or_create(
+                account=account,
+                description=pattern.description,
+                frequency=pattern.frequency,
+                defaults={
+                    'user_id': account.user_id,
+                    'merchant_name': '',
+                    'amount': pattern.amount,
+                    'next_expected_date': pattern.next_expected_date,
+                    'last_occurrence_date': pattern.last_occurrence_date,
+                    'occurrence_count': pattern.occurrence_count,
+                    'confidence_score': pattern.confidence_score,
+                    'similar_descriptions': pattern.similar_descriptions,
+                    'transaction_ids': pattern.transaction_ids,
+                    'is_active': True,
+                }
+            )
+
+            if created:
+                created_count += 1
+            else:
+                updated_count += 1
+                logger.debug(f"Updated recurring transaction: {pattern.description} ({pattern.frequency})")
+
+        logger.info(f"Created {created_count} new recurring patterns, updated {updated_count} existing patterns")
+
+    except BankAccount.DoesNotExist:
+        logger.error(f"Account {account_id} not found")
+        raise
+    except Exception as e:
+        logger.error(f"Error detecting recurring transactions for account {account_id}: {str(e)}", exc_info=True)
+        raise
+
+
+@shared_task(bind=True)
+def check_recurring_transaction_overdue_task(self):
+    """
+    Check for overdue recurring transactions and create notifications.
+
+    This runs periodically (e.g., daily) to identify subscriptions that
+    haven't occurred when expected.
+    """
+    from .models import RecurringTransaction
+    from datetime import datetime
+
+    logger.info("Checking for overdue recurring transactions")
+
+    now = datetime.now().date()
+    overdue = RecurringTransaction.objects.filter(
+        is_active=True,
+        is_ignored=False,
+        next_expected_date__lt=now
+    )
+
+    overdue_count = overdue.count()
+    logger.info(f"Found {overdue_count} overdue recurring transactions")
+
+    # TODO: In future, create notifications for overdue recurring transactions
+    # This could be used to alert users of missed payments or cancelled subscriptions
+

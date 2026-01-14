@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.db.models import Sum
-from .models import BankAccount, Transaction, Category, Rule
+from ..models import BankAccount, Transaction, Category, Rule
 
 
 class CategorySerializer(serializers.ModelSerializer):

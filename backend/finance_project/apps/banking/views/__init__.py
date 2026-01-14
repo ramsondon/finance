@@ -6,11 +6,13 @@ from django.db.models import Sum
 from django.conf import settings
 from rest_framework.pagination import PageNumberPagination
 
-from .models import BankAccount, Transaction, Category, Rule
-from .serializers import BankAccountSerializer, TransactionSerializer, CategorySerializer, RuleSerializer
-from .services.csv_importer import CSVImporter
-from .services.json_importer import JSONImporter
-from .tasks import import_transactions_task, apply_rules_task
+from ..models import BankAccount, Transaction, Category, Rule
+from ..serializers import BankAccountSerializer, TransactionSerializer, CategorySerializer, RuleSerializer
+from ..services.csv_importer import CSVImporter
+from ..services.json_importer import JSONImporter
+from ..tasks import import_transactions_task, apply_rules_task
+
+from .recurring import RecurringTransactionViewSet  # Import recurring transaction views
 
 
 class IsOwner(permissions.BasePermission):

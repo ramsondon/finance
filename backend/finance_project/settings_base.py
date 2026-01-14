@@ -1,6 +1,8 @@
 import os
 from pathlib import Path
 
+from celery.schedules import crontab
+
 try:
     import environ  # type: ignore
 except Exception:  # fallback shim
@@ -198,7 +200,17 @@ CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="redis://localhost:6379/1")
 CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", default="redis://localhost:6379/2")
 CELERY_TASK_ALWAYS_EAGER = False
 CELERY_TASK_TIME_LIMIT = 300
-CELERY_BEAT_SCHEDULE = {}
+CELERY_BEAT_SCHEDULE = {
+    'detect-recurring-daily': {
+        'task': 'finance_project.apps.banking.tasks.detect_recurring_transactions_task',
+        'schedule': crontab(hour=3, minute=0),  # 3 AM UTC
+        # Note: You'll need to iterate over all account IDs
+    },
+    'check-recurring-overdue': {
+        'task': 'finance_project.apps.banking.tasks.check_recurring_transaction_overdue_task',
+        'schedule': crontab(hour=6, minute=0),  # 6 AM UTC
+    },
+}
 
 # Security baseline
 SECURE_SSL_REDIRECT = bool(env.bool("DJANGO_SECURE_SSL_REDIRECT", default=False))
