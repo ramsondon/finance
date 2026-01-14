@@ -77,15 +77,15 @@ class RecurringTransactionDetector:
     }
 
     # Amount tolerance (within this % is considered same amount)
-    AMOUNT_TOLERANCE = 0.05  # 5%
+    AMOUNT_TOLERANCE = 0.02  # 5%
 
     # Minimum occurrences to consider recurring
     MIN_OCCURRENCES = {
         'weekly': 3,  # 3 weeks of data
         'bi-weekly': 3,  # 6 weeks
-        'monthly': 2,  # 2 months
-        'quarterly': 2,  # 6 months
-        'yearly': 2,  # 2 years (to detect annual subscriptions like birthdays, renewals)
+        'monthly': 3,  # 2 months
+        'quarterly': 3,  # 6 months
+        'yearly': 3,  # 2 years (to detect annual subscriptions like birthdays, renewals)
     }
 
     def __init__(self, account_id: int):
