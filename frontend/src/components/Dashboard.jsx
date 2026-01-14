@@ -5,6 +5,7 @@ import { SensitiveValue, useSensitiveModeListener } from '../utils/sensitive'
 import CreateAccountModal from './CreateAccountModal'
 import AccountDetailsView from './AccountDetailsView'
 import { useTranslate } from '../hooks/useLanguage'
+import { formatDate, formatDateTime } from '../utils/format'
 import { Pie } from 'react-chartjs-2'
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
 ChartJS.register(ArcElement, Tooltip, Legend)
@@ -287,7 +288,7 @@ export default function Dashboard() {
                   </div>
                   <div className="flex items-center justify-between mt-2">
                     <span className="text-xs text-gray-400">
-                      Created {new Date(account.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      Created {formatDateTime(account.created_at)}
                     </span>
                     <button
                       onClick={() => setSelectedAccountId(account.id)}

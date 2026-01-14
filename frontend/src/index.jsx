@@ -11,12 +11,20 @@ import LoginPage from './components/LoginPage'
 import LandingPage from './components/LandingPage'
 import axios from 'axios'
 import { getCsrfToken } from './utils/csrf'
-import { getFormatPreferences, saveFormatPreferences, DATE_FORMATS, CURRENCY_OPTIONS, NUMBER_FORMATS } from './utils/format'
+import { getFormatPreferences, saveFormatPreferences, DATE_FORMATS, CURRENCY_OPTIONS, NUMBER_FORMATS, TIME_FORMATS } from './utils/format'
 import { getSupportedLanguages, setLanguage as setLanguagePreference } from './utils/i18n'
 import { useTranslate } from './hooks/useLanguage'
 
 // Configure axios to include CSRF token in all requests
 axios.interceptors.request.use((config) => {
+  // Ensure config and headers exist
+  if (!config) {
+    return config
+  }
+  if (!config.headers) {
+    config.headers = {}
+  }
+
   const csrfToken = getCsrfToken()
   if (csrfToken) {
     config.headers['X-CSRFToken'] = csrfToken
@@ -351,6 +359,20 @@ const SettingsMenu = ({ sensitiveMode, setSensitiveMode, darkMode, setDarkMode, 
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {Object.keys(DATE_FORMATS).map(fmt => (
+                <option key={fmt} value={fmt}>{fmt}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Time Format */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('settings.timeFormat')}</label>
+            <select
+              value={formatPrefs.timeFormat}
+              onChange={(e) => setFormatPrefs({ ...formatPrefs, timeFormat: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {Object.keys(TIME_FORMATS).map(fmt => (
                 <option key={fmt} value={fmt}>{fmt}</option>
               ))}
             </select>

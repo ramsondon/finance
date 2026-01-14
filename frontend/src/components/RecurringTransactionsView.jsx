@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import { useTranslate } from '../hooks/useLanguage'
+import { formatDate, formatDateTime } from '../utils/format'
 
 /**
  * RecurringTransactionsView
@@ -468,7 +469,7 @@ function RecurringTransactionRow({ transaction, onToggleIgnore }) {
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
         <div className={`text-sm font-medium ${transaction.is_overdue ? 'text-red-600' : 'text-gray-900'}`}>
-          {new Date(transaction.next_expected_date).toLocaleDateString()}
+          {formatDate(transaction.next_expected_date)}
         </div>
         <div className={`text-xs ${transaction.is_overdue ? 'text-red-500' : 'text-gray-500'}`}>
           {transaction.is_overdue ? '⚠️ Overdue' : `${transaction.days_until_next} days`}

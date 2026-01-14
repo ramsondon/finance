@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react'
 import axios from 'axios'
 import { getCsrfToken } from '../utils/csrf'
 import { useTranslate } from '../hooks/useLanguage'
+import { dateToInputFormat, inputDateToISO } from '../utils/format'
+import DateInput from './DateInput'
 
 export default function RulesManager() {
   const t = useTranslate()
@@ -376,10 +378,12 @@ function CreateRuleModal({ categories, onClose, onSuccess }) {
                   Date From
                 </label>
                 <input
-                  type="date"
-                  value={form.date_from}
-                  onChange={(e) => setForm({ ...form, date_from: e.target.value })}
+                  type="text"
+                  value={dateToInputFormat(form.date_from)}
+                  onChange={(e) => setForm({ ...form, date_from: inputDateToISO(e.target.value) })}
+                  placeholder="MM/DD/YYYY"
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  title="Enter date in your preferred format"
                 />
               </div>
               <div>
@@ -387,10 +391,12 @@ function CreateRuleModal({ categories, onClose, onSuccess }) {
                   Date To
                 </label>
                 <input
-                  type="date"
-                  value={form.date_to}
-                  onChange={(e) => setForm({ ...form, date_to: e.target.value })}
+                  type="text"
+                  value={dateToInputFormat(form.date_to)}
+                  onChange={(e) => setForm({ ...form, date_to: inputDateToISO(e.target.value) })}
+                  placeholder="MM/DD/YYYY"
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  title="Enter date in your preferred format"
                 />
               </div>
             </div>
@@ -609,20 +615,22 @@ function EditRuleModal({ rule, categories, onClose, onSuccess }) {
             <div className="grid grid-cols-2 gap-4 mb-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Date From</label>
-                <input
-                  type="date"
+                <DateInput
                   value={form.date_from}
-                  onChange={(e) => setForm({ ...form, date_from: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  onChange={(isoDate) => setForm({ ...form, date_from: isoDate })}
+                  placeholder="MM/DD/YYYY"
+                  title="Start date for rule"
+                  showPickerButton={true}
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Date To</label>
-                <input
-                  type="date"
+                <DateInput
                   value={form.date_to}
-                  onChange={(e) => setForm({ ...form, date_to: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  onChange={(isoDate) => setForm({ ...form, date_to: isoDate })}
+                  placeholder="MM/DD/YYYY"
+                  title="End date for rule"
+                  showPickerButton={true}
                 />
               </div>
             </div>

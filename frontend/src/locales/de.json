@@ -214,6 +214,7 @@
     "sensitiveModeDesc": "Geldbeträge verbergen (Alt+Shift+S)",
     "formatPreferences": "Formateinstellungen",
     "dateFormat": "Datumsformat",
+    "timeFormat": "Zeitformat",
     "currency": "Währung",
     "numberFormat": "Zahlenformat",
     "language": "Sprache",

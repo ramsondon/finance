@@ -3,6 +3,7 @@ import axios from 'axios'
 import { getCsrfToken } from '../utils/csrf'
 import { SensitiveValue, useSensitiveModeListener } from '../utils/sensitive'
 import { useTranslate } from '../hooks/useLanguage'
+import { formatDate, formatDateTime } from '../utils/format'
 
 export default function TransactionsTable() {
   const t = useTranslate()
@@ -207,7 +208,7 @@ export default function TransactionsTable() {
                   <tr key={tx.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
-                        {new Date(tx.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        {formatDate(tx.date)}
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -336,7 +337,7 @@ function EditTransactionModal({ transaction, categories, onClose, onSuccess, sen
           <div className="bg-gray-50 rounded-lg p-4 text-sm space-y-3">
             <div>
               <span className="text-gray-600 block mb-1">{t('transactionEdit.date')}</span>
-              <span className="font-medium">{new Date(transaction.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+              <span className="font-medium">{formatDate(transaction.date)}</span>
             </div>
             <div>
               <span className="text-gray-600 block mb-1">{t('transactionEdit.description')}</span>

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import { getCsrfToken } from '../utils/csrf'
+import { dateToInputFormat, inputDateToISO } from '../utils/format'
+import DateInput from './DateInput'
 
 export default function CreateAccountModal({ onClose, onCreated }) {
   const [form, setForm] = useState({
@@ -195,12 +197,12 @@ export default function CreateAccountModal({ onClose, onCreated }) {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Opening Balance Reference Date (Optional)
             </label>
-            <input
-              type="date"
-              name="opening_balance_date"
+            <DateInput
               value={form.opening_balance_date}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onChange={(isoDate) => handleChange({ target: { name: 'opening_balance_date', value: isoDate } })}
+              placeholder="MM/DD/YYYY"
+              title="Reference date for opening balance"
+              showPickerButton={true}
             />
             <p className="text-xs text-gray-500 mt-1">
               💡 Set a reference date when you know your account balance. Leave empty if you have complete transaction history.

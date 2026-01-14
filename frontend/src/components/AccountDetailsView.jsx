@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import { SensitiveValue, useSensitiveModeListener } from '../utils/sensitive'
 import { useTranslate } from '../hooks/useLanguage'
+import { formatDate, formatDateTime, dateToInputFormat, inputDateToISO } from '../utils/format'
+import DateInput from './DateInput'
 import { Line } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -210,7 +212,7 @@ export default function AccountDetailsView({ accountId, onClose }) {
       const date = new Date(dateStr)
       // Only show label if it's the first day of the month
       if (date.getDate() === 1) {
-        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        return formatDate(dateStr)
       }
       return ''
     })
@@ -269,17 +271,19 @@ export default function AccountDetailsView({ accountId, onClose }) {
               placeholder={t('transactions.searchPlaceholder')}
               className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            <input
-              type="date"
+            <DateInput
               value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onChange={(isoDate) => setDateFrom(isoDate)}
+              placeholder="From (MM/DD/YYYY)"
+              title="Start date for filter"
+              showPickerButton={true}
             />
-            <input
-              type="date"
+            <DateInput
               value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onChange={(isoDate) => setDateTo(isoDate)}
+              placeholder="To (MM/DD/YYYY)"
+              title="End date for filter"
+              showPickerButton={true}
             />
             <div className="flex gap-2">
               <select
@@ -367,7 +371,7 @@ export default function AccountDetailsView({ accountId, onClose }) {
                   {transactions.length > 0 ? (
                     transactions.map(tx => (
                       <tr key={tx.id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="py-3 px-4 whitespace-nowrap">{new Date(tx.date).toLocaleDateString()}</td>
+                        <td className="py-3 px-4 whitespace-nowrap">{formatDate(tx.date)}</td>
                         <td className="py-3 px-4 text-sm max-w-xs truncate" title={tx.description || '-'}>
                           {tx.reference || '-'}
                         </td>

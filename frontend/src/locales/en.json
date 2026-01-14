@@ -214,6 +214,7 @@
     "sensitiveModeDesc": "Blur monetary values (Alt+Shift+S)",
     "formatPreferences": "Format Preferences",
     "dateFormat": "Date Format",
+    "timeFormat": "Time Format",
     "currency": "Currency",
     "numberFormat": "Number Format",
     "language": "Language",

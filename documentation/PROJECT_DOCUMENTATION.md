@@ -962,6 +962,10 @@ export function SensitiveValue({ value, sensitiveMode }) {
 - DD.MM.YYYY (DE)
 - Long (January 14, 2026)
 
+**Time Formats:**
+- 12-hour (e.g., 2:30 PM)
+- 24-hour (e.g., 14:30)
+
 **Currencies:**
 - USD ($), EUR (€), GBP (£), CHF, CAD, AUD, JPY
 
@@ -971,28 +975,114 @@ export function SensitiveValue({ value, sensitiveMode }) {
 - 1 000,00 (FR)
 - 1 000.00 (SE)
 
-### **Implementation**
-```javascript
-// Format preferences stored in UserProfile.preferences JSON
-{
-  "dateFormat": "DD.MM.YYYY",
-  "currencyCode": "EUR",
-  "numberFormat": "1.000,00",
-  "language": "de"
-}
+### **Date Display & Input Format**
 
-// Frontend uses utils/format.js for consistent formatting
-export function formatCurrency(amount) {
-  const prefs = getFormatPreferences()
-  const currency = CURRENCY_OPTIONS.find(c => c.code === prefs.currencyCode)
-  return `${currency.symbol} ${formatNumber(amount)}`
+#### **Backend (ISO Format - Standard)**
+All dates are stored and returned by the backend in ISO format:
+- **DateField**: `YYYY-MM-DD` (e.g., "2026-01-14")
+- **DateTimeField**: ISO 8601 (e.g., "2026-01-14T14:30:00Z")
+- **Timezone**: Always UTC, converted to user's browser timezone on display
+
+#### **Frontend Display (User Preferences)**
+All dates displayed to users respect their format and timezone preferences:
+```javascript
+// Using formatDate for DateFields
+formatDate("2026-01-14")
+// Output with DD/MM/YYYY preference: "14/01/2026"
+
+// Using formatDateTime for DateTimeFields
+formatDateTime("2026-01-14T14:30:00Z")
+// Output with DD/MM/YYYY + 12-hour: "14/01/2026 2:30 PM"
+```
+
+#### **Frontend Input (User Preferences)**
+Date input fields accept dates in the user's preferred format and automatically convert to ISO format for submission:
+```javascript
+// User enters: "14/01/2026" (with DD/MM/YYYY preference)
+inputDateToISO("14/01/2026")
+// Returns: "2026-01-14" (sent to backend)
+
+// Display existing date in user's format
+dateToInputFormat("2026-01-14")
+// Returns: "14/01/2026" (if DD/MM/YYYY preference)
+```
+
+### **Implementation**
+
+#### **Preference Storage**
+```javascript
+// Format preferences stored in localStorage
+{
+  "dateFormat": "DD.MM.YYYY",        // How to display dates
+  "timeFormat": "12-hour",           // How to display times
+  "currencyCode": "EUR",             // Currency symbol
+  "numberFormat": "1.000,00",        // Number separator style
+  "language": "de"                   // UI language
 }
 ```
+
+#### **Utility Functions in utils/format.js**
+```javascript
+// Get user's format preferences
+getFormatPreferences()
+// Returns all preferences including dateFormat and timeFormat
+
+// Format dates for display
+formatDate(isoDateString)             // DateFields only (no time)
+// Uses dateFormat preference
+
+// Format datetimes for display
+formatDateTime(isoDateTimeString)     // DateTimeFields (date + time)
+// Uses dateFormat + timeFormat + browser timezone
+
+// Convert user input to ISO format
+inputDateToISO(userInputDate)         // Convert form input → backend
+// Parses based on dateFormat preference, returns YYYY-MM-DD
+
+// Convert ISO to user's display format
+dateToInputFormat(isoDateString)      // Convert backend → form display
+// Returns formatted date ready for form input field
+```
+
+#### **Component Usage**
+```javascript
+// Display a date
+<div>{formatDate(transaction.date)}</div>
+
+// Display a timestamp
+<div>{formatDateTime(account.created_at)}</div>
+
+// In a form input field (shows user's format, accepts user's format)
+<input
+  type="text"
+  value={dateToInputFormat(form.opening_balance_date)}
+  onChange={(e) => setForm({...form, opening_balance_date: inputDateToISO(e.target.value)})}
+  placeholder="DD/MM/YYYY"
+/>
+```
+
+#### **Components Using Date Formatting**
+| Component | Date Fields | Format Function |
+|-----------|------------|-----------------|
+| TransactionsTable | transaction.date | formatDate() |
+| RecurringTransactionsView | next_expected_date, last_occurrence_date | formatDate() |
+| AccountDetailsView | transaction dates, chart labels | formatDate() |
+| Dashboard | account.created_at | formatDateTime() |
+| CreateAccountModal | opening_balance_date (input) | dateToInputFormat() / inputDateToISO() |
+| RulesManager | date_from, date_to (inputs) | dateToInputFormat() / inputDateToISO() |
+| AccountDetailsView | dateFrom, dateTo (filter inputs) | dateToInputFormat() / inputDateToISO() |
 
 ### **Where Stored**
 - Backend: `UserProfile.preferences` JSON field
 - Frontend: localStorage (synced on login)
 - Persists across sessions
+- Auto-converted on every display/input
+
+### **Timezone Handling**
+- Backend stores all timestamps in UTC (ISO 8601)
+- Frontend automatically converts UTC → user's browser timezone
+- Timezone detected from OS settings (no explicit picker)
+- Changes immediately if user changes OS timezone
 
 ---
 
@@ -1010,6 +1100,7 @@ export function formatCurrency(amount) {
 - Modal titles and content
 - Help text and tooltips
 - Success/error notifications
+- Format preference labels (e.g., "Time Format")
 
 ### **Architecture**
 ```
@@ -1038,7 +1129,7 @@ return <h1>{t('dashboard.title')}</h1>
 
 ### **Adding More Languages**
 1. Copy `en.json` to `{lang}.json`
-2. Translate all values
+2. Translate all values including `settings.timeFormat`
 3. Language automatically appears in selector
 
 ---
