@@ -510,6 +510,88 @@ date,amount,description,type,category,partner_name,iban
 - Each transaction can have a category
 - Used for reporting and filtering
 - AI can auto-generate categories from transaction patterns
+- **Search functionality**: Search categories by name (case-insensitive partial match)
+- **Ordering/Sorting**: Sort by name or color (ascending/descending)
+- **Duplicate prevention**: Backend validates to prevent duplicate category names for the same user
+- **Validation**: User-friendly translated error messages for validation failures
+
+#### **Category Management Features**
+| Feature | Details |
+|---------|---------|
+| **Search** | Query parameter: `?search=category_name` |
+| **Ordering** | Query parameter: `?ordering=name` or `?ordering=-name` |
+| **Sortable Fields** | `name`, `color` |
+| **Default Sort** | By name (ascending) |
+| **Search Fields** | `name` (case-insensitive contains) |
+| **Duplicate Check** | Prevents same user from creating categories with identical names |
+| **Validation** | Django REST Framework serializer validation with translated error messages |
+| **Error Handling** | Returns proper REST API response with field-specific validation errors |
+
+#### **API Examples**
+
+**Get all categories:**
+```
+GET /api/banking/categories/
+```
+
+**Search for categories containing "Entertainment":**
+```
+GET /api/banking/categories/?search=Entertainment
+```
+
+**Sort by name ascending:**
+```
+GET /api/banking/categories/?ordering=name
+```
+
+**Sort by name descending:**
+```
+GET /api/banking/categories/?ordering=-name
+```
+
+**Combine search and sort:**
+```
+GET /api/banking/categories/?search=Ent&ordering=-name
+```
+
+**Sort by color:**
+```
+GET /api/banking/categories/?ordering=color
+GET /api/banking/categories/?ordering=-color
+```
+
+#### **Error Handling**
+
+**Duplicate Category Error** (Translated)
+- English: "A category with this name already exists."
+- German: "Eine Kategorie mit diesem Namen existiert bereits."
+- Backend validates **before** database constraint violation
+- Returns HTTP 400 with proper error response
+
+**Required Field Errors** (Translated)
+- English: "Category name is required."
+- German: "Der Kategoriename ist erforderlich."
+
+#### **Frontend Implementation**
+
+**CategoriesManager Component:**
+- Search input with real-time filtering
+- Sortable column headers (Name, Color)
+- Click to toggle sort direction
+- Pagination support
+- Error modal with translated messages
+- Create/Edit modals with validation
+
+**Backend ViewSet Configuration:**
+```python
+class CategoryViewSet(viewsets.ModelViewSet):
+    serializer_class = CategorySerializer
+    permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['name']
+    ordering_fields = ['name', 'color']
+    ordering = ['name']  # Default ordering
+```
 
 ### **Rules** (Auto-categorization)
 - Conditions: description contains, amount range, date range
