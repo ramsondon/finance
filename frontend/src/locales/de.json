@@ -191,7 +191,12 @@
     "monthlyEquivalent": "/Monat",
     "yearlyEquivalent": "/Jahr",
     "years": "Jahre",
-    "days": "Tage"
+    "days": "Tage",
+    "linkedTransactions": "Verknüpfte Transaktionen",
+    "noLinkedTransactions": "Keine Transaktionen für dieses Abomuster gefunden.",
+    "total": "Gesamt",
+    "transactions": "Transaktionen",
+    "close": "Schließen"
   },
   "insights": {
     "title": "KI-Finanzeinblicke",

@@ -189,9 +189,14 @@
     "unignoreLabel": "Unignore",
     "addNoteLabel": "Add Note",
     "monthlyEquivalent": "/month",
-    "yearlyEquivalent": "/year",
+    "linkedTransactions": "Linked Transactions",
+    "noLinkedTransactions": "No transactions found for this recurring pattern.",
+    "total": "Total",
+    "transactions": "transactions",
+    "close": "Close",
+    "days": "days",
     "years": "years",
-    "days": "days"
+    "yearlyEquivalent": "/year"
   },
   "insights": {
     "title": "AI Financial Insights",

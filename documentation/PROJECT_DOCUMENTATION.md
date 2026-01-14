@@ -389,7 +389,9 @@ GET    /api/banking/recurring/overdue/     - Get overdue items
 GET    /api/banking/recurring/upcoming/    - Get upcoming items
 POST   /api/banking/recurring/detect/      - Trigger detection
 POST   /api/banking/recurring/{id}/ignore/ - Mark as ignored
+POST   /api/banking/recurring/{id}/unignore/ - Unignore
 PATCH  /api/banking/recurring/{id}/add_note/ - Add notes
+GET    /api/banking/recurring/{id}/linked_transactions/ - Get linked transactions (NEW)
 ```
 
 **Analytics:**
@@ -751,6 +753,27 @@ Result: Netflix detected as MONTHLY only (no duplicates)
 - See next expected date and days until
 - Get alerts for overdue subscriptions
 - View monthly/yearly cost equivalents
+- **View linked transactions** - Click the 🔗 button to see all actual transactions that match this recurring pattern
+
+### **Linked Transactions Feature (NEW)**
+Users can now click the 🔗 button next to any recurring transaction to view all the actual bank transactions that form the pattern. This provides deep insights into:
+- All individual transaction dates and amounts
+- Payment descriptions and references
+- Categories assigned to each transaction
+- Confirms the pattern detection was correct
+
+**Backend Implementation:**
+- New endpoint: `GET /api/banking/recurring/{id}/linked_transactions/`
+- Returns the list of Transaction objects stored in `RecurringTransaction.transaction_ids`
+- Includes full transaction details via TransactionSerializer
+- Respects user permissions (only shows user's own transactions)
+
+**Frontend Implementation:**
+- New LinkedTransactionsModal component displays transactions in a scrollable table
+- Shows date, description, reference, amount (color-coded), and category
+- Modal header displays recurring pattern summary (description, frequency)
+- Footer shows total transaction count
+- Responsive design works on mobile devices
 
 ### **Admin Dashboard** (Django Admin)
 - Full CRUD interface for reviewing detected patterns
@@ -763,8 +786,8 @@ Result: Netflix detected as MONTHLY only (no duplicates)
 - Superuser-only delete permission
 - Manual creation disabled (only via detection)
 
-### **API - 7 Endpoints**
-✅ List (with pagination/filtering), summary, overdue, upcoming, detect, ignore/unignore, add notes
+### **API - 8 Endpoints**
+✅ List (with pagination/filtering), summary, overdue, upcoming, detect, ignore/unignore, add notes, linked_transactions (NEW)
 
 ### **Frontend Components**
 - **RecurringTransactionsView:** Complete dashboard with pagination
@@ -775,6 +798,13 @@ Result: Netflix detected as MONTHLY only (no duplicates)
   - Pagination controls
   - Ignore/unignore transactions
   - Add user notes
+  - **View linked transactions** - Click 🔗 to see all transactions in the pattern
+- **LinkedTransactionsModal:** (NEW) Modal showing all linked transactions
+  - Displays full transaction details (date, description, reference, amount, category)
+  - Scrollable table for large transaction sets
+  - Header shows recurring pattern details
+  - Footer shows total transaction count
+  - Close button to dismiss modal
 - **Overdue alerts:** Visual warnings for missed recurring transactions
 - **Confidence scores:** Color-coded percentages (90%+ green, 75%+ blue, 60%+ yellow, <60% red)
 

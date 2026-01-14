@@ -8,14 +8,12 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import OrderingFilter
-from django.db.models import Sum, Q
+from django.db.models import Sum
 from decimal import Decimal
 
-from ..models import RecurringTransaction, BankAccount
-from ..serializers.recurring import (
-    RecurringTransactionSerializer,
-    RecurringTransactionSummarySerializer
-)
+from ..models import RecurringTransaction, BankAccount, Transaction
+from ..serializers.recurring import RecurringTransactionSerializer
+from ..serializers import TransactionSerializer
 from ..tasks import detect_recurring_transactions_task
 
 
@@ -233,5 +231,42 @@ class RecurringTransactionViewSet(viewsets.ModelViewSet):
             'count': upcoming_qs.count(),
             'days_ahead': days_ahead,
             'recurring_transactions': serializer.data
+        })
+
+    @action(detail=True, methods=['get'])
+    def linked_transactions(self, request, pk=None):
+        """
+        Get all actual transactions linked to this recurring transaction pattern.
+
+        Returns the list of Transaction objects that match this recurring pattern.
+        """
+        recurring = self.get_object()
+
+        # Get the transaction IDs stored in the recurring transaction
+        transaction_ids = recurring.transaction_ids or []
+
+        if not transaction_ids:
+            return Response({
+                'count': 0,
+                'recurring_id': recurring.id,
+                'recurring_description': recurring.description,
+                'transactions': []
+            })
+
+        # Fetch the actual transactions
+        transactions = Transaction.objects.filter(
+            id__in=transaction_ids,
+            account__user=request.user  # Security: only user's transactions
+        ).order_by('-date')
+
+        serializer = TransactionSerializer(transactions, many=True)
+
+        return Response({
+            'count': transactions.count(),
+            'recurring_id': recurring.id,
+            'recurring_description': recurring.description,
+            'recurring_frequency': recurring.frequency,
+            'recurring_amount': float(recurring.amount),
+            'transactions': serializer.data
         })
 

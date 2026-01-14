@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import { useTranslate } from '../hooks/useLanguage'
-import { formatDate, formatDateTime } from '../utils/format'
+import { formatDate } from '../utils/format'
 
 /**
  * RecurringTransactionsView
@@ -27,6 +27,9 @@ export default function RecurringTransactionsView() {
   })
   const [showDetectModal, setShowDetectModal] = useState(false)
   const [detecting, setDetecting] = useState(false)
+  const [selectedRecurring, setSelectedRecurring] = useState(null)
+  const [linkedTransactions, setLinkedTransactions] = useState([])
+  const [loadingLinked, setLoadingLinked] = useState(false)
 
   // Fetch accounts list
   useEffect(() => {
@@ -118,6 +121,25 @@ export default function RecurringTransactionsView() {
     } catch (err) {
       console.error('Failed to toggle ignore:', err)
     }
+  }
+
+  const fetchLinkedTransactions = async (recurringId) => {
+    setLoadingLinked(true)
+    try {
+      const res = await axios.get(`/api/banking/recurring/${recurringId}/linked_transactions/`)
+      setLinkedTransactions(res.data.transactions || [])
+      setSelectedRecurring(res.data)
+    } catch (err) {
+      console.error('Failed to load linked transactions:', err)
+      setError('Failed to load linked transactions')
+    } finally {
+      setLoadingLinked(false)
+    }
+  }
+
+  const closeLinkedModal = () => {
+    setSelectedRecurring(null)
+    setLinkedTransactions([])
   }
 
   const totalPages = Math.max(1, Math.ceil(totalCount / itemsPerPage))
@@ -350,6 +372,7 @@ export default function RecurringTransactionsView() {
                       key={txn.id}
                       transaction={txn}
                       onToggleIgnore={toggleIgnore}
+                      onViewLinked={fetchLinkedTransactions}
                     />
                   ))}
                 </tbody>
@@ -408,6 +431,16 @@ export default function RecurringTransactionsView() {
           detecting={detecting}
         />
       )}
+
+      {/* Linked Transactions Modal */}
+      {selectedRecurring && (
+        <LinkedTransactionsModal
+          recurring={selectedRecurring}
+          transactions={linkedTransactions}
+          loading={loadingLinked}
+          onClose={closeLinkedModal}
+        />
+      )}
     </div>
   )
 }
@@ -424,7 +457,7 @@ function SummaryCard({ title, value, icon, highlight }) {
   )
 }
 
-function RecurringTransactionRow({ transaction, onToggleIgnore }) {
+function RecurringTransactionRow({ transaction, onToggleIgnore, onViewLinked }) {
   const t = useTranslate()
   const [showNotes, setShowNotes] = useState(false)
   const [notes, setNotes] = useState(transaction.user_notes)
@@ -482,6 +515,13 @@ function RecurringTransactionRow({ transaction, onToggleIgnore }) {
       </td>
       <td className="px-6 py-4 text-center whitespace-nowrap">
         <div className="flex items-center justify-center gap-2">
+          <button
+            onClick={() => onViewLinked(transaction.id)}
+            className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded hover:bg-purple-200"
+            title="View linked transactions"
+          >
+            🔗
+          </button>
           <button
             onClick={() => onToggleIgnore(transaction.id, transaction.is_ignored)}
             className={`px-2 py-1 text-xs rounded ${
@@ -567,3 +607,112 @@ function DetectModal({ onClose, onDetect, detecting }) {
   )
 }
 
+function LinkedTransactionsModal({ recurring, transactions, loading, onClose }) {
+  const t = useTranslate()
+
+  return (
+    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-lg w-full max-w-4xl max-h-[90vh] flex flex-col">
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-bold text-gray-900">
+              🔗 {t('recurring.linkedTransactions')}
+            </h3>
+            <p className="text-sm text-gray-600 mt-1">
+              {recurring.recurring_description} ({recurring.recurring_frequency})
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {loading ? (
+            <div className="flex justify-center items-center h-32">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+          ) : transactions.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              {t('recurring.noLinkedTransactions')}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">
+                      {t('transactions.date')}
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">
+                      {t('transactions.description')}
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">
+                      {t('transactions.reference')}
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700">
+                      {t('transactions.amount')}
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">
+                      {t('transactions.category')}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transactions.map((txn) => (
+                    <tr key={txn.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm">
+                        {formatDate(txn.date)}
+                      </td>
+                      <td className="px-4 py-3 text-sm max-w-xs truncate">
+                        {txn.description}
+                      </td>
+                      <td className="px-4 py-3 text-sm max-w-xs truncate text-gray-600">
+                        {txn.reference}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-right font-medium">
+                        <span className={txn.amount >= 0 ? 'text-green-600' : 'text-red-600'}>
+                          {txn.amount >= 0 ? '+' : ''}{txn.amount} {txn.account_currency}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        {txn.category_name ? (
+                          <span
+                            className="inline-block px-2 py-1 rounded-full text-xs font-medium text-white"
+                            style={{ backgroundColor: txn.category_color || '#666' }}
+                          >
+                            {txn.category_name}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between bg-gray-50">
+          <div className="text-sm text-gray-600">
+            {t('recurring.total')}: <strong>{transactions.length}</strong> {t('recurring.transactions')}
+          </div>
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-gray-300 text-gray-900 rounded-lg hover:bg-gray-400 font-medium text-sm"
+          >
+            {t('recurring.close')}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
