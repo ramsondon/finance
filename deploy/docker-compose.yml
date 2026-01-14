@@ -64,10 +64,11 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: ["bash", "-lc", "celery -A finance_project worker -l info"]
-    volumes:
-      - ..:/app
+    command: ["bash", "-lc", "cd /app/backend && python -m celery -A finance_project worker -l info --concurrency=4"]
     restart: unless-stopped
+    environment:
+      PYTHONUNBUFFERED: "1"
+      DJANGO_SETTINGS_MODULE: "finance_project.settings"
 
   celery-beat:
     build:
@@ -76,12 +77,15 @@ services:
     env_file:
       - ./.env.local
     depends_on:
+      db:
+        condition: service_healthy
       redis:
         condition: service_healthy
-    command: ["bash", "-lc", "celery -A finance_project beat -l info"]
-    volumes:
-      - ..:/app
+    command: ["bash", "-lc", "cd /app/backend && python -m celery -A finance_project beat -l info"]
     restart: unless-stopped
+    environment:
+      PYTHONUNBUFFERED: "1"
+      DJANGO_SETTINGS_MODULE: "finance_project.settings"
 
   ollama:
     image: ollama/ollama:latest

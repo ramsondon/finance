@@ -45,6 +45,11 @@ RUN echo "Static files after copy:" && ls -lah /app/backend/finance_project/stat
 # Set working directory to where manage.py is
 WORKDIR /app/backend
 
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    DJANGO_SETTINGS_MODULE=finance_project.settings
+
 # Expose port
 EXPOSE 8000
 
