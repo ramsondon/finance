@@ -263,6 +263,11 @@ class RecurringTransactionDetector:
 
         # Check if amounts are consistent
         avg_amount = sum(amounts) / len(amounts)
+
+        # Skip if average amount is zero (can't calculate percentage variance)
+        if avg_amount == 0:
+            return None
+
         amount_variance = [
             a for a in amounts
             if abs(a - avg_amount) / avg_amount <= self.AMOUNT_TOLERANCE

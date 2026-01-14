@@ -2,6 +2,7 @@
 Serializers for recurring transaction data.
 """
 
+from decimal import Decimal
 from rest_framework import serializers
 from ..models import RecurringTransaction
 
@@ -62,27 +63,27 @@ class RecurringTransactionSerializer(serializers.ModelSerializer):
     def get_monthly_cost(self, obj):
         """Calculate monthly cost equivalent."""
         if obj.frequency == 'weekly':
-            return float(obj.amount * 4.33)
+            return float(obj.amount * Decimal('4.33'))
         elif obj.frequency == 'bi-weekly':
-            return float(obj.amount * 2.17)
+            return float(obj.amount * Decimal('2.17'))
         elif obj.frequency == 'monthly':
             return float(obj.amount)
         elif obj.frequency == 'quarterly':
-            return float(obj.amount / 3)
+            return float(obj.amount / Decimal('3'))
         elif obj.frequency == 'yearly':
-            return float(obj.amount / 12)
+            return float(obj.amount / Decimal('12'))
         return 0.0
 
     def get_yearly_cost(self, obj):
         """Calculate yearly cost equivalent."""
         if obj.frequency == 'weekly':
-            return float(obj.amount * 52)
+            return float(obj.amount * Decimal('52'))
         elif obj.frequency == 'bi-weekly':
-            return float(obj.amount * 26)
+            return float(obj.amount * Decimal('26'))
         elif obj.frequency == 'monthly':
-            return float(obj.amount * 12)
+            return float(obj.amount * Decimal('12'))
         elif obj.frequency == 'quarterly':
-            return float(obj.amount * 4)
+            return float(obj.amount * Decimal('4'))
         elif obj.frequency == 'yearly':
             return float(obj.amount)
         return 0.0
