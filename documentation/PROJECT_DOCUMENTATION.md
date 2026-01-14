@@ -878,6 +878,152 @@ AppContent (main)
 
 ## 🎯 UI Components & Features
 
+### **DateInput Component** (Reusable Date Input with Picker)
+
+### **CustomDatePicker Component** (Professional Custom Calendar)
+
+A fully custom, professional date picker with calendar UI, multilingual support, and configurable date formats.
+
+#### **Features**
+- ✅ Beautiful custom calendar UI with month/year navigation
+- ✅ Text input for manual date entry in user's preferred format
+- ✅ Multilingual support (English, German, extensible)
+- ✅ Respects user's configured date format
+- ✅ Click outside to close
+- ✅ "Today" button in footer
+- ✅ Professional Tailwind styling
+- ✅ Works reliably everywhere (modals, flexible layouts)
+- ✅ Keyboard accessible
+
+#### **Supported Languages**
+| Language | Month Names | Day Names | Button Text |
+|----------|------------|-----------|-------------|
+| English | January, February, ... | Sun, Mon, ... | Today |
+| German | Januar, Februar, ... | So, Mo, ... | Heute |
+
+New languages can be added easily by extending monthNames and dayNames objects.
+
+#### **Supported Date Formats**
+- MM/DD/YYYY (US)
+- DD/MM/YYYY (Europe)
+- YYYY-MM-DD (ISO/Nordic)
+- DD.MM.YYYY (German)
+
+Respects user's format preference configured in Settings.
+
+#### **Props**
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `value` | string | undefined | ISO format date (YYYY-MM-DD) |
+| `onChange` | function | required | Callback receiving ISO format date |
+| `placeholder` | string | auto | Input placeholder (auto-generated if not provided) |
+| `title` | string | "Enter date in your preferred format" | Tooltip text |
+| `showPickerButton` | boolean | true | Show/hide 📅 button |
+| `className` | string | "" | Additional CSS classes |
+
+#### **Usage Example**
+```javascript
+import CustomDatePicker from './CustomDatePicker'
+
+<CustomDatePicker
+  value={dateFrom}  // ISO format: "2026-01-14"
+  onChange={(isoDate) => setDateFrom(isoDate)}
+  title="Start date for filter"
+  showPickerButton={true}
+/>
+```
+
+#### **How It Works**
+
+**Calendar Modal:**
+- Shows current month with clickable dates
+- Month/year header with navigation arrows (←/→)
+- Previous month and next month navigation
+- Selected date highlighted in blue
+- Today's date shown with blue border
+- "Today" button in footer for quick selection
+- Click outside to close calendar
+
+**Manual Text Entry:**
+- Type date in user's preferred format
+- Real-time format validation
+- Press Enter or click away to confirm
+- Placeholder shows expected format
+
+**Data Flow:**
+```
+User Action
+    ↓
+Type date OR click calendar
+    ↓
+Format validation/conversion
+    ↓
+Convert to ISO format (YYYY-MM-DD)
+    ↓
+onChange callback with ISO date
+    ↓
+Parent component receives date
+```
+
+#### **Components Using CustomDatePicker**
+1. **AccountDetailsView** - Date range filters for transactions
+2. **CreateAccountModal** - Opening balance reference date
+3. **RulesManager** - Rule date range conditions
+
+#### **Implementation Details**
+- File: `frontend/src/components/CustomDatePicker.jsx`
+- Exports: `DateInput.jsx` (backward compatible)
+- Dependencies: `format.js` utilities, `useLanguage` hook
+- Size: ~250 lines of well-commented code
+- Styling: Tailwind CSS (fully responsive)
+
+#### **Adding New Languages**
+To add a new language (e.g., Spanish):
+
+```javascript
+// In CustomDatePicker.jsx
+const monthNames = {
+  en: ['January', 'February', ...],
+  de: ['Januar', 'Februar', ...],
+  es: ['Enero', 'Febrero', ...],  // ADD THIS
+}
+
+const dayNames = {
+  en: ['Sun', 'Mon', ...],
+  de: ['So', 'Mo', ...],
+  es: ['Do', 'Lu', ...],  // ADD THIS
+}
+
+// For footer button (es = Spanish):
+{currentLanguage === 'es' ? 'Hoy' : 'Today'}
+```
+
+#### **Styling Customization**
+Calendar colors and styles can be customized via Tailwind classes:
+- Selected date: `bg-blue-600`
+- Today indicator: `border-blue-500`
+- Hover effect: `hover:bg-gray-100`
+- Font sizes: `text-sm` for days
+
+Adjust these classes directly in the component for different styling.
+
+#### **Browser Support**
+✅ All modern browsers (Chrome, Firefox, Safari, Edge)
+✅ Mobile browsers (iOS Safari, Chrome Mobile)
+✅ Works inside modals and overlays
+✅ Responsive design
+
+#### **Backward Compatibility**
+✅ **DateInput component still works exactly the same**
+- All existing imports continue to work
+- All existing props work identically
+- Components need no code changes
+- CustomDatePicker is transparently used
+
+
+
+
+
 ### **Backend Pagination (Best Practice)**
 
 **All list views use backend pagination for efficiency and scalability.**

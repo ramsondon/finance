@@ -274,14 +274,12 @@ export default function AccountDetailsView({ accountId, onClose }) {
             <DateInput
               value={dateFrom}
               onChange={(isoDate) => setDateFrom(isoDate)}
-              placeholder="From (MM/DD/YYYY)"
               title="Start date for filter"
               showPickerButton={true}
             />
             <DateInput
               value={dateTo}
               onChange={(isoDate) => setDateTo(isoDate)}
-              placeholder="To (MM/DD/YYYY)"
               title="End date for filter"
               showPickerButton={true}
             />

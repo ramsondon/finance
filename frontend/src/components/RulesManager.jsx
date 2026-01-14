@@ -618,7 +618,6 @@ function EditRuleModal({ rule, categories, onClose, onSuccess }) {
                 <DateInput
                   value={form.date_from}
                   onChange={(isoDate) => setForm({ ...form, date_from: isoDate })}
-                  placeholder="MM/DD/YYYY"
                   title="Start date for rule"
                   showPickerButton={true}
                 />
@@ -628,7 +627,6 @@ function EditRuleModal({ rule, categories, onClose, onSuccess }) {
                 <DateInput
                   value={form.date_to}
                   onChange={(isoDate) => setForm({ ...form, date_to: isoDate })}
-                  placeholder="MM/DD/YYYY"
                   title="End date for rule"
                   showPickerButton={true}
                 />

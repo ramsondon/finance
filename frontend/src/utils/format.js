@@ -8,7 +8,6 @@ export const DATE_FORMATS = {
   'DD/MM/YYYY': { locale: 'en-GB', format: 'short' },
   'YYYY-MM-DD': { locale: 'sv-SE', format: 'short' },
   'DD.MM.YYYY': { locale: 'de-DE', format: 'short' },
-  'Long': { locale: 'en-US', format: 'long' },
 }
 
 // Currency options
@@ -75,8 +74,8 @@ export function formatDate(date, dateFormat = null) {
   const locale = prefs.language === 'de' ? 'de-DE' : options.locale
 
   return d.toLocaleDateString(locale, {
-    year: format === 'Long' ? 'numeric' : '2-digit',
-    month: format === 'Long' ? 'long' : '2-digit',
+    year: '2-digit',
+    month: '2-digit',
     day: '2-digit',
   })
 }
@@ -104,8 +103,8 @@ export function formatDateTime(dateTimeString, dateFormat = null, timeFormat = n
 
   // Format date part
   const dateStr = d.toLocaleDateString(locale, {
-    year: format === 'Long' ? 'numeric' : '2-digit',
-    month: format === 'Long' ? 'long' : '2-digit',
+    year: '2-digit',
+    month: '2-digit',
     day: '2-digit',
   })
 
@@ -234,10 +233,13 @@ export function dateToInputFormat(isoDate, dateFormat = null) {
  *
  * @param {string} inputDate - Date in user's preferred format or ISO
  * @param {string} dateFormat - User's preferred date format (optional)
- * @returns {string} Date in ISO format (YYYY-MM-DD)
+ * @returns {string} Date in ISO format (YYYY-MM-DD) or empty string if invalid
  */
 export function inputDateToISO(inputDate, dateFormat = null) {
-  if (!inputDate) return ''
+  if (!inputDate || typeof inputDate !== 'string') return ''
+
+  const trimmedInput = inputDate.trim()
+  if (trimmedInput.length === 0) return ''
 
   const format = dateFormat || getFormatPreferences().dateFormat
 
@@ -246,51 +248,68 @@ export function inputDateToISO(inputDate, dateFormat = null) {
   // Try to parse based on user's format preference
   switch(format) {
     case 'MM/DD/YYYY': {
-      const parts = inputDate.split('/')
-      if (parts.length === 3) {
+      const parts = trimmedInput.split('/')
+      if (parts.length === 3 && parts[0] && parts[1] && parts[2]) {
         [month, day, year] = parts
       } else {
-        return inputDate // Return as-is if can't parse
+        return '' // Return empty string if can't parse
       }
       break
     }
     case 'DD/MM/YYYY': {
-      const parts = inputDate.split('/')
-      if (parts.length === 3) {
+      const parts = trimmedInput.split('/')
+      if (parts.length === 3 && parts[0] && parts[1] && parts[2]) {
         [day, month, year] = parts
       } else {
-        return inputDate
+        return ''
       }
       break
     }
     case 'DD.MM.YYYY': {
-      const parts = inputDate.split('.')
-      if (parts.length === 3) {
+      const parts = trimmedInput.split('.')
+      if (parts.length === 3 && parts[0] && parts[1] && parts[2]) {
         [day, month, year] = parts
       } else {
-        return inputDate
+        return ''
       }
       break
     }
-    case 'YYYY-MM-DD':
-    case 'Long':
-      // Already in ISO format or try parsing as ISO
-      if (inputDate.includes('-')) {
-        return inputDate // Already ISO
+    case 'YYYY-MM-DD': {
+      // Already in ISO format
+      if (/^\d{4}-\d{2}-\d{2}$/.test(trimmedInput)) {
+        return trimmedInput
       }
-      return inputDate
+      return ''
+    }
     default:
-      return inputDate
+      return ''
   }
 
-  // Format as ISO (YYYY-MM-DD)
+  // Validate and format as ISO (YYYY-MM-DD)
   if (year && month && day) {
+    // Validate numeric values
+    const monthNum = parseInt(month, 10)
+    const dayNum = parseInt(day, 10)
+    const yearNum = parseInt(year, 10)
+
+    // Basic validation
+    if (monthNum < 1 || monthNum > 12 || dayNum < 1 || dayNum > 31 || yearNum < 1900) {
+      return ''
+    }
+
     // Pad month and day with zeros if needed
     const paddedMonth = String(month).padStart(2, '0')
     const paddedDay = String(day).padStart(2, '0')
-    return `${year}-${paddedMonth}-${paddedDay}`
+    const paddedYear = String(yearNum).padStart(4, '0')
+
+    const isoDate = `${paddedYear}-${paddedMonth}-${paddedDay}`
+
+    // Validate the resulting ISO date
+    if (/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) {
+      return isoDate
+    }
   }
 
-  return inputDate
+  return ''
 }
 

@@ -200,7 +200,6 @@ export default function CreateAccountModal({ onClose, onCreated }) {
             <DateInput
               value={form.opening_balance_date}
               onChange={(isoDate) => handleChange({ target: { name: 'opening_balance_date', value: isoDate } })}
-              placeholder="MM/DD/YYYY"
               title="Reference date for opening balance"
               showPickerButton={true}
             />
