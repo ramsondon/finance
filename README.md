@@ -4,6 +4,20 @@ A production-ready finance analytics platform with Django 6, DRF, React 18, Tail
 
 **✨ Features a modern admin dashboard design with dark sidebar, gradient cards, and professional UI elements.**
 
+---
+
+## 📚 Documentation
+
+**See `documentation/` directory for complete project documentation:**
+
+- **`documentation/PROJECT_DOCUMENTATION.md`** - Master reference (complete architecture, APIs, database, features)
+- **`documentation/.INSTRUCTIONS.md`** - System rules for consistent development
+- **`documentation/PYCHARM_INSTRUCTIONS.md`** - How to use PyCharm Copilot with this project
+- **`documentation/QUICK_REFERENCE.md`** - Quick lookup guide
+- **`documentation/DOCUMENTATION_HIERARCHY.md`** - Overview of documentation system
+
+---
+
 ## Features
 
 ✅ **Modern Admin Dashboard Design**

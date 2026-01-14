@@ -1,9 +1,11 @@
-# 📚 CLAUDE.md - Finance Forecast Project - Complete Documentation
+# 📚 PROJECT_DOCUMENTATION.md - Finance Forecast Project - Complete Documentation
 
 **Project:** Finance Forecast - Intelligent Banking Transaction Analysis System  
 **Status:** ✅ PRODUCTION READY  
 **Last Updated:** January 14, 2026  
 **Document Version:** 3.0 (Complete Project Coverage)
+
+**Location:** `documentation/PROJECT_DOCUMENTATION.md`
 
 ---
 
