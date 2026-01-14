@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { dateToInputFormat, inputDateToISO, getFormatPreferences, formatDate } from '../utils/format'
-import { useTranslate } from '../hooks/useLanguage'
+import { dateToInputFormat, inputDateToISO, getFormatPreferences } from '../utils/format'
 
 /**
  * CustomDatePicker Component
@@ -33,6 +32,7 @@ export default function CustomDatePicker({
 }) {
   const [displayValue, setDisplayValue] = useState(dateToInputFormat(value || ''))
   const [showCalendar, setShowCalendar] = useState(false)
+  const [calendarMode, setCalendarMode] = useState('month') // 'month' or 'year'
   const [currentMonth, setCurrentMonth] = useState(() => {
     if (value && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
       const [year, month] = value.split('-')
@@ -42,7 +42,6 @@ export default function CustomDatePicker({
   })
   const calendarRef = useRef(null)
   const prefs = getFormatPreferences()
-  const t = useTranslate()
 
   // Month names for different languages
   const monthNames = {
@@ -52,15 +51,13 @@ export default function CustomDatePicker({
          'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'],
   }
 
-  // Day names for different languages
-  const dayNames = {
-    en: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
-    de: ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'],
-  }
+  // Day names: English starts with Sunday, German starts with Monday
+  const dayNamesEn = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const dayNamesDe = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
 
   const currentLanguage = prefs.language === 'de' ? 'de' : 'en'
   const months = monthNames[currentLanguage]
-  const days = dayNames[currentLanguage]
+  const days = currentLanguage === 'de' ? dayNamesDe : dayNamesEn
 
   const getDefaultPlaceholder = () => {
     return prefs.dateFormat
@@ -106,7 +103,12 @@ export default function CustomDatePicker({
   }
 
   const getFirstDayOfMonth = (date) => {
-    return new Date(date.getFullYear(), date.getMonth(), 1).getDay()
+    const firstDay = new Date(date.getFullYear(), date.getMonth(), 1).getDay()
+    // For German (Monday first), convert Sunday (0) to 6, everything else shift by 1
+    if (currentLanguage === 'de') {
+      return firstDay === 0 ? 6 : firstDay - 1
+    }
+    return firstDay
   }
 
   const handleDayClick = (day) => {
@@ -126,6 +128,46 @@ export default function CustomDatePicker({
 
   const handleNextMonth = () => {
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))
+  }
+
+  const handleYearClick = (year) => {
+    setCurrentMonth(new Date(year, currentMonth.getMonth()))
+    setCalendarMode('month')
+  }
+
+  const handlePrevYear = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear() - 1, currentMonth.getMonth()))
+  }
+
+  const handleNextYear = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear() + 1, currentMonth.getMonth()))
+  }
+
+  const renderYearSelector = () => {
+    const currentYear = currentMonth.getFullYear()
+    const startYear = Math.floor(currentYear / 12) * 12
+    const years = []
+
+    for (let i = 0; i < 12; i++) {
+      const year = startYear + i
+      const isSelected = year === currentYear
+
+      years.push(
+        <button
+          key={year}
+          onClick={() => handleYearClick(year)}
+          className={`h-10 rounded text-sm font-medium transition-colors ${
+            isSelected
+              ? 'bg-blue-600 text-white'
+              : 'text-gray-700 hover:bg-gray-100'
+          }`}
+        >
+          {year}
+        </button>
+      )
+    }
+
+    return years
   }
 
   const renderCalendarDays = () => {
@@ -198,58 +240,114 @@ export default function CustomDatePicker({
       {/* Calendar modal */}
       {showCalendar && (
         <div className="absolute z-50 mt-2 bg-white border border-gray-300 rounded-lg shadow-lg p-4 w-72">
-          {/* Header with month/year and navigation */}
-          <div className="flex items-center justify-between mb-4">
-            <button
-              type="button"
-              onClick={handlePrevMonth}
-              className="p-1 hover:bg-gray-100 rounded transition-colors"
-              title="Previous month"
-            >
-              ←
-            </button>
-            <h3 className="font-semibold text-gray-900 text-sm">
-              {months[currentMonth.getMonth()]} {currentMonth.getFullYear()}
-            </h3>
-            <button
-              type="button"
-              onClick={handleNextMonth}
-              className="p-1 hover:bg-gray-100 rounded transition-colors"
-              title="Next month"
-            >
-              →
-            </button>
-          </div>
-
-          {/* Day names header */}
-          <div className="grid grid-cols-7 gap-1 mb-2">
-            {days.map((day) => (
-              <div key={day} className="h-8 flex items-center justify-center text-xs font-semibold text-gray-600">
-                {day}
+          {calendarMode === 'month' ? (
+            <>
+              {/* Month view header */}
+              <div className="flex items-center justify-between mb-4">
+                <button
+                  type="button"
+                  onClick={handlePrevMonth}
+                  className="p-1 hover:bg-gray-100 rounded transition-colors"
+                  title="Previous month"
+                >
+                  ←
+                </button>
+                <div className="flex flex-col items-center">
+                  <h3 className="font-semibold text-gray-900 text-sm">
+                    {months[currentMonth.getMonth()]}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setCalendarMode('year')}
+                    className="text-sm font-semibold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
+                    title="Click to select year"
+                  >
+                    {currentMonth.getFullYear()}
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleNextMonth}
+                  className="p-1 hover:bg-gray-100 rounded transition-colors"
+                  title="Next month"
+                >
+                  →
+                </button>
               </div>
-            ))}
-          </div>
 
-          {/* Calendar grid */}
-          <div className="grid grid-cols-7 gap-1">
-            {renderCalendarDays()}
-          </div>
+              {/* Day names header */}
+              <div className="grid grid-cols-7 gap-1 mb-2">
+                {days.map((day) => (
+                  <div key={day} className="h-8 flex items-center justify-center text-xs font-semibold text-gray-600">
+                    {day}
+                  </div>
+                ))}
+              </div>
 
-          {/* Footer with today button */}
-          <div className="mt-4 pt-4 border-t border-gray-200">
-            <button
-              type="button"
-              onClick={() => {
-                const today = new Date().toISOString().split('T')[0]
-                setDisplayValue(dateToInputFormat(today))
-                onChange(today)
-                setShowCalendar(false)
-              }}
-              className="w-full py-2 px-3 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded text-sm font-medium transition-colors"
-            >
-              {currentLanguage === 'de' ? 'Heute' : 'Today'}
-            </button>
-          </div>
+              {/* Calendar grid */}
+              <div className="grid grid-cols-7 gap-1">
+                {renderCalendarDays()}
+              </div>
+
+              {/* Footer with today button */}
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const today = new Date().toISOString().split('T')[0]
+                    setDisplayValue(dateToInputFormat(today))
+                    onChange(today)
+                    setShowCalendar(false)
+                    setCalendarMode('month')
+                  }}
+                  className="w-full py-2 px-3 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded text-sm font-medium transition-colors"
+                >
+                  {currentLanguage === 'de' ? 'Heute' : 'Today'}
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Year selector header */}
+              <div className="flex items-center justify-between mb-4">
+                <button
+                  type="button"
+                  onClick={handlePrevYear}
+                  className="p-1 hover:bg-gray-100 rounded transition-colors"
+                  title="Previous years"
+                >
+                  ←
+                </button>
+                <h3 className="font-semibold text-gray-900 text-sm">
+                  {Math.floor(currentMonth.getFullYear() / 12) * 12} - {Math.floor(currentMonth.getFullYear() / 12) * 12 + 11}
+                </h3>
+                <button
+                  type="button"
+                  onClick={handleNextYear}
+                  className="p-1 hover:bg-gray-100 rounded transition-colors"
+                  title="Next years"
+                >
+                  →
+                </button>
+              </div>
+
+              {/* Year grid */}
+              <div className="grid grid-cols-3 gap-2">
+                {renderYearSelector()}
+              </div>
+
+              {/* Footer with back button */}
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setCalendarMode('month')}
+                  className="w-full py-2 px-3 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded text-sm font-medium transition-colors"
+                >
+                  {currentLanguage === 'de' ? 'Zurück' : 'Back'}
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>
