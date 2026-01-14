@@ -33,13 +33,17 @@ export default function CategoriesManager() {
 
   const loadCategories = async (url) => {
     setLoading(true)
+    // Default to base endpoint if no URL provided
+    const apiUrl = url || '/api/banking/categories/'
     try {
-      const params = {
+      // Only add params if using base endpoint (not pagination links)
+      const isBaseEndpoint = apiUrl === '/api/banking/categories/' || !apiUrl.includes('?')
+      const params = isBaseEndpoint ? {
         search: searchQuery,
         ordering: sortOrder === 'desc' ? `-${sortBy}` : sortBy
-      }
+      } : undefined
 
-      const response = await axios.get(url, { params })
+      const response = await axios.get(apiUrl, params ? { params } : {})
       const data = response.data
 
       // Handle paginated response from backend
@@ -116,10 +120,7 @@ export default function CategoriesManager() {
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value)
-                setCurrentPage(1)
-              }}
+              onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={t('categories.searchPlaceholder')}
               className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
@@ -307,6 +308,7 @@ export default function CategoriesManager() {
 
 function CategoryModal({ category, onClose, onSuccess }) {
   const isEdit = !!category
+  const t = useTranslate()
   const [form, setForm] = useState({
     name: category?.name || '',
     color: category?.color || '#3b82f6'
@@ -359,7 +361,29 @@ function CategoryModal({ category, onClose, onSuccess }) {
       }
       onSuccess()
     } catch (err) {
-      setError(err.response?.data?.message || err.message || `Failed to ${isEdit ? 'update' : 'create'} category`)
+      // Handle validation errors (e.g., duplicate category)
+      if (err.response?.data) {
+        const data = err.response.data
+
+        // Check for field-specific errors (from serializer validation)
+        if (data.name && Array.isArray(data.name)) {
+          // Check if it's a duplicate error
+          if (data.name[0].includes('already exists')) {
+            setError(t('categories.duplicateError') || 'A category with this name already exists.')
+          } else {
+            setError(data.name[0])
+          }
+        } else if (typeof data === 'string') {
+          // General error message
+          setError(data)
+        } else if (data.detail) {
+          setError(data.detail)
+        } else {
+          setError(t('categories.failedToSave') || `Failed to ${isEdit ? 'update' : 'create'} category`)
+        }
+      } else {
+        setError(err.message || `Failed to ${isEdit ? 'update' : 'create'} category`)
+      }
     } finally {
       setSubmitting(false)
     }

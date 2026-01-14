@@ -8,6 +8,26 @@ class CategorySerializer(serializers.ModelSerializer):
         model = Category
         fields = ["id", "name", "color"]
 
+    def validate_name(self, value):
+        """Check if category with this name already exists for the user."""
+        # Get the user from context (set by the view)
+        user = self.context.get('request').user if self.context.get('request') else None
+
+        if user:
+            # Check if a category with this name already exists for this user
+            queryset = Category.objects.filter(user=user, name__iexact=value)
+
+            # If updating, exclude the current instance
+            if self.instance:
+                queryset = queryset.exclude(pk=self.instance.pk)
+
+            if queryset.exists():
+                raise serializers.ValidationError(
+                    f"A category with this name already exists."
+                )
+
+        return value
+
 
 class BankAccountSerializer(serializers.ModelSerializer):
     current_balance = serializers.SerializerMethodField()

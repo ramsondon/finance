@@ -19,12 +19,17 @@ export default function TransactionsTable() {
 
   // Load categories for filter dropdown
   useEffect(() => {
-    axios.get('/api/banking/categories/?page_size=1000')
+    axios.get('/api/banking/categories/', {
+      params: { page_size: 1000 }
+    })
       .then(res => {
         const results = res.data.results || res.data || []
         setCategories(results)
       })
-      .catch(() => setCategories([]))
+      .catch((err) => {
+        console.error('Error loading categories:', err)
+        setCategories([])
+      })
   }, [])
 
   // Initialize from URL hash (supports category filter and "unknown")

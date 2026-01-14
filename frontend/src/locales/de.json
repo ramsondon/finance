@@ -109,7 +109,11 @@
     "createdAt": "Erstellt",
     "total": "{count}",
     "category": "Kategorie",
-    "categories": "Kategorien"
+    "categories": "Kategorien",
+    "duplicateError": "Eine Kategorie mit diesem Namen existiert bereits.",
+    "duplicateErrorDetail": "Bitte verwenden Sie einen anderen Namen für Ihre Kategorie.",
+    "nameRequired": "Der Kategoriename ist erforderlich.",
+    "failedToSave": "Kategorie konnte nicht gespeichert werden."
   },
   "rules": {
     "title": "Kategorisierungsregeln",

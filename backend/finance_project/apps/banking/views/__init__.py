@@ -215,6 +215,10 @@ class TransactionViewSet(viewsets.ModelViewSet):
 class CategoryViewSet(viewsets.ModelViewSet):
     serializer_class = CategorySerializer
     permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['name']
+    ordering_fields = ['name', 'color']
+    ordering = ['name']  # Default ordering by name
 
     def get_queryset(self):
         return Category.objects.filter(user=self.request.user)
