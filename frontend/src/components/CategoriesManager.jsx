@@ -9,6 +9,11 @@ export default function CategoriesManager() {
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [editingCategory, setEditingCategory] = useState(null)
+  const [showAIGenerationModal, setShowAIGenerationModal] = useState(false)
+  const [aiGenerationLoading, setAIGenerationLoading] = useState(false)
+  const [aiGenerationTaskId, setAIGenerationTaskId] = useState(null)
+  const [aiGenerationResult, setAIGenerationResult] = useState(null)
+  const [aiGenerationError, setAIGenerationError] = useState(null)
 
   // Pagination using backend links
   const [nextUrl, setNextUrl] = useState(null)
@@ -30,6 +35,23 @@ export default function CategoriesManager() {
   useEffect(() => {
     loadCategories(currentUrl)
   }, [currentUrl])
+
+  // Listen for ESC key to close AI generation modal
+  useEffect(() => {
+    const handleEscKey = (event) => {
+      if (event.key === 'Escape' && showAIGenerationModal) {
+        closeAIGenerationModal()
+      }
+    }
+
+    // Only add listener when modal is open
+    if (showAIGenerationModal) {
+      document.addEventListener('keydown', handleEscKey)
+      return () => {
+        document.removeEventListener('keydown', handleEscKey)
+      }
+    }
+  }, [showAIGenerationModal])
 
   const loadCategories = async (url) => {
     setLoading(true)
@@ -97,6 +119,90 @@ export default function CategoriesManager() {
     setCurrentUrl('/api/banking/categories/')
   }
 
+  const startAIGeneration = async () => {
+    setAIGenerationLoading(true)
+    setAIGenerationError(null)
+    setAIGenerationResult(null)
+    try {
+      const response = await axios.post('/api/ai/generate-categories',
+        { auto_approve: true },
+        { headers: { 'X-CSRFToken': getCsrfToken() } }
+      )
+      const taskId = response.data.task_id
+      setAIGenerationTaskId(taskId)
+
+      // Poll for task completion
+      let completed = false
+      let attempts = 0
+      const maxAttempts = 300  // 5 minutes with 1 second polling
+
+      while (!completed && attempts < maxAttempts) {
+        attempts++
+
+        try {
+          // Check task status
+          const statusResponse = await axios.get(`/api/ai/task-status/${taskId}`, {
+            headers: { 'X-CSRFToken': getCsrfToken() }
+          })
+
+          const taskStatus = statusResponse.data.status
+
+          if (taskStatus === 'SUCCESS') {
+            // Task completed successfully, reload categories
+            await loadCategories(currentUrl)
+            completed = true
+
+            // Show success message
+            setAIGenerationResult({
+              message: t('aiCategoryGeneration.generationComplete') || 'Categories generated successfully!',
+              taskId: taskId
+            })
+          } else if (taskStatus === 'FAILURE') {
+            // Task failed
+            setAIGenerationError(
+              statusResponse.data.error || t('categories.aiGenerationFailed')
+            )
+            completed = true
+          } else if (taskStatus === 'PENDING' || taskStatus === 'PROGRESS') {
+            // Still processing, wait a bit before checking again
+            await new Promise(resolve => setTimeout(resolve, 1000))
+          }
+        } catch (err) {
+          // Network error or other issue, retry after delay
+          console.warn('Error checking task status:', err)
+          await new Promise(resolve => setTimeout(resolve, 1000))
+        }
+      }
+
+      if (!completed && attempts >= maxAttempts) {
+        setAIGenerationError('Task took too long to complete. Please try again.')
+      }
+
+      setAIGenerationLoading(false)
+
+      // Auto-close modal after 3 seconds if successful
+      if (completed && !setAIGenerationError) {
+        setTimeout(() => {
+          closeAIGenerationModal()
+        }, 3000)
+      }
+    } catch (err) {
+      console.error('Error starting AI generation:', err)
+      setAIGenerationError(
+        err.response?.data?.error || t('categories.aiGenerationFailed')
+      )
+      setAIGenerationLoading(false)
+    }
+  }
+
+  const closeAIGenerationModal = () => {
+    setShowAIGenerationModal(false)
+    setAIGenerationLoading(false)
+    setAIGenerationTaskId(null)
+    setAIGenerationResult(null)
+    setAIGenerationError(null)
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -105,12 +211,28 @@ export default function CategoriesManager() {
           <h2 className="text-2xl font-bold text-gray-900">{t('categories.title')}</h2>
           <p className="text-gray-500 text-sm mt-1">{t('categories.description')}</p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
-        >
-          {t('categories.createCategory')}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowAIGenerationModal(true)}
+            disabled={aiGenerationLoading}
+            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            {aiGenerationLoading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                {t('categories.generating')}
+              </>
+            ) : (
+              t('categories.generateWithAI')
+            )}
+          </button>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+          >
+            {t('categories.createCategory')}
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -131,7 +253,7 @@ export default function CategoriesManager() {
               value={sortBy}
               onChange={(e) => {
                 setSortBy(e.target.value)
-                setCurrentPage(1)
+                setCurrentUrl('/api/banking/categories/')
               }}
               className="border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
@@ -141,7 +263,7 @@ export default function CategoriesManager() {
             <button
               onClick={() => {
                 setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
-                setCurrentPage(1)
+                setCurrentUrl('/api/banking/categories/')
               }}
               className="p-1 hover:bg-gray-100 rounded"
               title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
@@ -301,6 +423,102 @@ export default function CategoriesManager() {
             loadCategories()
           }}
         />
+      )}
+
+      {/* AI Category Generation Modal */}
+      {showAIGenerationModal && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-lg">
+              <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                🤖 {t('aiCategoryGeneration.title')}
+              </h3>
+              <button
+                onClick={closeAIGenerationModal}
+                disabled={aiGenerationLoading}
+                className="text-gray-500 hover:text-gray-700 text-2xl disabled:opacity-50"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {/* Description */}
+              <p className="text-gray-600 text-sm">
+                {t('aiCategoryGeneration.description')}
+              </p>
+
+              {/* Result or Loading State */}
+              {aiGenerationLoading && !aiGenerationResult ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-center py-6">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+                  </div>
+                  <p className="text-center text-gray-600 text-sm">
+                    {t('aiCategoryGeneration.analyzing')}
+                  </p>
+                </div>
+              ) : aiGenerationResult ? (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 space-y-2">
+                  <p className="text-green-800 font-medium">
+                    ✓ {t('aiCategoryGeneration.generationComplete')}
+                  </p>
+                  <p className="text-green-700 text-sm">
+                    {aiGenerationResult.message}
+                  </p>
+                </div>
+              ) : aiGenerationError ? (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 space-y-2">
+                  <p className="text-red-800 font-medium">
+                    ✗ {t('aiCategoryGeneration.generationError')}
+                  </p>
+                  <p className="text-red-700 text-sm">
+                    {aiGenerationError}
+                  </p>
+                </div>
+              ) : null}
+
+              {/* Buttons */}
+              <div className="flex gap-3 pt-4 border-t border-gray-200">
+                {!aiGenerationResult && !aiGenerationError ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={closeAIGenerationModal}
+                      disabled={aiGenerationLoading}
+                      className="flex-1 px-4 py-2 bg-gray-100 text-gray-900 rounded-lg hover:bg-gray-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {t('common.cancel')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={startAIGeneration}
+                      disabled={aiGenerationLoading}
+                      className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center justify-center gap-2"
+                    >
+                      {aiGenerationLoading ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          {t('categories.generating')}
+                        </>
+                      ) : (
+                        t('aiCategoryGeneration.startGeneration')
+                      )}
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={closeAIGenerationModal}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                  >
+                    {t('common.close')}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

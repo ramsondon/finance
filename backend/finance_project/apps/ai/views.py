@@ -70,33 +70,87 @@ class GenerateCategoriesView(APIView):
     POST /api/ai/generate-categories/
 
     Analyzes user's transactions and generates category suggestions using AI.
+    Automatically creates categories with confidence > 0.7 using user's language preference.
+
+    Language is retrieved from UserProfile.preferences (server-side source of truth).
 
     Body (optional):
         {
-            "auto_approve": false  // If true, automatically creates categories with confidence > 0.7
+            "auto_approve": true  // If true, automatically creates categories with confidence > 0.7 (default: true)
         }
 
     Returns:
         {
             "message": "Category generation started",
             "task_id": "abc-123-def",
-            "user_id": 1
+            "user_id": 1,
+            "language": "de"
         }
     """
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        auto_approve = request.data.get('auto_approve', False)
+        from ..accounts.models import UserProfile
 
-        # Trigger async task
-        task = generate_categories_task.delay(request.user.id, auto_approve)
+        auto_approve = request.data.get('auto_approve', True)
+
+        # Get user's language from UserProfile
+        try:
+            profile = UserProfile.objects.get(user=request.user)
+            language = profile.get_language()
+        except UserProfile.DoesNotExist:
+            language = 'en'  # Fallback to English if no profile
+
+        # Trigger async task with language and auto_approve
+        task = generate_categories_task.delay(request.user.id, auto_approve, language)
 
         return Response({
             'message': 'Category generation started in background',
             'task_id': task.id,
             'user_id': request.user.id,
+            'language': language,
             'auto_approve': auto_approve
         }, status=status.HTTP_202_ACCEPTED)
+
+
+class TaskStatusView(APIView):
+    """
+    GET /api/ai/task-status/<task_id>/
+
+    Check the status of a background category generation task.
+
+    Returns:
+        {
+            "task_id": "abc-123-def",
+            "status": "PENDING" | "PROGRESS" | "SUCCESS" | "FAILURE",
+            "result": {...},  // Only if status is SUCCESS
+            "error": "..."    // Only if status is FAILURE
+        }
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, task_id):
+        from celery.result import AsyncResult
+
+        try:
+            task_result = AsyncResult(task_id)
+
+            response_data = {
+                'task_id': task_id,
+                'status': task_result.status,
+            }
+
+            if task_result.status == 'SUCCESS':
+                response_data['result'] = task_result.result
+            elif task_result.status == 'FAILURE':
+                response_data['error'] = str(task_result.info)
+
+            return Response(response_data)
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class CategorySuggestionsView(APIView):
@@ -104,25 +158,35 @@ class CategorySuggestionsView(APIView):
     GET /api/ai/category-suggestions/
 
     Get category suggestions without creating them (synchronous).
+    Uses user's language preference from UserProfile.
     Useful for preview before creating.
 
     Returns:
         {
             "suggestions": [
                 {
-                    "name": "Groceries",
+                    "name": "Lebensmittel" (or "Groceries"),
                     "color": "#22c55e",
                     "confidence": 0.85,
                     "transaction_count": 45,
                     "keywords": ["supermarket", "grocery"]
                 }
-            ]
+            ],
+            "language": "de"
         }
     """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         from .services.category_generator import CategoryGeneratorService
+        from ..accounts.models import UserProfile
+
+        # Get user's language from UserProfile
+        try:
+            profile = UserProfile.objects.get(user=request.user)
+            language = profile.get_language()
+        except UserProfile.DoesNotExist:
+            language = 'en'  # Fallback to English if no profile
 
         # Get active AI provider (optional)
         provider = None
@@ -132,11 +196,12 @@ class CategorySuggestionsView(APIView):
             pass
 
         service = CategoryGeneratorService(provider=provider)
-        suggestions = service.analyze_transactions(request.user.id)
+        suggestions = service.analyze_transactions(request.user.id, language=language)
 
         return Response({
             'suggestions': suggestions,
-            'count': len(suggestions)
+            'count': len(suggestions),
+            'language': language
         })
 
     def post(self, request):
@@ -148,8 +213,8 @@ class CategorySuggestionsView(APIView):
         Body:
             {
                 "suggestions": [
-                    {"name": "Groceries", "color": "#22c55e"},
-                    {"name": "Transport", "color": "#3b82f6"}
+                    {"name": "Lebensmittel", "color": "#22c55e"},
+                    {"name": "Verkehrsmittel", "color": "#3b82f6"}
                 ]
             }
         """

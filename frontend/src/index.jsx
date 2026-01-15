@@ -11,7 +11,7 @@ import LoginPage from './components/LoginPage'
 import LandingPage from './components/LandingPage'
 import axios from 'axios'
 import { getCsrfToken } from './utils/csrf'
-import { getFormatPreferences, saveFormatPreferences, DATE_FORMATS, CURRENCY_OPTIONS, NUMBER_FORMATS, TIME_FORMATS } from './utils/format'
+import { getFormatPreferences, saveFormatPreferences, updateFormatPreferences, DATE_FORMATS, CURRENCY_OPTIONS, NUMBER_FORMATS, TIME_FORMATS } from './utils/format'
 import { getSupportedLanguages, setLanguage as setLanguagePreference } from './utils/i18n'
 import { useTranslate } from './hooks/useLanguage'
 
@@ -287,7 +287,8 @@ function AppContent() {
                       formatPrefs={formatPrefs}
                       setFormatPrefs={(prefs) => {
                         setFormatPrefs(prefs)
-                        saveFormatPreferences(prefs)
+                        // Sync to localStorage AND server
+                        updateFormatPreferences(prefs)
                       }}
                       onClose={() => setShowSettingsMenu(false)}
                       t={t}

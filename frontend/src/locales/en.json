@@ -113,7 +113,43 @@
     "duplicateError": "A category with this name already exists.",
     "duplicateErrorDetail": "Please use a different name for your category.",
     "nameRequired": "Category name is required.",
-    "failedToSave": "Failed to save category."
+    "failedToSave": "Failed to save category.",
+    "generateWithAI": "🤖 Generate with AI",
+    "generateWithAIDesc": "Analyze your transactions and automatically suggest categories based on patterns",
+    "generating": "Generating...",
+    "aiGenerationStarted": "AI category generation started in background",
+    "categoriesGenerated": "{count} categories generated and created",
+    "aiGenerationFailed": "Failed to generate categories. Please try again.",
+    "noSuggestionsFound": "No category patterns detected in your transactions",
+    "generatedCategories": "Generated Categories",
+    "categoriesCreated": "Categories created",
+    "viewGeneratedCategories": "View generated categories",
+    "categoriesWillAppearBelow": "Generated categories will appear in the list below. You can edit or delete them anytime."
+  },
+  "aiCategoryGeneration": {
+    "title": "AI-Powered Category Generation",
+    "description": "Analyze your transactions and automatically generate categories based on spending patterns",
+    "startGeneration": "Generate Categories",
+    "analyzing": "Analyzing your transactions...",
+    "generatingCategories": "Generating category suggestions...",
+    "creatingCategories": "Creating categories (confidence > 70%)...",
+    "generationComplete": "Category generation complete!",
+    "generationError": "An error occurred during category generation",
+    "successMessage": "Successfully created {count} new categories based on your transaction patterns",
+    "noTransactionsError": "Not enough transaction data to generate categories",
+    "resultsFound": "{count} categories generated",
+    "highConfidence": "High confidence matches from your transaction patterns",
+    "aiEnhanced": "Enhanced with AI analysis",
+    "keywords": "Keywords: {keywords}",
+    "confidence": "Confidence",
+    "transactionCount": "Transactions",
+    "close": "Close"
+  },
+  "preferences": {
+    "syncingLanguage": "Syncing language preference...",
+    "languageSyncedSuccess": "Language preference saved",
+    "languageSyncError": "Failed to save language preference"
+
   },
   "rules": {
     "title": "Categorization Rules",

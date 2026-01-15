@@ -49,14 +49,92 @@ export function getFormatPreferences() {
 }
 
 /**
- * Save format preferences to localStorage
+ * Save format preferences to localStorage AND sync to server
+ *
+ * This function:
+ * 1. Updates localStorage immediately (for instant UI change)
+ * 2. Syncs to server asynchronously (UserProfile.preferences)
+ * 3. Does not block - server sync happens in background
  */
 export function saveFormatPreferences(prefs) {
+  // Update localStorage immediately (client-side cache)
   if (prefs.dateFormat) localStorage.setItem('dateFormat', prefs.dateFormat)
   if (prefs.currencyCode) localStorage.setItem('currencyCode', prefs.currencyCode)
   if (prefs.numberFormat) localStorage.setItem('numberFormat', prefs.numberFormat)
   if (prefs.timeFormat) localStorage.setItem('timeFormat', prefs.timeFormat)
   if (prefs.language) localStorage.setItem('language', prefs.language)
+
+  // Sync to server asynchronously (don't block UI)
+  syncPreferencesToServer(prefs).catch(err => {
+    console.warn('Failed to sync format preferences to server:', err)
+    // Continue anyway - localStorage is the fallback
+  })
+}
+
+/**
+ * Sync preferences to server (UserProfile.preferences)
+ *
+ * Non-blocking call to sync user preferences to backend.
+ * Preferences are stored in UserProfile.preferences JSONField.
+ *
+ * @param {Object} prefs - Preferences object
+ *   - dateFormat: Date format ('MM/DD/YYYY', 'DD/MM/YYYY', etc.)
+ *   - currencyCode: Currency code ('USD', 'EUR', etc.)
+ *   - numberFormat: Number format ('1,000.00', '1.000,00', etc.)
+ *   - timeFormat: Time format ('12-hour', '24-hour')
+ *   - language: Language code ('en', 'de', etc.)
+ * @returns {Promise} Resolves when sync completes
+ */
+async function syncPreferencesToServer(prefs) {
+  // Only import when needed (avoid circular dependencies)
+  const { syncPreferencesToServer: syncToServer } = await import('./preferences.js')
+
+  // Build preferences object for server
+  const serverPrefs = {}
+  if (prefs.dateFormat) serverPrefs.dateFormat = prefs.dateFormat
+  if (prefs.currencyCode) serverPrefs.currencyCode = prefs.currencyCode
+  if (prefs.numberFormat) serverPrefs.numberFormat = prefs.numberFormat
+  if (prefs.timeFormat) serverPrefs.timeFormat = prefs.timeFormat
+  if (prefs.language) serverPrefs.language = prefs.language
+
+  // Sync to server
+  if (Object.keys(serverPrefs).length > 0) {
+    await syncToServer(serverPrefs)
+  }
+}
+
+/**
+ * Update all format preferences (syncs to both localStorage and server)
+ *
+ * Convenience function that:
+ * 1. Updates localStorage immediately (instant UI update)
+ * 2. Syncs to server asynchronously (non-blocking)
+ *
+ * @param {Object} prefs - Format preferences object
+ *   - dateFormat: Date format preference
+ *   - currencyCode or currency: Currency preference
+ *   - numberFormat: Number format preference
+ *   - timeFormat: Time format preference
+ *   - language: Language preference
+ * @returns {Promise} Resolves when server sync completes
+ */
+export async function updateFormatPreferences(prefs) {
+  // Update localStorage immediately for instant UI change
+  if (prefs.dateFormat) localStorage.setItem('dateFormat', prefs.dateFormat)
+  if (prefs.currencyCode) localStorage.setItem('currencyCode', prefs.currencyCode)
+  if (prefs.currency) localStorage.setItem('currencyCode', prefs.currency)
+  if (prefs.numberFormat) localStorage.setItem('numberFormat', prefs.numberFormat)
+  if (prefs.timeFormat) localStorage.setItem('timeFormat', prefs.timeFormat)
+  if (prefs.language) localStorage.setItem('language', prefs.language)
+
+  // Sync to server asynchronously (don't block UI)
+  try {
+    await syncPreferencesToServer(prefs)
+    console.log('Format preferences synced to server')
+  } catch (error) {
+    console.warn('Failed to sync format preferences to server, but localStorage updated:', error)
+    // Continue anyway - localStorage is the fallback
+  }
 }
 
 /**

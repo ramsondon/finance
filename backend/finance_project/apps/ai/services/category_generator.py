@@ -53,8 +53,8 @@ class CategoryGeneratorService:
             Category.objects.filter(user_id=user_id).values_list('name', flat=True)
         )
 
-        # Extract patterns from descriptions
-        suggestions = self._extract_category_patterns(transactions, existing_categories)
+        # Extract patterns from descriptions with language awareness
+        suggestions = self._extract_category_patterns(transactions, existing_categories, language)
 
         # Enhance with AI if provider available
         if self.provider and suggestions:
@@ -105,53 +105,137 @@ class CategoryGeneratorService:
 
         return created
 
-    def _extract_category_patterns(self, transactions, existing_categories: Set[str]) -> List[Dict[str, Any]]:
+    def _get_language_patterns(self, language: str = 'en') -> Dict[str, Dict[str, Any]]:
         """
-        Extract category patterns from transaction descriptions using keyword analysis.
+        Get category patterns for a specific language.
+
+        Supports language-specific keywords and category names.
+        Can be extended for additional languages by adding new language dicts.
+
+        ## How to Add a New Language
+
+        To add support for a new language (e.g., Spanish 'es'):
+        1. Add a new key to patterns_by_language dict with language code ('es')
+        2. Define category names in that language (e.g., 'Comestibles' instead of 'Groceries')
+        3. Add locale-specific keywords for each category
+        4. Example structure:
+            'es': {
+                'Comestibles': {
+                    'keywords': ['supermercado', 'groceries', 'mercado', 'carrefour', 'lidl'],
+                    'color': '#22c55e'
+                },
+                ...
+            }
+        5. Update _get_language_instruction() to add Spanish AI prompt instruction
+        6. Update frontend locales/es.json for UI translations
+
+        Args:
+            language: Language code ('en', 'de', etc.)
+
+        Returns:
+            Dictionary of patterns with language-specific keywords and category names
         """
-        # Common category patterns with keywords and colors
-        patterns = {
-            'Groceries': {
-                'keywords': ['supermarket', 'grocery', 'lebensmittel', 'market', 'food', 'edeka', 'rewe', 'aldi', 'lidl', 'hofer', 'billa', 'spar'],
-                'color': '#22c55e'
+        patterns_by_language = {
+            'en': {
+                'Groceries': {
+                    'keywords': ['supermarket', 'grocery', 'market', 'food', 'whole foods', 'trader joe', 'kroger', 'safeway', 'costco', 'walmart'],
+                    'color': '#22c55e'
+                },
+                'Restaurants': {
+                    'keywords': ['restaurant', 'cafe', 'coffee', 'starbucks', 'mcdonald', 'burger', 'pizza', 'kebab', 'bistro', 'bar', 'diner'],
+                    'color': '#f97316'
+                },
+                'Transportation': {
+                    'keywords': ['uber', 'lyft', 'taxi', 'fuel', 'gas', 'parking', 'train', 'bus', 'railway', 'metro', 'transit'],
+                    'color': '#3b82f6'
+                },
+                'Shopping': {
+                    'keywords': ['amazon', 'ebay', 'shop', 'store', 'retail', 'mall', 'online', 'target', 'bestbuy'],
+                    'color': '#ec4899'
+                },
+                'Entertainment': {
+                    'keywords': ['netflix', 'spotify', 'cinema', 'theater', 'concert', 'ticket', 'event', 'hulu', 'disney'],
+                    'color': '#8b5cf6'
+                },
+                'Utilities': {
+                    'keywords': ['electric', 'gas', 'water', 'internet', 'phone', 'utility', 'cable', 'isp'],
+                    'color': '#eab308'
+                },
+                'Healthcare': {
+                    'keywords': ['pharmacy', 'doctor', 'hospital', 'medical', 'health', 'clinic', 'cvs', 'walgreens', 'dental'],
+                    'color': '#ef4444'
+                },
+                'Subscriptions': {
+                    'keywords': ['subscription', 'membership', 'monthly fee', 'annual fee', 'abo', 'recurring'],
+                    'color': '#06b6d4'
+                },
+                'Salary': {
+                    'keywords': ['salary', 'wage', 'payment', 'income', 'paycheck', 'employer'],
+                    'color': '#10b981'
+                },
+                'ATM': {
+                    'keywords': ['atm', 'cash', 'withdrawal', 'cash advance', 'bankomat'],
+                    'color': '#64748b'
+                }
             },
-            'Restaurants': {
-                'keywords': ['restaurant', 'cafe', 'coffee', 'starbucks', 'mcdonald', 'burger', 'pizza', 'kebab', 'bistro', 'bar'],
-                'color': '#f97316'
-            },
-            'Transportation': {
-                'keywords': ['uber', 'taxi', 'fuel', 'gas', 'tankstelle', 'parking', 'train', 'bus', 'railway', 'metro', 'oebb', 'db bahn'],
-                'color': '#3b82f6'
-            },
-            'Shopping': {
-                'keywords': ['amazon', 'ebay', 'shop', 'store', 'retail', 'kaufhaus', 'online'],
-                'color': '#ec4899'
-            },
-            'Entertainment': {
-                'keywords': ['netflix', 'spotify', 'cinema', 'kino', 'theater', 'concert', 'ticket', 'event'],
-                'color': '#8b5cf6'
-            },
-            'Utilities': {
-                'keywords': ['electric', 'strom', 'gas', 'water', 'wasser', 'internet', 'phone', 'telekom', 'vodafone'],
-                'color': '#eab308'
-            },
-            'Healthcare': {
-                'keywords': ['pharmacy', 'apotheke', 'doctor', 'arzt', 'hospital', 'krankenhaus', 'medical', 'health'],
-                'color': '#ef4444'
-            },
-            'Subscriptions': {
-                'keywords': ['subscription', 'membership', 'abo', 'monthly fee', 'jahresbeitrag'],
-                'color': '#06b6d4'
-            },
-            'Salary': {
-                'keywords': ['salary', 'gehalt', 'lohn', 'wage', 'payment', 'income'],
-                'color': '#10b981'
-            },
-            'ATM': {
-                'keywords': ['atm', 'cash', 'withdrawal', 'bankomat', 'geldautomat', 'abhebung'],
-                'color': '#64748b'
+            'de': {
+                'Lebensmittel': {
+                    'keywords': ['supermarkt', 'lebensmittel', 'markt', 'essen', 'edeka', 'rewe', 'aldi', 'lidl', 'hofer', 'billa', 'spar', 'penny'],
+                    'color': '#22c55e'
+                },
+                'Restaurants': {
+                    'keywords': ['restaurant', 'cafe', 'kaffee', 'starbucks', 'mcdonald', 'burger', 'pizza', 'kebab', 'bistro', 'bar', 'gaststätte'],
+                    'color': '#f97316'
+                },
+                'Verkehrsmittel': {
+                    'keywords': ['uber', 'taxi', 'kraftstoff', 'benzin', 'tankstelle', 'parkplatz', 'zug', 'bus', 'bahn', 'metro', 'oebb', 'db bahn'],
+                    'color': '#3b82f6'
+                },
+                'Shopping': {
+                    'keywords': ['amazon', 'ebay', 'shop', 'laden', 'einzelhandel', 'kaufhaus', 'online', 'galeria', 'h&m'],
+                    'color': '#ec4899'
+                },
+                'Unterhaltung': {
+                    'keywords': ['netflix', 'spotify', 'kino', 'theater', 'konzert', 'ticket', 'event', 'veranstaltung'],
+                    'color': '#8b5cf6'
+                },
+                'Nebenkosten': {
+                    'keywords': ['strom', 'gas', 'wasser', 'internet', 'telefon', 'telekom', 'vodafone', 'o2', 'nebenkosten'],
+                    'color': '#eab308'
+                },
+                'Gesundheit': {
+                    'keywords': ['apotheke', 'arzt', 'krankenhaus', 'medizin', 'gesundheit', 'zahnarzt', 'klinik'],
+                    'color': '#ef4444'
+                },
+                'Abos': {
+                    'keywords': ['abonnement', 'mitgliedschaft', 'abo', 'monatliche gebühr', 'jahresbeitrag', 'beitragsgebühr'],
+                    'color': '#06b6d4'
+                },
+                'Gehalt': {
+                    'keywords': ['gehalt', 'lohn', 'zahlung', 'einkommen', 'arbeitgeber'],
+                    'color': '#10b981'
+                },
+                'Geldautomat': {
+                    'keywords': ['geldautomat', 'bankomat', 'abhebung', 'auszahlung', 'bargeldbezug'],
+                    'color': '#64748b'
+                }
             }
         }
+
+        # Return language-specific patterns or fallback to English
+        return patterns_by_language.get(language, patterns_by_language['en'])
+
+    def _extract_category_patterns(self, transactions, existing_categories: Set[str], language: str = 'en') -> List[Dict[str, Any]]:
+        """
+        Extract category patterns from transaction descriptions using language-aware keyword analysis.
+
+        Args:
+            transactions: Transaction data
+            existing_categories: Set of already-created category names
+            language: Language code for keyword matching
+        """
+        # Get language-specific patterns
+        patterns = self._get_language_patterns(language)
 
         # Count matches for each pattern
         pattern_matches = {}
@@ -275,10 +359,12 @@ Sample transactions:
 
 Current pattern-based suggestions: {', '.join([s['name'] for s in existing_suggestions[:10]])}
 
-Based on the transaction descriptions and types (income/expense), suggest 5-10 additional meaningful categories that would help organize these transactions. 
+Based on the transaction descriptions and types (income/expense), suggest 5-10 additional meaningful categories that would help organize these transactions.
+
+IMPORTANT: Generate category names ONLY in the specified language above. Do NOT include translations, English explanations, or any text in parentheses.
 
 For each category, provide:
-- Category name (concise, 1-2 words)
+- Category name (concise, 1-2 words, NO translations or explanations in parentheses)
 - A brief reason why this category is useful
 
 Format your response as:
@@ -341,7 +427,14 @@ Focus on practical categories that reflect the user's actual spending and income
             raise Exception(f"Failed to call Ollama: {e}")
 
     def _parse_ai_categories(self, ai_response: str) -> List[Dict[str, Any]]:
-        """Parse AI response to extract category suggestions."""
+        """
+        Parse AI response to extract category suggestions.
+
+        Cleans up:
+        - Asterisks (*) around category names
+        - English translations in parentheses (e.g., "(English: Housing)")
+        - Extra whitespace
+        """
         categories = []
         lines = ai_response.split('\n')
 
@@ -352,15 +445,17 @@ Focus on practical categories that reflect the user's actual spending and income
             line = line.strip()
             if line.startswith('CATEGORY:'):
                 if current_category:
-                    # Save previous category
-                    categories.append({
-                        'name': current_category.strip("*"),
-                        'color': self._default_color(),
-                        'confidence': 0.75,  # AI-generated have medium-high confidence
-                        'transaction_count': 0,  # Unknown from AI
-                        'keywords': [],
-                        'source': 'ai'
-                    })
+                    # Save previous category with cleaned name
+                    cleaned_name = self._clean_category_name(current_category)
+                    if cleaned_name:  # Only add if name is not empty after cleaning
+                        categories.append({
+                            'name': cleaned_name,
+                            'color': self._default_color(),
+                            'confidence': 0.75,  # AI-generated have medium-high confidence
+                            'transaction_count': 0,  # Unknown from AI
+                            'keywords': [],
+                            'source': 'ai'
+                        })
                 current_category = line.replace('CATEGORY:', '').strip()
                 current_reason = None
             elif line.startswith('REASON:'):
@@ -368,16 +463,46 @@ Focus on practical categories that reflect the user's actual spending and income
 
         # Don't forget the last category
         if current_category:
-            categories.append({
-                'name': current_category,
-                'color': self._default_color(),
-                'confidence': 0.75,
-                'transaction_count': 0,
-                'keywords': [],
-                'source': 'ai'
-            })
+            cleaned_name = self._clean_category_name(current_category)
+            if cleaned_name:
+                categories.append({
+                    'name': cleaned_name,
+                    'color': self._default_color(),
+                    'confidence': 0.75,
+                    'transaction_count': 0,
+                    'keywords': [],
+                    'source': 'ai'
+                })
 
         return categories
+
+    def _clean_category_name(self, name: str) -> str:
+        """
+        Clean category name by removing:
+        - Leading/trailing asterisks
+        - English translations in parentheses
+        - Extra whitespace
+
+        Examples:
+        - "Wohnen (English: Housing)" → "Wohnen"
+        - "*Housing*" → "Housing"
+        - "Groceries (Lebensmittel)" → "Groceries"
+        """
+        # Remove asterisks
+        name = name.strip('*').strip()
+
+        # Remove translations in parentheses - match patterns like:
+        # (English: ...), (english: ...), (English ...), (Explanation: ...), etc.
+        import re
+        # Remove anything in parentheses that contains "English", "english", "translation", "Explanation"
+        name = re.sub(r'\s*\([^)]*(?:English|english|translation|Translation|Explanation)[^)]*\)', '', name)
+
+        # Also remove general translations in format: (name)
+        # But keep it simple - if it looks like a translation (capitalized word in parens after main word), remove it
+        # "Wohnen (Housing)" → "Wohnen"
+        name = re.sub(r'\s*\([A-Z][a-z]+\s*(?::.*)?\)', '', name)
+
+        return name.strip()
 
     def _merge_suggestions(self, pattern_based: List[Dict], ai_based: List[Dict]) -> List[Dict]:
         """Merge pattern-based and AI-based suggestions, avoiding duplicates."""

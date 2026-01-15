@@ -60,3 +60,40 @@ class AuthStatusViewSet(viewsets.ViewSet):
         else:
             return Response({"is_authenticated": False})
 
+    @action(detail=False, methods=["get", "post"], url_path="preferences", permission_classes=[permissions.IsAuthenticated])
+    def preferences(self, request):
+        """
+        GET /api/accounts/auth/preferences/
+            Get user's preferences from server (language, format settings, etc.)
+            Returns: { "language": "de", "dateFormat": "DD.MM.YYYY", ... }
+
+        POST /api/accounts/auth/preferences/
+            Sync/update user's preferences on server
+            Body: { "language": "de", "dateFormat": "DD.MM.YYYY", ... }
+            Returns: Updated preferences
+        """
+        try:
+            profile = UserProfile.objects.get(user=request.user)
+        except UserProfile.DoesNotExist:
+            profile = UserProfile.objects.create(user=request.user)
+
+        if request.method == 'GET':
+            # Return current preferences
+            return Response({
+                "preferences": profile.preferences,
+                "language": profile.get_language()
+            })
+
+        # POST: Update preferences
+        data = request.data
+
+        # Update individual preferences
+        for key, value in data.items():
+            profile.set_preference(key, value)
+
+        return Response({
+            "preferences": profile.preferences,
+            "language": profile.get_language(),
+            "message": "Preferences updated successfully"
+        })
+

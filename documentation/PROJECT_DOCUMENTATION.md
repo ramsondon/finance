@@ -1582,6 +1582,229 @@ celery -A finance_project beat -l info
 
 ---
 
+## 🔄 Async Task Polling Pattern
+
+### **Overview**
+
+When implementing long-running background tasks (e.g., AI category generation, file imports), use the task polling pattern to:
+- Keep modal/UI in loading state while task completes
+- Wait for ACTUAL task completion (not fixed time)
+- Handle timeouts gracefully
+- Provide real-time user feedback
+
+### **Implementation Pattern**
+
+#### **1. Backend: Expose Task Status Endpoint**
+
+**Location:** `backend/finance_project/apps/{app}/views.py`
+
+```python
+from celery.result import AsyncResult
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
+class TaskStatusView(APIView):
+    """
+    GET /api/{app}/task-status/<task_id>/
+    
+    Check the status of a background task.
+    
+    Returns:
+        {
+            "task_id": "abc-123-def",
+            "status": "PENDING" | "PROGRESS" | "SUCCESS" | "FAILURE",
+            "result": {...},  // Only if status is SUCCESS
+            "error": "..."    // Only if status is FAILURE
+        }
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, task_id):
+        try:
+            task_result = AsyncResult(task_id)
+            
+            response_data = {
+                'task_id': task_id,
+                'status': task_result.status,
+            }
+            
+            if task_result.status == 'SUCCESS':
+                response_data['result'] = task_result.result
+            elif task_result.status == 'FAILURE':
+                response_data['error'] = str(task_result.info)
+            
+            return Response(response_data)
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+```
+
+**Register URL:** `backend/finance_project/apps/{app}/urls.py`
+
+```python
+from django.urls import path
+from .views import TaskStatusView
+
+urlpatterns = [
+    path("task-status/<str:task_id>", TaskStatusView.as_view(), name="task-status"),
+]
+```
+
+#### **2. Backend: Start Task Endpoint**
+
+Return `202 ACCEPTED` with task ID:
+
+```python
+class GenerateCategoriesView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        # Trigger async task
+        task = generate_categories_task.delay(request.user.id)
+        
+        return Response({
+            'message': 'Task started in background',
+            'task_id': task.id,
+        }, status=status.HTTP_202_ACCEPTED)
+```
+
+#### **3. Frontend: Poll for Task Completion**
+
+**Location:** React component (e.g., `src/components/ModalWithAsyncTask.jsx`)
+
+```javascript
+const handleStartAsyncTask = async () => {
+  setLoading(true)
+  setError(null)
+  setResult(null)
+  
+  try {
+    // 1. Start the async task
+    const response = await axios.post('/api/{app}/start-task', {
+      /* request data */
+    }, {
+      headers: { 'X-CSRFToken': getCsrfToken() }
+    })
+    
+    const taskId = response.data.task_id
+    
+    // 2. Poll for completion
+    let completed = false
+    let attempts = 0
+    const maxAttempts = 300  // 5 minutes with 1-second polling
+    
+    while (!completed && attempts < maxAttempts) {
+      attempts++
+      
+      try {
+        // Check task status
+        const statusResponse = await axios.get(
+          `/api/{app}/task-status/${taskId}`,
+          { headers: { 'X-CSRFToken': getCsrfToken() } }
+        )
+        
+        const taskStatus = statusResponse.data.status
+        
+        if (taskStatus === 'SUCCESS') {
+          // Task completed - reload data
+          await loadData()
+          completed = true
+          
+          setResult({
+            message: t('task.success'),
+            data: statusResponse.data.result
+          })
+        } else if (taskStatus === 'FAILURE') {
+          // Task failed
+          setError(statusResponse.data.error || t('task.failed'))
+          completed = true
+        } else if (taskStatus === 'PENDING' || taskStatus === 'PROGRESS') {
+          // Still processing - wait and retry
+          await new Promise(resolve => setTimeout(resolve, 1000))
+        }
+      } catch (err) {
+        // Network error - retry after delay
+        console.warn('Error checking task status:', err)
+        await new Promise(resolve => setTimeout(resolve, 1000))
+      }
+    }
+    
+    if (!completed && attempts >= maxAttempts) {
+      setError(t('task.timeout'))
+    }
+    
+    setLoading(false)
+    
+    // Auto-close after showing result
+    if (completed && !error) {
+      setTimeout(() => {
+        closeModal()
+      }, 3000)
+    }
+  } catch (err) {
+    console.error('Error starting task:', err)
+    setError(err.response?.data?.error || t('task.error'))
+    setLoading(false)
+  }
+}
+```
+
+#### **4. Frontend: ESC Key to Close Modal**
+
+```javascript
+useEffect(() => {
+  const handleEscKey = (event) => {
+    if (event.key === 'Escape' && showModal) {
+      closeModal()
+    }
+  }
+
+  if (showModal) {
+    document.addEventListener('keydown', handleEscKey)
+    return () => {
+      document.removeEventListener('keydown', handleEscKey)
+    }
+  }
+}, [showModal])
+```
+
+### **Key Design Points**
+
+| Point | Reason |
+|-------|--------|
+| **202 ACCEPTED** | HTTP standard for async operations |
+| **1-second polling** | Responsive UX, not too many requests |
+| **5-minute timeout** | Prevents infinite waiting |
+| **Cleanup on unmount** | Prevents memory leaks |
+| **Non-blocking sync** | Task check doesn't block UI |
+| **Error states** | Clear user feedback |
+| **Auto-close after success** | Smooth UX flow |
+
+### **Real-World Examples in Project**
+
+**AI Category Generation:**
+- **Start endpoint:** `POST /api/ai/generate-categories`
+- **Status endpoint:** `GET /api/ai/task-status/<task_id>`
+- **Modal:** CategoriesManager AI generation modal
+- **Files:** 
+  - Backend: `apps/ai/views.py` (GenerateCategoriesView, TaskStatusView)
+  - Frontend: `components/CategoriesManager.jsx` (startAIGeneration function)
+
+### **Future Implementations**
+
+For new async tasks, follow this pattern:
+1. Create async Celery task in `tasks.py`
+2. Add start endpoint returning `(task_id, 202 ACCEPTED)`
+3. Add task status endpoint checking `AsyncResult(task_id)`
+4. In frontend, use polling pattern above
+5. Show modal with loading → success/error states
+6. Auto-close or wait for user confirmation
+
+---
+
 ## 🔄 Database Migrations
 
 ### **Creating Migrations**

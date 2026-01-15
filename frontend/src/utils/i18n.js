@@ -1,10 +1,12 @@
 /**
  * Internationalization (i18n) utility
  * Supports multiple languages with fallback to English
+ * Syncs language preference between localStorage and server
  */
 
 import enMessages from '../locales/en.json'
 import deMessages from '../locales/de.json'
+import { updateLanguagePreference } from './preferences'
 
 const messages = {
   en: enMessages,
@@ -24,13 +26,23 @@ export function getLanguage() {
 }
 
 /**
- * Set the language preference
+ * Set the language preference (syncs to server)
+ * Updates localStorage immediately for instant UI change,
+ * and syncs to server asynchronously
  */
 export function setLanguage(language) {
   if (SUPPORTED_LANGUAGES.find(l => l.code === language)) {
+    // Update localStorage immediately for instant UI change
     localStorage.setItem('language', language)
+
     // Dispatch event for instant language change across all components
     window.dispatchEvent(new CustomEvent('languageChanged', { detail: { language } }))
+
+    // Sync to server asynchronously (don't wait for it)
+    updateLanguagePreference(language).catch(err => {
+      console.error('Failed to sync language to server:', err)
+      // Continue anyway - localStorage is the fallback
+    })
   }
 }
 

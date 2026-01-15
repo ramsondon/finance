@@ -113,7 +113,43 @@
     "duplicateError": "Eine Kategorie mit diesem Namen existiert bereits.",
     "duplicateErrorDetail": "Bitte verwenden Sie einen anderen Namen für Ihre Kategorie.",
     "nameRequired": "Der Kategoriename ist erforderlich.",
-    "failedToSave": "Kategorie konnte nicht gespeichert werden."
+    "failedToSave": "Kategorie konnte nicht gespeichert werden.",
+    "generateWithAI": "🤖 Mit KI generieren",
+    "generateWithAIDesc": "Analysieren Sie Ihre Transaktionen und erstellen Sie automatisch Kategorievorschläge basierend auf Mustern",
+    "generating": "Wird generiert...",
+    "aiGenerationStarted": "KI-Kategoriengenerierung im Hintergrund gestartet",
+    "categoriesGenerated": "{count} Kategorien generiert und erstellt",
+    "aiGenerationFailed": "Kategorien konnten nicht generiert werden. Bitte versuchen Sie es erneut.",
+    "noSuggestionsFound": "Keine Kategoriemuster in Ihren Transaktionen erkannt",
+    "generatedCategories": "Generierte Kategorien",
+    "categoriesCreated": "Kategorien erstellt",
+    "viewGeneratedCategories": "Generierte Kategorien anzeigen",
+    "categoriesWillAppearBelow": "Generierte Kategorien werden in der Liste unten angezeigt. Sie können diese jederzeit bearbeiten oder löschen."
+  },
+  "aiCategoryGeneration": {
+    "title": "KI-gestützte Kategoriengenerierung",
+    "description": "Analysieren Sie Ihre Transaktionen und generieren Sie automatisch Kategorien basierend auf Ausgabenmustern",
+    "startGeneration": "Kategorien generieren",
+    "analyzing": "Analysieren Sie Ihre Transaktionen...",
+    "generatingCategories": "Kategorievorschläge werden generiert...",
+    "creatingCategories": "Kategorien werden erstellt (Konfidenz > 70%)...",
+    "generationComplete": "Kategoriengenerierung abgeschlossen!",
+    "generationError": "Während der Kategoriengenerierung ist ein Fehler aufgetreten",
+    "successMessage": "Erfolgreich {count} neue Kategorien basierend auf Ihren Transaktionsmustern erstellt",
+    "noTransactionsError": "Nicht genug Transaktionsdaten zum Generieren von Kategorien",
+    "resultsFound": "{count} Kategorien generiert",
+    "highConfidence": "Hochgradig zuverlässige Übereinstimmungen aus Ihren Transaktionsmustern",
+    "aiEnhanced": "Verbessert durch KI-Analyse",
+    "keywords": "Schlüsselwörter: {keywords}",
+    "confidence": "Zuverlässigkeit",
+    "transactionCount": "Transaktionen",
+    "close": "Schließen"
+  },
+  "preferences": {
+    "syncingLanguage": "Spracheinstellung wird synchronisiert...",
+    "languageSyncedSuccess": "Spracheinstellung gespeichert",
+    "languageSyncError": "Spracheinstellung konnte nicht gespeichert werden"
+
   },
   "rules": {
     "title": "Kategorisierungsregeln",
