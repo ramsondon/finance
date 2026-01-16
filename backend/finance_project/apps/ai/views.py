@@ -24,12 +24,15 @@ class InsightsView(APIView):
     Generate AI-powered financial insights based on user's transaction data asynchronously.
     Uses user's language preference from UserProfile for localized insights.
 
+    Optionally filters to a specific bank account. If no account_id provided, analyzes all accounts.
+
     This endpoint triggers a background Celery task and returns immediately with a task_id.
     Frontend should poll GET /api/task-status/<task_id>/ to check completion status.
 
     Body (optional):
         {
             "timeframe": "30d",  // "7d", "30d", "90d", "365d" (default: "30d")
+            "account_id": 123,   // Optional: specific account ID (null = all accounts)
             "categories": []     // Optional category filter
         }
 
@@ -38,7 +41,8 @@ class InsightsView(APIView):
             "message": "Insights generation started in background",
             "task_id": "abc-123-def",
             "user_id": 1,
-            "timeframe": "30d"
+            "timeframe": "30d",
+            "account_id": 123  // Only if specific account selected
         }
 
     Task Result (from GET /api/task-status/<task_id>/):
@@ -48,6 +52,7 @@ class InsightsView(APIView):
             "language": "de",
             "transaction_count": 45,
             "ai_provider": "ollama",
+            "account_id": 123,  // Only if specific account was used
             "success": true
         }
     """
@@ -55,6 +60,7 @@ class InsightsView(APIView):
 
     def post(self, request):
         from ..accounts.models import UserProfile
+        from ..banking.models import BankAccount
 
         req = InsightsRequestSerializer(data=request.data)
         req.is_valid(raise_exception=True)
@@ -66,19 +72,36 @@ class InsightsView(APIView):
         except UserProfile.DoesNotExist:
             language = 'en'  # Fallback to English if no profile
 
-        # Extract timeframe from request
+        # Extract timeframe and optional account_id from request
         timeframe = req.validated_data.get('timeframe', '30d')
+        account_id = req.validated_data.get('account_id')
 
-        # Trigger async task with language and timeframe
-        task = generate_insights_task.delay(request.user.id, timeframe, language)
+        # Validate account_id if provided
+        if account_id:
+            try:
+                BankAccount.objects.get(id=account_id, user=request.user)
+            except BankAccount.DoesNotExist:
+                return Response(
+                    {'error': 'Account not found or does not belong to you'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
-        return Response({
+        # Trigger async task with language, timeframe, and optional account_id
+        task = generate_insights_task.delay(request.user.id, timeframe, language, account_id)
+
+        response_data = {
             'message': 'Insights generation started in background',
             'task_id': task.id,
             'user_id': request.user.id,
             'timeframe': timeframe,
             'language': language
-        }, status=status.HTTP_202_ACCEPTED)
+        }
+
+        # Include account_id in response if provided
+        if account_id:
+            response_data['account_id'] = account_id
+
+        return Response(response_data, status=status.HTTP_202_ACCEPTED)
 
 
 class GenerateCategoriesView(APIView):

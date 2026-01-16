@@ -261,6 +261,8 @@
     "description": "Get personalized suggestions and insights",
     "aiPoweredAnalysis": "AI-Powered Analysis:",
     "aiDescription": "Get personalized suggestions and insights based on your transaction history. Powered by Ollama.",
+    "account": "Bank Account",
+    "allAccounts": "All my Accounts",
     "timePeriod": "Time Period",
     "last7Days": "Last 7 days",
     "last30Days": "Last 30 days",

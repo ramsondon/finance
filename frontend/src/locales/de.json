@@ -261,6 +261,8 @@
     "description": "Erhalten Sie personalisierte Vorschläge und Einblicke",
     "aiPoweredAnalysis": "KI-gestützte Analyse:",
     "aiDescription": "Erhalten Sie personalisierte Vorschläge und Einblicke basierend auf Ihrer Transaktionshistorie. Unterstützt von Ollama.",
+    "account": "Bankkonto",
+    "allAccounts": "Alle meine Konten",
     "timePeriod": "Zeitraum",
     "last7Days": "Letzte 7 Tage",
     "last30Days": "Letzte 30 Tage",

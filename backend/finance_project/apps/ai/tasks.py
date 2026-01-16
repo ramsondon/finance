@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 @shared_task(bind=True, max_retries=3)
-def generate_insights_task(self, user_id: int, timeframe: str = '30d', language: str = None):
+def generate_insights_task(self, user_id: int, timeframe: str = '30d', language: str = None, account_id: int = None):
     """
     Background task to generate AI-powered financial insights based on user's transaction data.
 
@@ -21,16 +21,17 @@ def generate_insights_task(self, user_id: int, timeframe: str = '30d', language:
         user_id: User ID to generate insights for
         timeframe: Time period for analysis ("7d", "30d", "90d", "365d")
         language: Language code ('en', 'de', etc.). If None, retrieves from UserProfile
+        account_id: Optional specific bank account ID. If None, analyzes all accounts.
 
     Returns:
         dict with suggestions, analysis, and metadata
     """
     from .services.insights_service import ProviderRegistry
     from ..accounts.models import UserProfile
-    from ..banking.models import Transaction
+    from ..banking.models import Transaction, BankAccount
 
     try:
-        logger.info(f"Starting AI insights generation for user_id={user_id}, timeframe={timeframe}")
+        logger.info(f"Starting AI insights generation for user_id={user_id}, timeframe={timeframe}, account_id={account_id}")
 
         # Retrieve language from UserProfile if not provided
         if language is None:
@@ -59,12 +60,34 @@ def generate_insights_task(self, user_id: int, timeframe: str = '30d', language:
             start_date = timezone.now() - timedelta(days=default_timeframe)
 
         # Get transactions for the user
-        transactions = Transaction.objects.filter(
-            account__user_id=user_id,
-            date__gte=start_date
-        )
+        # Filter by account_id if provided, otherwise get all user's accounts
+        if account_id:
+            # Specific account requested - verify it belongs to user
+            try:
+                account = BankAccount.objects.get(id=account_id, user_id=user_id)
+                transactions = Transaction.objects.filter(
+                    account_id=account_id,
+                    date__gte=start_date,
+                    type__in=[Transaction.INCOME, Transaction.EXPENSE]  # Exclude transfers
+                )
+                logger.info(f"Filtering transactions for account {account_id}: {account.name}")
+            except BankAccount.DoesNotExist:
+                logger.error(f"Account {account_id} not found or does not belong to user {user_id}")
+                return {
+                    'user_id': user_id,
+                    'language': language,
+                    'error': 'Account not found',
+                    'success': False
+                }
+        else:
+            # All accounts - get all transactions for user
+            transactions = Transaction.objects.filter(
+                account__user_id=user_id,
+                date__gte=start_date
+            )
+            logger.info(f"Analyzing all accounts for user_id={user_id}")
 
-        logger.info(f"Found {transactions.count()} transactions for user_id={user_id}")
+        logger.info(f"Found {transactions.count()} transactions for analysis")
 
         # Prepare context for AI provider
         context = {
@@ -93,6 +116,10 @@ def generate_insights_task(self, user_id: int, timeframe: str = '30d', language:
             'ai_provider': provider.name,
             'success': True
         })
+
+        # Include account_id if specific account was used
+        if account_id:
+            result['account_id'] = account_id
 
         logger.info(f"Successfully generated insights for user_id={user_id}")
         return result

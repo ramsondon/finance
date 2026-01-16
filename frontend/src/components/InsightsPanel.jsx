@@ -10,6 +10,22 @@ export default function InsightsPanel() {
   const [timeframe, setTimeframe] = useState('30d')
   const [taskId, setTaskId] = useState(null)
   const [pollAttempts, setPollAttempts] = useState(0)
+  const [accounts, setAccounts] = useState([])
+  const [selectedAccount, setSelectedAccount] = useState(null)  // null = all accounts
+
+  // Load user's bank accounts
+  useEffect(() => {
+    const fetchAccounts = async () => {
+      try {
+        const res = await axios.get('/api/banking/accounts/')
+        setAccounts(res.data.results || res.data)
+      } catch (err) {
+        console.error('Failed to fetch accounts:', err)
+      }
+    }
+
+    fetchAccounts()
+  }, [])
 
   // Poll for task completion
   useEffect(() => {
@@ -55,10 +71,17 @@ export default function InsightsPanel() {
     setPollAttempts(0)
 
     try {
-      const res = await axios.post('/api/ai/insights', {
+      const payload = {
         timeframe,
         categories: []
-      })
+      }
+
+      // Include account_id if specific account selected
+      if (selectedAccount) {
+        payload.account_id = selectedAccount
+      }
+
+      const res = await axios.post('/api/ai/insights', payload)
 
       // Got task_id from 202 ACCEPTED response
       if (res.status === 202 && res.data.task_id) {
@@ -86,6 +109,24 @@ export default function InsightsPanel() {
 
       <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
         <div className="flex items-end space-x-4 mb-6">
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t('insights.account') || 'Bank Account'}
+            </label>
+            <select
+              value={selectedAccount || ''}
+              onChange={(e) => setSelectedAccount(e.target.value ? parseInt(e.target.value) : null)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">{t('insights.allAccounts') || 'All my Accounts'}</option>
+              {accounts.map(account => (
+                <option key={account.id} value={account.id}>
+                  {account.name} ({account.institution || 'Bank'})
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div className="flex-1">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               {t('insights.timePeriod')}
