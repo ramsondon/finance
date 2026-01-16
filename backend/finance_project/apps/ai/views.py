@@ -9,7 +9,7 @@ from .serializers import InsightsRequestSerializer
 from .services.insights_service import ProviderRegistry
 from .services.providers.mock_provider import provider as mock_provider
 from .services.providers.ollama_provider import provider as ollama_provider
-from .tasks import generate_categories_task
+from .tasks import generate_categories_task, generate_insights_task
 from ..banking.models import Transaction
 
 # Register providers at import time
@@ -21,8 +21,11 @@ class InsightsView(APIView):
     """
     POST /api/ai/insights/
 
-    Generate AI-powered financial insights based on user's transaction data.
+    Generate AI-powered financial insights based on user's transaction data asynchronously.
     Uses user's language preference from UserProfile for localized insights.
+
+    This endpoint triggers a background Celery task and returns immediately with a task_id.
+    Frontend should poll GET /api/task-status/<task_id>/ to check completion status.
 
     Body (optional):
         {
@@ -30,11 +33,22 @@ class InsightsView(APIView):
             "categories": []     // Optional category filter
         }
 
-    Returns:
+    Returns (202 ACCEPTED):
+        {
+            "message": "Insights generation started in background",
+            "task_id": "abc-123-def",
+            "user_id": 1,
+            "timeframe": "30d"
+        }
+
+    Task Result (from GET /api/task-status/<task_id>/):
         {
             "suggestions": ["suggestion 1", "suggestion 2", "suggestion 3"],
             "analysis": "Detailed financial analysis...",
-            "language": "de"
+            "language": "de",
+            "transaction_count": 45,
+            "ai_provider": "ollama",
+            "success": true
         }
     """
     permission_classes = [IsAuthenticated]
@@ -52,47 +66,19 @@ class InsightsView(APIView):
         except UserProfile.DoesNotExist:
             language = 'en'  # Fallback to English if no profile
 
-        provider = ProviderRegistry.get_active()
-        context = req.validated_data.copy()
-        default_timeframe = 30
-        timeframe = context.get('timeframe', f'{default_timeframe}d')
+        # Extract timeframe from request
+        timeframe = req.validated_data.get('timeframe', '30d')
 
-        # timeframe = "7d", "30d", "90d", "365d"
-        # convert the timeframe to a real date from now
+        # Trigger async task with language and timeframe
+        task = generate_insights_task.delay(request.user.id, timeframe, language)
 
-        transactions = Transaction.objects.filter(account__user=request.user)
-        now = timezone.now()
-        if timeframe:
-            if timeframe.endswith('d'):
-                days = int(timeframe[:-1])
-                start_date = now - timedelta(days=days)
-            elif timeframe.endswith('m'):
-                months = int(timeframe[:-1])
-                start_date = now - timedelta(days=30 * months)
-            elif timeframe.endswith('y'):
-                years = int(timeframe[:-1])
-                start_date = now - timedelta(days=365 * years)
-            else:
-                start_date = now - timedelta(days=default_timeframe)  # default to 30 days
-        else:
-            start_date = now - timedelta(days=default_timeframe)  # default to 30 days
-        transactions = transactions.filter(date__gte=start_date)
-        context.update({
+        return Response({
+            'message': 'Insights generation started in background',
+            'task_id': task.id,
+            'user_id': request.user.id,
             'timeframe': timeframe,
-            'transactions': [{
-                'id': t.id,
-                'date': t.date.isoformat(),
-                'amount': float(t.amount),
-                'description': t.description,
-                'category': t.category.name if t.category else None,
-            } for t in transactions]
-        })
-
-        # Add more timeframe parsing as needed
-
-        data = provider.generate_insights(request.user.id, context, language=language)
-        data['language'] = language
-        return Response(data)
+            'language': language
+        }, status=status.HTTP_202_ACCEPTED)
 
 
 class GenerateCategoriesView(APIView):

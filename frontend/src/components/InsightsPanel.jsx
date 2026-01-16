@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import { useTranslate } from '../hooks/useLanguage'
 
@@ -8,19 +8,69 @@ export default function InsightsPanel() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [timeframe, setTimeframe] = useState('30d')
+  const [taskId, setTaskId] = useState(null)
+  const [pollAttempts, setPollAttempts] = useState(0)
+
+  // Poll for task completion
+  useEffect(() => {
+    if (!taskId) return
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const statusRes = await axios.get(`/api/task-status/${taskId}/`)
+        const status = statusRes.data
+
+        setPollAttempts(prev => prev + 1)
+
+        if (status.status === 'SUCCESS') {
+          // Task completed successfully
+          setResp(status.result)
+          setLoading(false)
+          setTaskId(null)
+          setPollAttempts(0)
+          clearInterval(pollInterval)
+        } else if (status.status === 'FAILURE') {
+          // Task failed
+          setError(status.error || t('insights.failedToGetInsights'))
+          setLoading(false)
+          setTaskId(null)
+          setPollAttempts(0)
+          clearInterval(pollInterval)
+        }
+        // else: still PENDING, keep polling
+      } catch (err) {
+        console.error('Error polling task status:', err)
+        // Continue polling even on error
+      }
+    }, 1000) // Poll every 1 second
+
+    // Cleanup interval on unmount or when taskId changes
+    return () => clearInterval(pollInterval)
+  }, [taskId, t])
 
   const requestInsights = async () => {
     setLoading(true)
     setError(null)
+    setResp(null)
+    setPollAttempts(0)
+
     try {
       const res = await axios.post('/api/ai/insights', {
         timeframe,
         categories: []
       })
-      setResp(res.data)
+
+      // Got task_id from 202 ACCEPTED response
+      if (res.status === 202 && res.data.task_id) {
+        setTaskId(res.data.task_id)
+        // Loading stays true while polling
+      } else {
+        // Unexpected response format
+        setError(t('insights.failedToGetInsights'))
+        setLoading(false)
+      }
     } catch (err) {
       setError(err.response?.data?.message || err.message || t('insights.failedToGetInsights'))
-    } finally {
       setLoading(false)
     }
   }
