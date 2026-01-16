@@ -209,6 +209,14 @@ export function formatCurrency(amount, currencyCode = null) {
 }
 
 /**
+ * Get currency symbol for a currency code
+ */
+export function getCurrencySymbol(currencyCode) {
+  const currency = CURRENCY_OPTIONS.find(c => c.code === currencyCode)
+  return currency ? currency.symbol : currencyCode
+}
+
+/**
  * Format number according to user preference
  */
 export function formatNumber(num, numberFormat = null) {

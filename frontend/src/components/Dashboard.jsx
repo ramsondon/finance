@@ -5,7 +5,7 @@ import { SensitiveValue, useSensitiveModeListener } from '../utils/sensitive'
 import CreateAccountModal from './CreateAccountModal'
 import AccountDetailsView from './AccountDetailsView'
 import { useTranslate } from '../hooks/useLanguage'
-import { formatDateTime, getFormatPreferences } from '../utils/format'
+import { formatDateTime, getFormatPreferences, formatCurrency, getCurrencySymbol, formatNumber } from '../utils/format'
 import { Pie } from 'react-chartjs-2'
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
 ChartJS.register(ArcElement, Tooltip, Legend)
@@ -159,7 +159,7 @@ export default function Dashboard() {
             <span className="text-4xl">💰</span>
           </div>
           <div className="text-4xl font-bold mb-2">
-            ${(overview?.total_balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {getCurrencySymbol(overview?.total_balance_currency || 'USD')} {(overview?.total_balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
           <div className="flex items-center text-blue-100 text-sm">
             <span className="mr-2">↗</span>

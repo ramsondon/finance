@@ -30,12 +30,33 @@ class StatsService:
         return float(current_balance)
 
     def overview(self, user_id: int) -> Dict[str, Any]:
-        """Calculate account overview with proper balance calculation respecting opening_balance_date."""
-        accounts = BankAccount.objects.filter(user_id=user_id)
-        balance = 0
+        """Calculate account overview with proper balance calculation respecting opening_balance_date.
 
+        Converts all account balances to the user's preferred currency.
+        """
+        from ...accounts.models import UserProfile
+        from ...banking.services.exchange_service import ExchangeService
+        from decimal import Decimal
+
+        accounts = BankAccount.objects.filter(user_id=user_id)
+        balance = Decimal("0")
+
+        # Get user's preferred currency
+        try:
+            user_profile = UserProfile.objects.get(user_id=user_id)
+            user_currency = user_profile.get_currency()
+        except UserProfile.DoesNotExist:
+            user_currency = "USD"  # Fallback default
+
+        # Sum all account balances converted to user's preferred currency
         for acc in accounts:
-            balance += self.get_account_balance(acc)
+            account_balance = self.get_account_balance(acc)
+            # Convert to user's preferred currency
+            if acc.currency != user_currency:
+                converted = ExchangeService.convert(account_balance, acc.currency, user_currency)
+                balance += converted
+            else:
+                balance += Decimal(str(account_balance))
 
         # Income and expense are totals across all transactions (not affected by opening_balance_date)
         income = (
@@ -50,6 +71,7 @@ class StatsService:
         monthly = []
         return {
             "total_balance": float(balance),
+            "total_balance_currency": user_currency,
             "income_expense_breakdown": {"income": float(income), "expense": float(expense)},
             "monthly_trends": monthly,
         }
