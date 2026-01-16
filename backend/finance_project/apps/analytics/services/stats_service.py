@@ -58,21 +58,39 @@ class StatsService:
             else:
                 balance += Decimal(str(account_balance))
 
-        # Income and expense are totals across all transactions (not affected by opening_balance_date)
-        income = (
-            Transaction.objects.filter(account__user_id=user_id, type="income").aggregate(total=Sum("amount"))["total"]
-            or 0
-        )
-        expense = (
-            Transaction.objects.filter(account__user_id=user_id, type="expense").aggregate(total=Sum("amount"))["total"]
-            or 0
-        )
+        # Income and expense totals, converted to user's preferred currency
+        income_total = Decimal("0")
+        expense_total = Decimal("0")
+
+        # Calculate income and expense by account, then convert to user's currency
+        for acc in accounts:
+            # Get income for this account
+            acc_income = (
+                Transaction.objects.filter(account=acc, type="income").aggregate(total=Sum("amount"))["total"]
+                or 0
+            )
+            # Get expense for this account
+            acc_expense = (
+                Transaction.objects.filter(account=acc, type="expense").aggregate(total=Sum("amount"))["total"]
+                or 0
+            )
+
+            # Convert to user's preferred currency
+            if acc.currency != user_currency:
+                income_converted = ExchangeService.convert(acc_income, acc.currency, user_currency)
+                expense_converted = ExchangeService.convert(acc_expense, acc.currency, user_currency)
+                income_total += income_converted
+                expense_total += expense_converted
+            else:
+                income_total += Decimal(str(acc_income))
+                expense_total += Decimal(str(acc_expense))
+
         # monthly trends minimal stub
         monthly = []
         return {
             "total_balance": float(balance),
             "total_balance_currency": user_currency,
-            "income_expense_breakdown": {"income": float(income), "expense": float(expense)},
+            "income_expense_breakdown": {"income": float(income_total), "expense": float(expense_total)},
             "monthly_trends": monthly,
         }
 

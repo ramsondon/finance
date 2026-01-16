@@ -174,7 +174,7 @@ export default function Dashboard() {
             <span className="text-4xl">📈</span>
           </div>
           <div className="text-4xl font-bold mb-2">
-            +${(overview?.income_expense_breakdown?.income || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            +{getCurrencySymbol(overview?.total_balance_currency || 'USD')} {(overview?.income_expense_breakdown?.income || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
           <div className="flex items-center text-green-100 text-sm">
             <span className="mr-2">{t('dashboard.incomePercent')}</span>
@@ -189,7 +189,7 @@ export default function Dashboard() {
             <span className="text-4xl">📉</span>
           </div>
           <div className="text-4xl font-bold mb-2">
-            ${(overview?.income_expense_breakdown?.expense || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {getCurrencySymbol(overview?.total_balance_currency || 'USD')} {(overview?.income_expense_breakdown?.expense || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
           <div className="flex items-center text-red-100 text-sm">
             <span className="mr-2">{t('dashboard.expensePercent')}</span>
