@@ -64,6 +64,15 @@ function AppContent() {
       })
   }, [])
 
+  // Save format preferences whenever they change
+  useEffect(() => {
+    localStorage.setItem('dateFormat', formatPrefs.dateFormat)
+    localStorage.setItem('currencyCode', formatPrefs.currencyCode)
+    localStorage.setItem('numberFormat', formatPrefs.numberFormat)
+    localStorage.setItem('timeFormat', formatPrefs.timeFormat)
+    localStorage.setItem('language', formatPrefs.language)
+  }, [formatPrefs])
+
   useEffect(() => {
     const handler = () => {
       setActiveTab('transactions')

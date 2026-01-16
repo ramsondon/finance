@@ -31,11 +31,13 @@ class CategorySerializer(serializers.ModelSerializer):
 
 class BankAccountSerializer(serializers.ModelSerializer):
     current_balance = serializers.SerializerMethodField()
+    converted_balance = serializers.SerializerMethodField()
+    conversion_rate_age = serializers.SerializerMethodField()
 
     class Meta:
         model = BankAccount
-        fields = ["id", "name", "institution", "iban", "currency", "opening_balance", "opening_balance_date", "current_balance", "created_at"]
-        read_only_fields = ["created_at", "current_balance"]
+        fields = ["id", "name", "institution", "iban", "currency", "opening_balance", "opening_balance_date", "current_balance", "converted_balance", "conversion_rate_age", "created_at"]
+        read_only_fields = ["created_at", "current_balance", "converted_balance", "conversion_rate_age"]
 
     def get_current_balance(self, obj):
         """Calculate the current balance based on opening_balance and filtered transactions."""
@@ -51,6 +53,32 @@ class BankAccountSerializer(serializers.ModelSerializer):
 
         # Calculate current balance: opening_balance + sum of transactions
         return float(obj.opening_balance + tx_sum)
+
+    def get_converted_balance(self, obj):
+        """Convert account balance to user's preferred currency."""
+        try:
+            from ..services.exchange_service import ExchangeService
+            from ...accounts.models import UserProfile
+
+            user_profile = UserProfile.objects.get(user=obj.user)
+            converted = ExchangeService.get_user_converted_balance(obj, user_profile)
+            return float(converted)
+        except Exception as e:
+            # If conversion fails, return current balance in account currency
+            import logging
+            logging.warning(f"Failed to convert balance for account {obj.id}: {e}")
+            return self.get_current_balance(obj)
+
+    def get_conversion_rate_age(self, obj):
+        """Get human-readable age of exchange rates."""
+        try:
+            from ..services.exchange_service import ExchangeService
+            return ExchangeService.get_rate_age()
+        except Exception as e:
+            import logging
+            logging.warning(f"Failed to get rate age: {e}")
+            return "Unknown"
+
 
 
 class TransactionSerializer(serializers.ModelSerializer):

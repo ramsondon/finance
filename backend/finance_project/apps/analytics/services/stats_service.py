@@ -5,25 +5,37 @@ from ...banking.models import BankAccount, Transaction
 
 
 class StatsService:
+    def get_account_balance(self, account: BankAccount) -> float:
+        """
+        Get current balance for a single account respecting opening_balance_date.
+
+        Args:
+            account: BankAccount instance
+
+        Returns:
+            Current balance as float
+        """
+        # Build query for transactions
+        tx_query = Transaction.objects.filter(account=account)
+
+        # If opening_balance_date is set, only include transactions from that date onward
+        if account.opening_balance_date:
+            tx_query = tx_query.filter(date__gte=account.opening_balance_date)
+
+        # Sum transactions for this account
+        tx_sum = tx_query.aggregate(total=Sum("amount"))["total"] or 0
+
+        # Calculate current balance: opening_balance + sum of transactions
+        current_balance = account.opening_balance + tx_sum
+        return float(current_balance)
+
     def overview(self, user_id: int) -> Dict[str, Any]:
         """Calculate account overview with proper balance calculation respecting opening_balance_date."""
         accounts = BankAccount.objects.filter(user_id=user_id)
         balance = 0
 
         for acc in accounts:
-            # Build query for transactions
-            tx_query = Transaction.objects.filter(account=acc)
-
-            # If opening_balance_date is set, only include transactions from that date onward
-            if acc.opening_balance_date:
-                tx_query = tx_query.filter(date__gte=acc.opening_balance_date)
-
-            # Sum transactions for this account
-            tx_sum = tx_query.aggregate(total=Sum("amount"))["total"] or 0
-
-            # Calculate current balance: opening_balance + sum of transactions
-            current_balance = acc.opening_balance + tx_sum
-            balance += current_balance
+            balance += self.get_account_balance(acc)
 
         # Income and expense are totals across all transactions (not affected by opening_balance_date)
         income = (

@@ -1,7 +1,7 @@
 from django.contrib import admin
-from django.utils.html import format_html
+from django.utils.html import format_html, mark_safe
 from django.contrib import messages
-from .models import BankAccount, Transaction, Category, Rule, RecurringTransaction
+from .models import BankAccount, Transaction, Category, Rule, RecurringTransaction, ExchangeRate
 
 
 @admin.register(BankAccount)
@@ -382,3 +382,85 @@ class RecurringTransactionAdmin(admin.ModelAdmin):
         return request.user.is_superuser
 
 
+@admin.register(ExchangeRate)
+class ExchangeRateAdmin(admin.ModelAdmin):
+    list_display = ("last_updated", "currencies_count", "status_display")
+    readonly_fields = ("rates_pretty", "last_updated", "api_url", "error_message")
+    fields = ("rates_pretty", "last_updated", "api_url", "error_message")
+    actions = ["fetch_exchange_rates"]
+
+    def currencies_count(self, obj):
+        """Display number of currencies in rates."""
+        count = len(obj.rates or {})
+        return format_html(
+            '<span style="background-color: #d1fae5; color: #065f46; padding: 3px 8px; border-radius: 3px; font-weight: 500;">{} currencies</span>',
+            count
+        )
+    currencies_count.short_description = "Currencies"
+
+    def status_display(self, obj):
+        """Display status of last fetch."""
+        if obj.error_message:
+            return mark_safe(
+                '<span style="background-color: #fee2e2; color: #991b1b; padding: 3px 8px; border-radius: 3px;">❌ Error</span>'
+            )
+        return mark_safe(
+            '<span style="background-color: #dcfce7; color: #166534; padding: 3px 8px; border-radius: 3px;">✓ OK</span>'
+        )
+    status_display.short_description = "Status"
+
+    def rates_pretty(self, obj):
+        """Display rates in a pretty format."""
+        import json
+        if not obj.rates:
+            return "No rates cached"
+        # Show first 20 rates
+        rates = obj.rates
+        display_rates = dict(list(rates.items())[:20])
+        pretty_json = json.dumps(display_rates, indent=2)
+        if len(rates) > 20:
+            pretty_json += f"\n... and {len(rates) - 20} more currencies"
+        return format_html(
+            '<pre style="background-color: #f3f4f6; padding: 10px; border-radius: 4px; font-size: 12px;">{}</pre>',
+            pretty_json
+        )
+    rates_pretty.short_description = "Exchange Rates (first 20)"
+
+    def fetch_exchange_rates(self, request, queryset):
+        """Admin action to manually fetch exchange rates from API."""
+        from .tasks import fetch_exchange_rates_task
+        from django.contrib import messages
+
+        try:
+            # Start the async task
+            task = fetch_exchange_rates_task.delay()
+
+            self.message_user(
+                request,
+                f"🔄 Exchange rates fetch started (Task ID: {task.id}). Rates will be updated shortly.",
+                level=messages.SUCCESS
+            )
+        except Exception as e:
+            self.message_user(
+                request,
+                f"❌ Failed to start fetch task: {str(e)}",
+                level=messages.ERROR
+            )
+
+    fetch_exchange_rates.short_description = "🔄 Fetch latest exchange rates from API"
+
+    def has_add_permission(self, request):
+        """Prevent manual addition - only via API fetch."""
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        """Prevent deletion of exchange rates."""
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        """Show only one exchange rate record."""
+        extra_context = extra_context or {}
+        # Ensure only the singleton record exists
+        from .models import ExchangeRate
+        ExchangeRate.get_rates()
+        return super().changelist_view(request, extra_context)

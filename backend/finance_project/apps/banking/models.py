@@ -106,6 +106,37 @@ class Rule(models.Model):
         return f"Rule({self.name})"
 
 
+class ExchangeRate(models.Model):
+    """
+    Global singleton model for storing USD-based exchange rates.
+
+    OpenExchangeRates API provides rates with USD as base currency.
+    This model caches the rates with last_updated timestamp for tracking freshness.
+    """
+    # Rates stored as JSON: {"EUR": 0.92, "GBP": 0.79, "JPY": 145.5, ...}
+    rates = models.JSONField(default=dict, help_text="Exchange rates with USD as base (e.g., {EUR: 0.92, GBP: 0.79})")
+
+    # When rates were last successfully fetched
+    last_updated = models.DateTimeField(auto_now_add=True, help_text="Timestamp of last successful rate fetch from API")
+
+    # Metadata
+    api_url = models.URLField(blank=True, help_text="API endpoint used for fetch")
+    error_message = models.TextField(blank=True, help_text="Last error message if fetch failed")
+
+    class Meta:
+        verbose_name = "Exchange Rate"
+        verbose_name_plural = "Exchange Rates"
+
+    def __str__(self) -> str:
+        return f"ExchangeRate(updated={self.last_updated.strftime('%Y-%m-%d %H:%M:%S') if self.last_updated else 'never'})"
+
+    @staticmethod
+    def get_rates():
+        """Get the current cached rates. Creates default if doesn't exist."""
+        rate_obj, _ = ExchangeRate.objects.get_or_create(pk=1)
+        return rate_obj
+
+
 class RecurringTransaction(models.Model):
     """
     Stores detected recurring transaction patterns.

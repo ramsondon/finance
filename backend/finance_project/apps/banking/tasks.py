@@ -599,3 +599,90 @@ def generate_rules_from_categories_task(self, user_id: int, language: str = None
         logger.error(f"[ERROR] Rule generation failed for user {user_id}: {str(e)}", exc_info=True)
         raise
 
+
+@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=5, max_retries=3)
+def fetch_exchange_rates_task(self):
+    """
+    Fetch USD-based exchange rates from OpenExchangeRates API hourly.
+
+    Stores rates in ExchangeRate model with last_updated timestamp.
+    If API fails, continues working with cached rates (graceful degradation).
+
+    Environment Variables:
+    - API_OPEN_EXCHANGE_RATES_KEY_URL: Full URL to OpenExchangeRates API with app_id
+    - SYSTEM_DEFAULT_CURRENCY: Fallback currency if user's currency not in rates
+    """
+    import requests
+    from django.conf import settings
+
+    logger.info("Starting fetch_exchange_rates_task")
+
+    try:
+        api_url = settings.API_OPEN_EXCHANGE_RATES_KEY_URL
+        if not api_url:
+            logger.error("API_OPEN_EXCHANGE_RATES_KEY_URL not configured")
+            return {"success": False, "error": "API URL not configured"}
+
+        # Fetch rates from API
+        logger.info(f"Fetching exchange rates from {api_url[:50]}...")
+        response = requests.get(api_url, timeout=10)
+        response.raise_for_status()
+
+        data = response.json()
+
+        # Extract rates (API returns {"rates": {"EUR": 0.92, ...}})
+        rates = data.get("rates", {})
+
+        if not rates:
+            logger.warning("API returned empty rates object")
+            return {"success": False, "error": "Empty rates in API response"}
+
+        # Update or create ExchangeRate record
+        from .models import ExchangeRate
+        from django.utils import timezone
+
+        rate_obj, created = ExchangeRate.objects.update_or_create(
+            pk=1,
+            defaults={
+                'rates': rates,
+                'last_updated': timezone.now(),
+                'api_url': api_url[:500],  # Store URL for reference
+                'error_message': '',  # Clear any previous error
+            }
+        )
+
+        logger.info(f"Exchange rates updated successfully. {len(rates)} currencies cached. "
+                   f"Updated: {rate_obj.last_updated}")
+
+        return {
+            "success": True,
+            "currencies_count": len(rates),
+            "timestamp": rate_obj.last_updated.isoformat(),
+        }
+
+    except requests.exceptions.RequestException as e:
+        logger.error(f"API request failed: {e}")
+
+        # Update error message but keep existing rates
+        from .models import ExchangeRate
+        try:
+            rate_obj = ExchangeRate.get_rates()
+            rate_obj.error_message = str(e)
+            rate_obj.save(update_fields=['error_message'])
+            logger.info("Error logged, keeping cached rates")
+        except Exception as save_err:
+            logger.error(f"Failed to update error message: {save_err}")
+
+        return {
+            "success": False,
+            "error": str(e),
+            "using_cached_rates": True,
+        }
+
+    except Exception as e:
+        logger.error(f"Unexpected error in fetch_exchange_rates_task: {e}", exc_info=True)
+        return {
+            "success": False,
+            "error": str(e),
+        }
+

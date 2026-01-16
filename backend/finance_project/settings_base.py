@@ -34,11 +34,8 @@ env = Env(
     ACTIVE_AI_PROVIDER=(str, "ollama"),
     ALLOWLIST_ENABLED=(bool, False),
     CORS_ALLOWED_ORIGINS=(list, []),
-    # POSTGRES_HOST=(str, "localhost"),
-    # POSTGRES_PORT=(str, "5432"),
-    # POSTGRES_USER=(str, "postgres"),
-    # POSTGRES_PASSWORD=(str, ""),
-    # POSTGRES_DB=(str, "finance"),
+    API_OPEN_EXCHANGE_RATES_KEY_URL=(str, ""),
+    SYSTEM_DEFAULT_CURRENCY=(str, "USD"),
 )
 
 # Load defaults from deploy/.env.example when present
@@ -202,6 +199,10 @@ CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", default="redis://localhost:
 CELERY_TASK_ALWAYS_EAGER = False
 CELERY_TASK_TIME_LIMIT = 300
 CELERY_BEAT_SCHEDULE = {
+    'fetch-exchange-rates-hourly': {
+        'task': 'finance_project.apps.banking.tasks.fetch_exchange_rates_task',
+        'schedule': crontab(minute=0),  # Every hour at minute 0
+    },
     'detect-recurring-daily': {
         'task': 'finance_project.apps.banking.tasks.detect_recurring_transactions_task',
         'schedule': crontab(hour=3, minute=0),  # 3 AM UTC
@@ -248,3 +249,8 @@ LOGGING = {
 # Rule Generation Settings
 RULE_GENERATION_CONFIDENCE_THRESHOLD = 0.7  # Rules created with confidence > this threshold (0-1)
 RULE_GENERATION_MIN_TRANSACTIONS = 10  # Minimum categorized transactions required to generate rules
+
+# Exchange Rates (OpenExchangeRates)
+API_OPEN_EXCHANGE_RATES_KEY_URL = env("API_OPEN_EXCHANGE_RATES_KEY_URL", default="")
+SYSTEM_DEFAULT_CURRENCY = env("SYSTEM_DEFAULT_CURRENCY", default="USD")
+

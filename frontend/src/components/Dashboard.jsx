@@ -5,7 +5,7 @@ import { SensitiveValue, useSensitiveModeListener } from '../utils/sensitive'
 import CreateAccountModal from './CreateAccountModal'
 import AccountDetailsView from './AccountDetailsView'
 import { useTranslate } from '../hooks/useLanguage'
-import { formatDateTime } from '../utils/format'
+import { formatDateTime, getFormatPreferences } from '../utils/format'
 import { Pie } from 'react-chartjs-2'
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
 ChartJS.register(ArcElement, Tooltip, Legend)
@@ -23,6 +23,7 @@ export default function Dashboard() {
   const [categoryBreakdown, setCategoryBreakdown] = useState({ labels: [], values: [] })
   const [categoryLoading, setCategoryLoading] = useState(false)
   const [selectedPeriod, setSelectedPeriod] = useState('current_month')
+  const [userCurrency, setUserCurrency] = useState(getFormatPreferences().currencyCode)
   const sensitiveMode = useSensitiveModeListener()
 
   const fetchData = () => {
@@ -87,6 +88,34 @@ export default function Dashboard() {
     window.addEventListener('keydown', handleEsc)
     return () => window.removeEventListener('keydown', handleEsc)
   }, [deleteConfirm])
+
+  // Listen for currency preference changes
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const newPrefs = getFormatPreferences()
+      if (newPrefs.currencyCode !== userCurrency) {
+        setUserCurrency(newPrefs.currencyCode)
+        // Refetch accounts to get new converted_balance with updated currency
+        fetchData()
+      }
+    }
+
+    window.addEventListener('storage', handleStorageChange)
+
+    // Also check for currency changes on an interval (localStorage changes in same tab don't trigger storage event)
+    const interval = setInterval(() => {
+      const newPrefs = getFormatPreferences()
+      if (newPrefs.currencyCode !== userCurrency) {
+        setUserCurrency(newPrefs.currencyCode)
+        fetchData()
+      }
+    }, 500)
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      clearInterval(interval)
+    }
+  }, [userCurrency])
 
   useEffect(() => {
     fetchData()
@@ -330,6 +359,19 @@ export default function Dashboard() {
                       />
                     </span>
                   </div>
+                  {account.converted_balance !== undefined && account.converted_balance !== null && (
+                    <div className="flex items-center justify-between mt-1.5">
+                      <span className="text-xs text-gray-400">
+                        {account.conversion_rate_age}
+                      </span>
+                      <span className="text-sm text-gray-500">
+                        <SensitiveValue
+                          value={`≈ ${userCurrency} ${(account.converted_balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                          sensitiveMode={sensitiveMode}
+                        />
+                      </span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between mt-2">
                     <span className="text-xs text-gray-400">
                       Created {formatDateTime(account.created_at)}
