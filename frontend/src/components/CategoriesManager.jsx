@@ -140,8 +140,8 @@ export default function CategoriesManager() {
         attempts++
 
         try {
-          // Check task status
-          const statusResponse = await axios.get(`/api/ai/task-status/${taskId}`, {
+          // Check task status - using generic endpoint
+          const statusResponse = await axios.get(`/api/task-status/${taskId}`, {
             headers: { 'X-CSRFToken': getCsrfToken() }
           })
 

@@ -312,3 +312,290 @@ def check_recurring_transaction_overdue_task(self):
     # TODO: In future, create notifications for overdue recurring transactions
     # This could be used to alert users of missed payments or cancelled subscriptions
 
+
+@shared_task(bind=True, max_retries=3)
+def generate_rules_from_categories_task(self, user_id: int, language: str = None):
+    """
+    Generate categorization rules using TWO STRATEGIES:
+
+    Strategy A (Preferred): Analyze pre-assigned transactions (2+ per category)
+    Strategy B (Fallback): Use category name to find matching transactions (2+ matches)
+
+    This task:
+    1. Gets all categories created by the user
+    2. Gets ALL transactions (regardless of category assignment)
+    3. For each category, tries Strategy A, then Strategy B if needed
+    4. Creates rules based on discovered patterns
+    5. Uses configurable confidence threshold
+
+    Supports multilingual logging based on user's language preference.
+
+    Args:
+        user_id: User ID to generate rules for
+        language: Language code ('en', 'de', etc.). Defaults to user's language preference.
+
+    Returns:
+        dict with:
+        - suggestions_count: Total categories analyzed
+        - created_count: Rules successfully created
+        - insufficient_data: Whether there was insufficient transaction data
+        - created_rules: List of created rules with strategy info
+    """
+    from django.conf import settings
+    from ..accounts.models import UserProfile
+
+    try:
+        logger.info(f"[{user_id}] Starting rule generation")
+
+        # Get user and language
+        try:
+            profile = UserProfile.objects.get(user_id=user_id)
+            if language is None:
+                language = profile.get_language()
+        except UserProfile.DoesNotExist:
+            language = language or 'en'
+
+        logger.info(f"[{language.upper()}] Language: {language} | User: {user_id}")
+
+        # Get confidence threshold from settings
+        confidence_threshold = getattr(settings, 'RULE_GENERATION_CONFIDENCE_THRESHOLD', 0.7)
+        logger.info(f"[{language.upper()}] Confidence threshold: {confidence_threshold}")
+
+        # Get all categories for this user
+        categories = Category.objects.filter(user_id=user_id)
+        category_count = categories.count()
+
+        if category_count == 0:
+            logger.warning(f"[{language.upper()}] No categories found")
+            return {
+                'suggestions_count': 0,
+                'created_count': 0,
+                'insufficient_data': True,
+                'message': 'No categories found. Create categories first before generating rules.'
+            }
+
+        logger.info(f"[{language.upper()}] Found {category_count} categories")
+
+        # Get ALL transactions for this user (regardless of categorization)
+        all_transactions = list(Transaction.objects.filter(
+            account__user_id=user_id
+        ).select_related('category').order_by("-date")[:2000])  # Limit to 2000 for performance
+
+        total_transaction_count = len(all_transactions)
+        logger.info(f"[{language.upper()}] Found {total_transaction_count} total transactions")
+
+        # Check if enough data
+        min_transactions = getattr(settings, 'RULE_GENERATION_MIN_TRANSACTIONS', 10)
+        if total_transaction_count < min_transactions:
+            logger.warning(f"[{language.upper()}] Insufficient data: {total_transaction_count}/{min_transactions}")
+            return {
+                'suggestions_count': 0,
+                'created_count': 0,
+                'insufficient_data': True,
+                'message': f'Need at least {min_transactions} transactions to generate rules'
+            }
+
+        suggestions = []
+        created_rules = []
+
+        # For each category, try two strategies
+        for category in categories:
+            logger.info(f"[{language.upper()}] ===== Analyzing: {category.name} =====")
+
+            # STRATEGY A: Check if transactions are already assigned to this category
+            categorized_txs = [tx for tx in all_transactions if tx.category_id == category.id]
+            categorized_count = len(categorized_txs)
+
+            analysis_txs = None
+            strategy_used = None
+
+            if categorized_count >= 2:
+                # STRATEGY A: Use pre-assigned transactions
+                logger.info(f"[{language.upper()}] Strategy A: Found {categorized_count} pre-assigned txs")
+                analysis_txs = categorized_txs
+                strategy_used = "assigned"
+            else:
+                # STRATEGY B: Use category name to find matching transactions
+                logger.info(f"[{language.upper()}] Strategy B: Searching by category name...")
+                category_name_lower = category.name.lower()
+                category_keywords = [w for w in category_name_lower.split() if len(w) > 2]
+
+                logger.debug(f"[{language.upper()}] Keywords from '{category.name}': {category_keywords}")
+
+                if category_keywords:
+                    # Find transactions matching category keywords
+                    matching_txs = []
+                    for tx in all_transactions:
+                        if tx.description:
+                            tx_desc_lower = tx.description.lower()
+                            if any(kw in tx_desc_lower for kw in category_keywords):
+                                matching_txs.append(tx)
+
+                    logger.info(f"[{language.upper()}] Found {len(matching_txs)} matching txs for '{category.name}'")
+
+                    if len(matching_txs) >= 2:
+                        analysis_txs = matching_txs
+                        strategy_used = "keyword_search"
+                    else:
+                        logger.debug(f"[{language.upper()}] Only {len(matching_txs)} matches, need 2+. Skipping.")
+                        continue
+                else:
+                    logger.debug(f"[{language.upper()}] No keywords in category name. Skipping.")
+                    continue
+
+            if analysis_txs is None:
+                continue
+
+            # Analyze patterns from selected transactions
+            descriptions = [tx.description.lower() for tx in analysis_txs if tx.description]
+            amounts = [float(tx.amount) for tx in analysis_txs]
+            types = [tx.type for tx in analysis_txs]
+
+            # IMPROVED: Find keywords with frequency threshold (40%+)
+            keywords = set()
+            for desc in descriptions:
+                words = set(desc.split())
+                keywords.update(w for w in words if len(w) > 3 and w.isalnum())
+
+            most_common_keyword = None
+            keyword_frequency = 0.0
+            if keywords:
+                keyword_counts = {}
+                for keyword in keywords:
+                    count = sum(1 for desc in descriptions if keyword in desc)
+                    keyword_counts[keyword] = count
+
+                # IMPROVED: Only accept keywords that appear in 40%+ of transactions
+                min_frequency = max(1, len(descriptions) * 0.4)
+                qualified_keywords = {k: v for k, v in keyword_counts.items() if v >= min_frequency}
+
+                if qualified_keywords:
+                    most_common_keyword = max(qualified_keywords, key=qualified_keywords.get)
+                    keyword_frequency = qualified_keywords[most_common_keyword] / len(descriptions)
+                    logger.debug(
+                        f"[{language.upper()}] Keyword '{most_common_keyword}': "
+                        f"frequency={keyword_frequency:.2f} (appears {qualified_keywords[most_common_keyword]}/{len(descriptions)})"
+                    )
+
+            # IMPROVED: Amount confidence using Coefficient of Variation
+            if amounts and len(amounts) >= 2:
+                avg_amount = sum(amounts) / len(amounts)
+                amount_variance = sum((a - avg_amount) ** 2 for a in amounts) / len(amounts)
+                amount_std_dev = amount_variance ** 0.5
+
+                if avg_amount > 0:
+                    # Use Coefficient of Variation for better scaling
+                    cv = amount_std_dev / abs(avg_amount)
+                    # Convert CV to confidence: high CV = low confidence
+                    # CV 0.1 (10%) → 0.95 confidence
+                    # CV 0.5 (50%) → 0.67 confidence
+                    # CV 1.0 (100%) → 0.37 confidence
+                    amount_confidence = max(0, 1 - (cv * 0.63))
+                else:
+                    amount_confidence = 0.5
+            else:
+                amount_confidence = 0.5
+
+            # Type consistency
+            if types:
+                most_common_type = max(set(types), key=types.count)
+                type_confidence = types.count(most_common_type) / len(types)
+            else:
+                most_common_type = 'expense'
+                type_confidence = 0.5
+
+            # IMPROVED: Keyword confidence from frequency (not binary)
+            if most_common_keyword:
+                # 40% frequency → 0.6 confidence
+                # 70% frequency → 0.8 confidence
+                # 100% frequency → 0.95 confidence
+                keyword_confidence = 0.6 + (keyword_frequency * 0.35)
+            else:
+                keyword_confidence = 0.2
+
+            # IMPROVED: Sample size bonus (up to 10%)
+            sample_size_bonus = min(0.1, (len(analysis_txs) - 2) * 0.01)
+
+            # IMPROVED: New weights emphasize consistency
+            # Old: (keyword*0.4) + (amount*0.3) + (type*0.3)
+            # New: (keyword*0.35) + (type*0.35) + (amount*0.20) + sample_bonus(0.10)
+            overall_confidence = (
+                (keyword_confidence * 0.35) +
+                (type_confidence * 0.35) +
+                (amount_confidence * 0.20) +
+                sample_size_bonus
+            )
+
+            # Cap at 0.99 to avoid overconfidence
+            overall_confidence = min(0.99, overall_confidence)
+
+            logger.info(
+                f"[{language.upper()}] '{category.name}' (via {strategy_used}): "
+                f"confidence={overall_confidence:.2f} "
+                f"(keyword={keyword_confidence:.2f}, type={type_confidence:.2f}, amount={amount_confidence:.2f}, samples={len(analysis_txs)})"
+            )
+
+            suggestion = {
+                'category_id': category.id,
+                'category_name': category.name,
+                'keyword': most_common_keyword or '',
+                'confidence': overall_confidence,
+                'transaction_count': len(analysis_txs),
+                'strategy': strategy_used,
+            }
+            suggestions.append(suggestion)
+
+            # Create rule if confidence exceeds threshold
+            if overall_confidence > confidence_threshold:
+                logger.info(
+                    f"[{language.upper()}] Creating rule: '{category.name}' "
+                    f"(confidence={overall_confidence:.2f}, strategy={strategy_used})"
+                )
+
+                from .models import Rule
+
+                # Build conditions JSONField
+                conditions = {}
+                if most_common_keyword:
+                    conditions['description_contains'] = most_common_keyword
+                if type_confidence > 0.6:
+                    conditions['type'] = most_common_type
+
+                rule = Rule.objects.create(
+                    user_id=user_id,
+                    name=f"Auto: {category.name}",
+                    category=category,
+                    conditions=conditions,
+                    priority=int((overall_confidence * 100)),
+                    active=True,
+                )
+
+                logger.info(f"[{language.upper()}] Rule created: {rule.name} (ID={rule.id})")
+                created_rules.append({
+                    'rule_id': rule.id,
+                    'rule_name': rule.name,
+                    'category': category.name,
+                    'confidence': overall_confidence,
+                    'strategy': strategy_used,
+                })
+            else:
+                logger.debug(
+                    f"[{language.upper()}] Confidence {overall_confidence:.2f} < {confidence_threshold}. Skipping."
+                )
+
+        result = {
+            'suggestions_count': len(suggestions),
+            'created_count': len(created_rules),
+            'insufficient_data': False,
+            'created_rules': created_rules,
+        }
+
+        logger.info(
+            f"[{language.upper()}] ✓ COMPLETE: {len(suggestions)} analyzed, {len(created_rules)} rules created"
+        )
+        return result
+
+    except Exception as e:
+        logger.error(f"[ERROR] Rule generation failed for user {user_id}: {str(e)}", exc_info=True)
+        raise
+

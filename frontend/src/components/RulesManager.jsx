@@ -13,6 +13,11 @@ export default function RulesManager() {
   const [applying, setApplying] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [editRule, setEditRule] = useState(null) // holds rule object to edit
+  const [showGenerateModal, setShowGenerateModal] = useState(false)
+  const [generateLoading, setGenerateLoading] = useState(false)
+  const [generateTaskId, setGenerateTaskId] = useState(null)
+  const [generateError, setGenerateError] = useState(null)
+  const [generateResult, setGenerateResult] = useState(null)
 
   useEffect(() => {
     loadData()
@@ -65,6 +70,87 @@ export default function RulesManager() {
     }
   }
 
+  const startRuleGeneration = async () => {
+    setGenerateLoading(true)
+    setGenerateError(null)
+    setGenerateResult(null)
+    try {
+      const response = await axios.post('/api/banking/rules/generate/', {}, {
+        headers: { 'X-CSRFToken': getCsrfToken() }
+      })
+      const taskId = response.data.task_id
+      setGenerateTaskId(taskId)
+
+      // Poll for task completion
+      let completed = false
+      let attempts = 0
+      const maxAttempts = 300  // 5 minutes with 1 second polling
+
+      while (!completed && attempts < maxAttempts) {
+        attempts++
+
+        try {
+          // Check task status using generic endpoint
+          const statusResponse = await axios.get(`/api/task-status/${taskId}`, {
+            headers: { 'X-CSRFToken': getCsrfToken() }
+          })
+
+          const taskStatus = statusResponse.data.status
+
+          if (taskStatus === 'SUCCESS') {
+            // Task completed successfully, reload rules
+            await loadData()
+            completed = true
+            const result = statusResponse.data.result
+            setGenerateResult({
+              message: t('rules.generateModal.success', { count: result.created_count }),
+              data: result
+            })
+            // DO NOT auto-close - user should manually close modal
+          } else if (taskStatus === 'FAILURE') {
+            // Task failed
+            setGenerateError(statusResponse.data.error || t('rules.generateModal.generationError'))
+            completed = true
+          } else if (taskStatus === 'PENDING' || taskStatus === 'PROGRESS') {
+            // Still processing - wait and retry
+            await new Promise(resolve => setTimeout(resolve, 1000))
+          }
+        } catch (err) {
+          setGenerateError(t('rules.generateModal.generationError') + ': ' + (err.response?.data?.message || err.message))
+          completed = true
+        }
+      }
+
+      if (!completed) {
+        setGenerateError('Request timeout after 5 minutes')
+      }
+    } catch (err) {
+      setGenerateError(t('rules.generateModal.generationError') + ': ' + (err.response?.data?.message || err.message))
+    } finally {
+      setGenerateLoading(false)
+    }
+  }
+
+  // ESC key handler for modal
+  useEffect(() => {
+    const handleEscKey = (e) => {
+      if (e.key === 'Escape' && showGenerateModal) {
+        setShowGenerateModal(false)
+        // Reset all modal state when closing via ESC
+        setGenerateLoading(false)
+        setGenerateTaskId(null)
+        setGenerateError(null)
+        setGenerateResult(null)
+      }
+    }
+    if (showGenerateModal) {
+      document.addEventListener('keydown', handleEscKey)
+      return () => {
+        document.removeEventListener('keydown', handleEscKey)
+      }
+    }
+  }, [showGenerateModal])
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -75,6 +161,12 @@ export default function RulesManager() {
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
           >
             {t('rules.createRule')}
+          </button>
+          <button
+            onClick={() => setShowGenerateModal(true)}
+            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium"
+          >
+            {t('rules.generateFromCategories')}
           </button>
           <button
             onClick={applyRules}
@@ -197,6 +289,101 @@ export default function RulesManager() {
           onSuccess={() => { setEditRule(null); loadData() }}
         />
       )}
+
+      {/* Generate Rules Modal */}
+      {showGenerateModal && (
+        <GenerateRulesModal
+          onClose={() => {
+            setShowGenerateModal(false)
+            // Reset all modal state
+            setGenerateLoading(false)
+            setGenerateTaskId(null)
+            setGenerateError(null)
+            setGenerateResult(null)
+          }}
+          onGenerate={startRuleGeneration}
+          loading={generateLoading}
+          error={generateError}
+          result={generateResult}
+        />
+      )}
+    </div>
+  )
+}
+
+function GenerateRulesModal({ onClose, onGenerate, loading, error, result }) {
+  const t = useTranslate()
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xl font-bold text-gray-900">{t('rules.generateModal.title')}</h3>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700 text-2xl leading-none"
+          >
+            ×
+          </button>
+        </div>
+
+        <p className="text-gray-600 text-sm">
+          {t('rules.generateModal.description')}
+        </p>
+
+        {!loading && !error && !result && (
+          <div className="py-4">
+            <button
+              onClick={onGenerate}
+              className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium"
+            >
+              {t('rules.generateFromCategories')}
+            </button>
+          </div>
+        )}
+
+        {loading && (
+          <div className="space-y-3 py-4">
+            <div className="flex items-center space-x-3">
+              <div className="animate-spin rounded-full h-5 w-5 border-2 border-purple-600 border-t-transparent"></div>
+              <span className="text-gray-700 text-sm">{t('rules.generateModal.analyzing')}</span>
+            </div>
+          </div>
+        )}
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
+        {result && (
+          <div className="space-y-3 py-4">
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <p className="text-sm text-green-700 font-medium">{result.message}</p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={onClose}
+                className="flex-1 px-4 py-2 bg-gray-100 text-gray-900 rounded-lg hover:bg-gray-200 font-medium"
+              >
+                {t('rules.generateModal.close')}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {!loading && !result && (
+          <div className="flex justify-end">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 bg-gray-100 text-gray-900 rounded-lg hover:bg-gray-200 font-medium"
+            >
+              {t('rules.generateModal.close')}
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

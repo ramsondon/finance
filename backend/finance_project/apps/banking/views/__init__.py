@@ -1,6 +1,7 @@
 from rest_framework import viewsets, permissions, status, filters
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Sum
 from django.conf import settings
@@ -257,3 +258,55 @@ def available_fields_view(request):
         "fields": FieldMappingRegistry.list_fields(),
         "display_names": FieldMappingRegistry.get_display_names()
     })
+
+
+class GenerateRulesView(APIView):
+    """
+    POST /api/banking/rules/generate/
+
+    Trigger background task to generate categorization rules from existing
+    AI-created categories by analyzing transaction patterns.
+
+    This endpoint:
+    1. Analyzes all categorized transactions grouped by category
+    2. Detects common patterns (keywords, amount ranges, types)
+    3. Creates rules with confidence > RULE_GENERATION_CONFIDENCE_THRESHOLD
+    4. Returns task_id for frontend polling
+
+    Returns (202 ACCEPTED):
+        {
+            "message": "Rule generation started",
+            "task_id": "abc-123-def"
+        }
+
+    Requires:
+    - User to have at least RULE_GENERATION_MIN_TRANSACTIONS categorized transactions
+    - AI-created categories to exist
+
+    Error scenarios:
+    - Insufficient transaction data
+    - No categories exist
+    - Task creation failure
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        from ..tasks import generate_rules_from_categories_task
+        from ...accounts.models import UserProfile
+
+        # Get user's language preference
+        try:
+            profile = UserProfile.objects.get(user=request.user)
+            language = profile.get_language()
+        except UserProfile.DoesNotExist:
+            language = 'en'
+
+        # Trigger async task
+        task = generate_rules_from_categories_task.delay(request.user.id, language)
+
+        return Response({
+            'message': 'Rule generation started in background',
+            'task_id': task.id,
+        }, status=status.HTTP_202_ACCEPTED)
+
+

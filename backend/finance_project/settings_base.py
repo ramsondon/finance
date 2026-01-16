@@ -71,6 +71,7 @@ INSTALLED_APPS = [
     "allauth.socialaccount.providers.google",
     "corsheaders",
     # Local apps
+    "finance_project.apps.common",
     "finance_project.apps.accounts",
     "finance_project.apps.banking",
     "finance_project.apps.analytics",
@@ -243,3 +244,7 @@ LOGGING = {
     },
     "root": {"handlers": ["console"], "level": env("DJANGO_LOG_LEVEL") },
 }
+
+# Rule Generation Settings
+RULE_GENERATION_CONFIDENCE_THRESHOLD = 0.7  # Rules created with confidence > this threshold (0-1)
+RULE_GENERATION_MIN_TRANSACTIONS = 10  # Minimum categorized transactions required to generate rules

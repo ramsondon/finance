@@ -173,7 +173,21 @@
     "toggle": "Umschalten",
     "errorDeleting": "Fehler beim Löschen der Regel",
     "errorUpdating": "Fehler beim Aktualisieren der Regel",
-    "errorApplying": "Fehler beim Anwenden von Regeln:"
+    "errorApplying": "Fehler beim Anwenden von Regeln:",
+    "generateFromCategories": "🤖 Aus Kategorien generieren",
+    "generateModal": {
+      "title": "Regeln aus Kategorien generieren",
+      "description": "Analysieren Sie Ihre kategorisierten Transaktionen, um Kategorisierungsregeln automatisch zu generieren.",
+      "analyzing": "Analysiere kategorisierte Transaktionen...",
+      "generating": "Generiere Regeln...",
+      "creating": "Erstelle Regeln...",
+      "generationComplete": "Regelgenerierung abgeschlossen!",
+      "generationError": "Fehler beim Generieren von Regeln",
+      "success": "Erfolgreich {count} Regeln aus Ihren Transaktionsmustern generiert",
+      "insufficientData": "Nicht genug kategorisierte Transaktionen zum Generieren von Regeln (mindestens 10 erforderlich)",
+      "close": "Schließen",
+      "noData": "Keine kategorisierten Transaktionen gefunden"
+    }
   },
   "recurring": {
     "title": "Abos & Regelmäßige Zahlungen",

@@ -173,7 +173,21 @@
     "toggle": "Toggle",
     "errorDeleting": "Error deleting rule",
     "errorUpdating": "Error updating rule",
-    "errorApplying": "Error applying rules:"
+    "errorApplying": "Error applying rules:",
+    "generateFromCategories": "🤖 Generate from Categories",
+    "generateModal": {
+      "title": "Generate Rules from Categories",
+      "description": "Analyze your categorized transactions to automatically generate categorization rules.",
+      "analyzing": "Analyzing categorized transactions...",
+      "generating": "Generating rules...",
+      "creating": "Creating rules...",
+      "generationComplete": "Rule generation complete!",
+      "generationError": "Failed to generate rules",
+      "success": "Successfully generated {count} rules from your transaction patterns",
+      "insufficientData": "Not enough categorized transactions to generate rules (minimum 10 required)",
+      "close": "Close",
+      "noData": "No categorized transactions found"
+    }
   },
     "recurring": {
     "title": "Subscriptions & Recurring Payments",

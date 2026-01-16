@@ -120,7 +120,7 @@ class TransactionAdmin(admin.ModelAdmin):
     search_fields = ("reference", "description", "partner_name", "reference_number")
     date_hierarchy = "date"
     readonly_fields = ("created_at",)
-    actions = ["truncate_transactions"]
+    actions = ["truncate_transactions", "clear_categories"]
 
     def amount_display(self, obj):
         """Display amount with currency and color coding."""
@@ -152,8 +152,18 @@ class TransactionAdmin(admin.ModelAdmin):
             f"✓ Successfully deleted {count} transaction(s).",
             level="success"
         )
-    truncate_transactions.short_description = "🗑️ Delete selected transactions"
+    truncate_transactions.short_description = "🗑️ Truncate selected transactions"
 
+    def clear_categories(self, request, queryset):
+        """Admin action to clear categories for selected transactions."""
+        updated_count = queryset.update(category=None)
+
+        self.message_user(
+            request,
+            f"✓ Cleared categories for {updated_count} transaction(s).",
+            level="success"
+        )
+    clear_categories.short_description = "❌ Clear categories for selected transactions"
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):

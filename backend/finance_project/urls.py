@@ -23,6 +23,7 @@ urlpatterns = [
     path("health", health),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema")),
+    path("api/", include("finance_project.apps.common.urls")),
     path("api/accounts/", include("finance_project.apps.accounts.urls")),
     path("api/banking/", include("finance_project.apps.banking.urls")),
     path("api/analytics/", include("finance_project.apps.analytics.urls")),

@@ -113,45 +113,6 @@ class GenerateCategoriesView(APIView):
         }, status=status.HTTP_202_ACCEPTED)
 
 
-class TaskStatusView(APIView):
-    """
-    GET /api/ai/task-status/<task_id>/
-
-    Check the status of a background category generation task.
-
-    Returns:
-        {
-            "task_id": "abc-123-def",
-            "status": "PENDING" | "PROGRESS" | "SUCCESS" | "FAILURE",
-            "result": {...},  // Only if status is SUCCESS
-            "error": "..."    // Only if status is FAILURE
-        }
-    """
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request, task_id):
-        from celery.result import AsyncResult
-
-        try:
-            task_result = AsyncResult(task_id)
-
-            response_data = {
-                'task_id': task_id,
-                'status': task_result.status,
-            }
-
-            if task_result.status == 'SUCCESS':
-                response_data['result'] = task_result.result
-            elif task_result.status == 'FAILURE':
-                response_data['error'] = str(task_result.info)
-
-            return Response(response_data)
-        except Exception as e:
-            return Response(
-                {'error': str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
 
 class CategorySuggestionsView(APIView):
     """
