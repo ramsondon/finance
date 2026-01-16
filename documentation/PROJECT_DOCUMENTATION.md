@@ -396,9 +396,15 @@ GET    /api/banking/recurring/{id}/linked_transactions/ - Get linked transaction
 
 **Analytics:**
 ```
-GET    /api/analytics/stats/overview/      - Total balance, income vs expenses, trends
-GET    /api/analytics/stats/monthly/       - Monthly aggregates
-GET    /api/analytics/stats/by-category/   - Category breakdowns
+GET    /api/analytics/overview/            - Total balance, income vs expenses, trends
+GET    /api/analytics/accounts/{id}/balance-timeseries/ - Balance history for chart
+GET    /api/analytics/category-expense/    - Category breakdown (NEW: supports ?period=)
+
+Query Parameters for category-expense:
+  - period: one of [current_month, last_month, current_year, last_year, 
+                     current_week, last_week, all_time]
+  - default: current_month
+  - example: /api/analytics/category-expense/?period=last_month
 ```
 
 **AI Insights:**
@@ -1117,12 +1123,65 @@ useEffect(() => {
 - All future list views
 
 ### **Dashboard** (Landing)
-- 4 summary cards (total balance, active accounts, income/expenses, trends)
-- Category expense pie chart
-- Income vs expense bar chart
-- Top recent transactions
+- 3 summary cards (total balance, income, expenses)
+- **Category Expense Pie Chart with 7-Period Date Range Selector** ⭐ NEW
+- Account management with balance display
 - "Create Account" button
+- Delete Account with confirmation dialog
 - All values support Sensitive Mode (blur)
+
+#### **Category Expense Pie Chart - Date Range Selector** (NEW)
+The pie chart showing expenses by category now includes a dropdown selector for different time periods:
+
+**Supported Periods:**
+1. **Current Month** (default) - 1st of current month to today
+2. **Last Month** - Full previous calendar month
+3. **Current Week** - Monday of current week to today
+4. **Last Week** - Monday to Sunday of previous week
+5. **Current Year** - Jan 1 of current year to today
+6. **Last Year** - Full previous calendar year
+7. **All Time** - Entire transaction history (from 1900)
+
+**User Experience:**
+- Select dropdown displayed next to "Expenses by Category" title
+- Defaults to "Current Month" on page load
+- Clicking dropdown opens 7 options (localized in EN/DE)
+- Selecting a period triggers chart update
+- Loading spinner appears while fetching new data
+- Chart smoothly transitions with new filtered data
+
+**Backend Implementation:**
+- **New File:** `backend/finance_project/apps/analytics/services/date_utils.py`
+  - `get_date_range(period: str) -> Tuple[date, date]` function
+  - Handles all date range calculations
+  - Accounts for week boundaries, month lengths, etc.
+  
+- **Updated View:** `CategoryExpenseBreakdownView`
+  - Accepts `?period={period}` query parameter
+  - Validates period is one of allowed values
+  - Defaults to 'current_month' if invalid
+  
+- **Updated Service:** `StatsService.category_expense_breakdown(user_id, period='current_month')`
+  - New optional `period` parameter
+  - Filters transactions by start_date and end_date
+  - Returns same structure (labels, values, colors, items)
+
+**Frontend Implementation:**
+- **New State:** `selectedPeriod` (default: 'current_month')
+- **New Handler:** `handlePeriodChange(newPeriod)`
+  - Updates state
+  - Fetches category data with new period
+  - Sets `categoryLoading` to true while fetching
+  - Updates chart when data arrives
+  
+- **Updated Render:**
+  - Select dropdown with 7 options above pie chart
+  - Loading spinner shows during fetch
+  - Chart displays filtered data
+  
+- **Translations Added:** `en.json` and `de.json`
+  - `dashboard.periodSelector` (label)
+  - `dashboard.periodCurrentMonth`, `periodLastMonth`, etc. (options)
 
 ### **Transactions Table**
 - Sortable columns (date, amount, description, category)
@@ -1886,6 +1945,20 @@ For new async tasks, follow this pattern:
 - Reference field is required (must be populated on import)
 - Description field remains optional (for additional context)
 - Both stored separately to avoid data loss if one is missing
+
+### **Why Dropdown Period Selector (not calendar picker)**
+- **Simplicity**: 7 common periods cover 95% of use cases
+- **Speed**: One click vs 3+ clicks with date picker
+- **Consistency**: Same periods across all reports
+- **Mobile-friendly**: Dropdown works better on small screens than date picker
+- **Localization**: Period labels translate easily (Current Month → Dieser Monat)
+- **Implementation**: Server-side logic simple (start_date, end_date)
+- **Performance**: No client-side date calculations needed
+- **Default**: "Current Month" is sensible default (what users want to see first)
+
+**When to use instead:**
+- Custom date ranges: Use AccountDetailsView with CustomDatePicker
+- Specific date selection: Use CustomDatePicker in modals
 
 ---
 

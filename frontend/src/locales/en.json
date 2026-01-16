@@ -41,7 +41,15 @@
     "deleteAccount": "Delete account",
     "addAccount": "Add Account",
     "createAccount": "Create Account",
-    "errorLoadingDashboard": "Error loading dashboard"
+    "errorLoadingDashboard": "Error loading dashboard",
+    "periodSelector": "Time Period",
+    "periodCurrentMonth": "Current Month",
+    "periodLastMonth": "Last Month",
+    "periodCurrentYear": "Current Year",
+    "periodLastYear": "Last Year",
+    "periodCurrentWeek": "Current Week",
+    "periodLastWeek": "Last Week",
+    "periodAllTime": "All Time"
   },
   "transactions": {
     "title": "Transactions",

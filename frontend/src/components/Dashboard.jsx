@@ -5,7 +5,7 @@ import { SensitiveValue, useSensitiveModeListener } from '../utils/sensitive'
 import CreateAccountModal from './CreateAccountModal'
 import AccountDetailsView from './AccountDetailsView'
 import { useTranslate } from '../hooks/useLanguage'
-import { formatDate, formatDateTime } from '../utils/format'
+import { formatDateTime } from '../utils/format'
 import { Pie } from 'react-chartjs-2'
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
 ChartJS.register(ArcElement, Tooltip, Legend)
@@ -22,6 +22,7 @@ export default function Dashboard() {
   const [deleting, setDeleting] = useState(false)
   const [categoryBreakdown, setCategoryBreakdown] = useState({ labels: [], values: [] })
   const [categoryLoading, setCategoryLoading] = useState(false)
+  const [selectedPeriod, setSelectedPeriod] = useState('current_month')
   const sensitiveMode = useSensitiveModeListener()
 
   const fetchData = () => {
@@ -29,7 +30,7 @@ export default function Dashboard() {
     Promise.all([
       axios.get('/api/analytics/overview').catch(() => ({ data: { total_balance: 0, income_expense_breakdown: { income: 0, expense: 0 }, monthly_trends: [] } })),
       axios.get('/api/banking/accounts/').catch(() => ({ data: { results: [] } })),
-      axios.get('/api/analytics/category-expense/').catch(() => ({ data: { labels: [], values: [] } }))
+      axios.get(`/api/analytics/category-expense/?period=${selectedPeriod}`).catch(() => ({ data: { labels: [], values: [] } }))
     ]).then(([overviewRes, accountsRes, catRes]) => {
       setOverview(overviewRes.data)
       setAccounts(accountsRes.data.results || accountsRes.data || [])
@@ -39,6 +40,22 @@ export default function Dashboard() {
       setError(err.message)
       setLoading(false)
     })
+  }
+
+  const handlePeriodChange = (newPeriod) => {
+    setSelectedPeriod(newPeriod)
+    // Fetch new data with the selected period
+    setCategoryLoading(true)
+    axios.get(`/api/analytics/category-expense/?period=${newPeriod}`)
+      .then(res => {
+        setCategoryBreakdown(res.data || { labels: [], values: [] })
+      })
+      .catch(err => {
+        console.error('Failed to fetch category data:', err)
+      })
+      .finally(() => {
+        setCategoryLoading(false)
+      })
   }
 
   const handleDelete = async () => {
@@ -159,29 +176,56 @@ export default function Dashboard() {
             <h3 className="text-xl font-bold text-gray-900">{t('dashboard.expensesByCategory')}</h3>
             <p className="text-gray-500 text-sm">{t('dashboard.uncategorized')}</p>
           </div>
+          <div className="flex items-center gap-3">
+            <label htmlFor="period-select" className="text-sm font-medium text-gray-700">
+              {t('dashboard.periodSelector')}:
+            </label>
+            <select
+              id="period-select"
+              value={selectedPeriod}
+              onChange={(e) => handlePeriodChange(e.target.value)}
+              disabled={categoryLoading}
+              className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm font-medium hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <option value="current_month">{t('dashboard.periodCurrentMonth')}</option>
+              <option value="last_month">{t('dashboard.periodLastMonth')}</option>
+              <option value="current_week">{t('dashboard.periodCurrentWeek')}</option>
+              <option value="last_week">{t('dashboard.periodLastWeek')}</option>
+              <option value="current_year">{t('dashboard.periodCurrentYear')}</option>
+              <option value="last_year">{t('dashboard.periodLastYear')}</option>
+              <option value="all_time">{t('dashboard.periodAllTime')}</option>
+            </select>
+          </div>
         </div>
         {categoryBreakdown.values.length > 0 ? (
           <div className="flex flex-col lg:flex-row gap-6">
             <div className="max-w-xl">
-              <Pie
-                data={{
-                  labels: categoryBreakdown.labels,
-                  datasets: [
-                    {
-                      label: 'Expenses',
-                      data: categoryBreakdown.values,
-                      backgroundColor: categoryBreakdown.colors || [],
-                      borderWidth: 1,
+              {categoryLoading && (
+                <div className="flex items-center justify-center h-64">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                </div>
+              )}
+              {!categoryLoading && (
+                <Pie
+                  data={{
+                    labels: categoryBreakdown.labels,
+                    datasets: [
+                      {
+                        label: 'Expenses',
+                        data: categoryBreakdown.values,
+                        backgroundColor: categoryBreakdown.colors || [],
+                        borderWidth: 1,
+                      }
+                    ]
+                  }}
+                  options={{
+                    plugins: {
+                      legend: { display: false },
+                      tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${ctx.raw.toLocaleString('en-US', { minimumFractionDigits: 2 })}` } }
                     }
-                  ]
-                }}
-                options={{
-                  plugins: {
-                    legend: { display: false },
-                    tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${ctx.raw.toLocaleString('en-US', { minimumFractionDigits: 2 })}` } }
-                  }
-                }}
-              />
+                  }}
+                />
+              )}
             </div>
             <div className="flex-1">
               <ul className="divide-y divide-gray-100">

@@ -94,5 +94,13 @@ class CategoryExpenseBreakdownView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        data = StatsService().category_expense_breakdown(request.user.id)
+        # Get period from query params, default to 'current_month'
+        period = request.query_params.get('period', 'current_month')
+
+        # Validate period is one of the allowed values
+        allowed_periods = ['current_month', 'last_month', 'current_year', 'last_year', 'current_week', 'last_week', 'all_time']
+        if period not in allowed_periods:
+            period = 'current_month'
+
+        data = StatsService().category_expense_breakdown(request.user.id, period=period)
         return Response(data)

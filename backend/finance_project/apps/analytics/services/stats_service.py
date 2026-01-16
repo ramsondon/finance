@@ -2,8 +2,6 @@ from __future__ import annotations
 from typing import Dict, Any
 from django.db.models import Sum
 from ...banking.models import BankAccount, Transaction
-from django.db.models import Value, CharField
-from ...banking.models import Category
 
 
 class StatsService:
@@ -44,11 +42,29 @@ class StatsService:
             "monthly_trends": monthly,
         }
 
-    def category_expense_breakdown(self, user_id: int) -> Dict[str, Any]:
-        """Return expense totals grouped by category for the user. Uncategorized -> 'Unknown'."""
-        from ...banking.models import Transaction
+    def category_expense_breakdown(self, user_id: int, period: str = "current_month") -> Dict[str, Any]:
+        """Return expense totals grouped by category for the user. Uncategorized -> 'Unknown'.
 
-        qs = Transaction.objects.filter(account__user_id=user_id, type="expense")
+        Args:
+            user_id: User ID to get expenses for
+            period: One of 'current_month', 'last_month', 'current_year', 'last_year',
+                    'current_week', 'last_week', 'all_time'. Defaults to 'current_month'.
+
+        Returns:
+            Dict with labels, values, colors, and items lists for pie chart
+        """
+        from ...banking.models import Transaction
+        from .date_utils import get_date_range
+
+        # Get date range for the period
+        start_date, end_date = get_date_range(period)
+
+        qs = Transaction.objects.filter(
+            account__user_id=user_id,
+            type="expense",
+            date__gte=start_date,
+            date__lte=end_date
+        )
         data = (
             qs.values("category_id", "category__name", "category__color")
             .annotate(total=Sum("amount"))

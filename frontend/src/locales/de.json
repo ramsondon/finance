@@ -41,7 +41,15 @@
     "deleteAccount": "Konto löschen",
     "addAccount": "Konto hinzufügen",
     "createAccount": "Konto erstellen",
-    "errorLoadingDashboard": "Fehler beim Laden des Dashboards"
+    "errorLoadingDashboard": "Fehler beim Laden des Dashboards",
+    "periodSelector": "Zeitraum",
+    "periodCurrentMonth": "Dieser Monat",
+    "periodLastMonth": "Letzter Monat",
+    "periodCurrentYear": "Dieses Jahr",
+    "periodLastYear": "Letztes Jahr",
+    "periodCurrentWeek": "Diese Woche",
+    "periodLastWeek": "Letzte Woche",
+    "periodAllTime": "Gesamter Zeitraum"
   },
   "transactions": {
     "title": "Transaktionen",
