@@ -83,6 +83,7 @@ class BankAccountSerializer(serializers.ModelSerializer):
 
 class TransactionSerializer(serializers.ModelSerializer):
     account_currency = serializers.CharField(source='account.currency', read_only=True)
+    account_name = serializers.CharField(source='account.name', read_only=True)
     category_name = serializers.CharField(source='category.name', read_only=True)
     category_color = serializers.CharField(source='category.color', read_only=True)
 
@@ -92,6 +93,7 @@ class TransactionSerializer(serializers.ModelSerializer):
             "id",
             "account",
             "account_currency",
+            "account_name",
             "date",
             "amount",
             "reference",

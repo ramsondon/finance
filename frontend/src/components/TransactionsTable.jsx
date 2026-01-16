@@ -13,7 +13,8 @@ export default function TransactionsTable() {
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 25
   const [categories, setCategories] = useState([])
-  const [filters, setFilters] = useState({ search: '', type: '', category: '', categoryUnknown: false })
+  const [accounts, setAccounts] = useState([])
+  const [filters, setFilters] = useState({ search: '', type: '', category: '', categoryUnknown: false, account: '' })
   const [editingTransaction, setEditingTransaction] = useState(null)
   const sensitiveMode = useSensitiveModeListener()
 
@@ -29,6 +30,21 @@ export default function TransactionsTable() {
       .catch((err) => {
         console.error('Error loading categories:', err)
         setCategories([])
+      })
+  }, [])
+
+  // Load accounts for filter dropdown
+  useEffect(() => {
+    axios.get('/api/banking/accounts/', {
+      params: { page_size: 1000 }
+    })
+      .then(res => {
+        const results = res.data.results || res.data || []
+        setAccounts(results)
+      })
+      .catch((err) => {
+        console.error('Error loading accounts:', err)
+        setAccounts([])
       })
   }, [])
 
@@ -61,6 +77,7 @@ export default function TransactionsTable() {
     const params = new URLSearchParams()
     if (filters.search) params.append('search', filters.search)
     if (filters.type) params.append('type', filters.type)
+    if (filters.account) params.append('account', filters.account)
     if (filters.category && !filters.categoryUnknown) params.append('category', filters.category)
     if (filters.categoryUnknown) params.append('category__isnull', 'true')
     params.append('page', String(currentPage))
@@ -117,7 +134,7 @@ export default function TransactionsTable() {
             🔄 {t('transactions.refresh')}
           </button>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">{t('transactions.search')}</label>
             <div className="relative">
@@ -130,6 +147,19 @@ export default function TransactionsTable() {
                 className="w-full pl-10 pr-4 py-2.5 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
               />
             </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('transactions.bankAccount')}</label>
+            <select
+              value={filters.account}
+              onChange={(e) => { setFilters({...filters, account: e.target.value}); setCurrentPage(1) }}
+              className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+            >
+              <option value="">All Accounts</option>
+              {accounts.map(acc => (
+                <option key={acc.id} value={acc.id}>{acc.name}</option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">{t('transactions.typeFilter')}</label>
@@ -201,6 +231,7 @@ export default function TransactionsTable() {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{t('transactions.date')}</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{t('transactions.bankAccount')}</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{t('transactions.fieldReference')}</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{t('transactions.category')}</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{t('transactions.type')}</th>
@@ -214,6 +245,11 @@ export default function TransactionsTable() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
                         {formatDate(tx.date)}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-700">
+                        {tx.account_name || '-'}
                       </div>
                     </td>
                     <td className="px-6 py-4">

@@ -105,31 +105,70 @@ class StatsService:
         Returns:
             Dict with labels, values, colors, and items lists for pie chart
         """
-        from ...banking.models import Transaction
+        from ...banking.models import Transaction, Category
         from .date_utils import get_date_range
+        from decimal import Decimal
 
         # Get date range for the period
         start_date, end_date = get_date_range(period)
 
+        # Load all categories for this user upfront (avoid N+1 queries)
+        # Include ALL categories, not just those with expenses
+        categories_by_id = {}
+        all_user_categories = Category.objects.filter(user_id=user_id).order_by('name')
+        for cat in all_user_categories:
+            categories_by_id[cat.id] = {"name": cat.name, "color": cat.color}
+
+        # Get all expense transactions for the user in the date range
+        # Use select_related to load category in one query
         qs = Transaction.objects.filter(
             account__user_id=user_id,
             type="expense",
             date__gte=start_date,
             date__lte=end_date
-        )
-        data = (
-            qs.values("category_id", "category__name", "category__color")
-            .annotate(total=Sum("amount"))
-            .order_by("-total")
-        )
+        ).select_related('category')
+
+        # Build a dictionary to aggregate by category
+        # Initialize with ALL categories so they all appear in results (with 0 if no expenses)
+        category_totals = {}
+        for cat_id, cat_info in categories_by_id.items():
+            key = (cat_id, cat_info["name"], cat_info["color"])
+            category_totals[key] = Decimal('0')
+
+        # Add uncategorized category if there are any uncategorized transactions
+        uncategorized_key = (None, "Unknown", "#9ca3af")
+        category_totals[uncategorized_key] = Decimal('0')
+
+        # Now process transactions and update totals
+        for tx in qs:
+            cat_id = tx.category_id
+
+            # Get category info from cache, or use defaults for uncategorized
+            if cat_id and cat_id in categories_by_id:
+                cat_info = categories_by_id[cat_id]
+                cat_name = cat_info["name"]
+                cat_color = cat_info["color"]
+            else:
+                cat_name = "Unknown"
+                cat_color = "#9ca3af"
+
+            key = (cat_id, cat_name, cat_color)
+            category_totals[key] += Decimal(str(abs(tx.amount)))
+
+        # Convert to lists and sort by amount descending
         labels, values, colors, items = [], [], [], []
-        for row in data:
-            cat_id = row["category_id"]
-            name = row["category__name"] or "Unknown"
-            color = row["category__color"] or "#9ca3af"  # gray-400 as default for Unknown
-            value = float(abs(row["total"] or 0))
-            labels.append(name)
-            values.append(value)
-            colors.append(color)
-            items.append({"id": cat_id, "name": name, "value": value, "color": color})
+
+        # Sort by amount descending, but only include categories with expenses > 0
+        sorted_categories = sorted(
+            [(k, v) for k, v in category_totals.items() if v > 0],
+            key=lambda x: x[1],
+            reverse=True
+        )
+
+        for (cat_id, cat_name, cat_color), total in sorted_categories:
+            labels.append(cat_name)
+            values.append(float(total))
+            colors.append(cat_color)
+            items.append({"id": cat_id, "name": cat_name, "value": float(total), "color": cat_color})
+
         return {"labels": labels, "values": values, "colors": colors, "items": items}
