@@ -18,11 +18,40 @@ ProviderRegistry.register(ollama_provider)
 
 
 class InsightsView(APIView):
+    """
+    POST /api/ai/insights/
+
+    Generate AI-powered financial insights based on user's transaction data.
+    Uses user's language preference from UserProfile for localized insights.
+
+    Body (optional):
+        {
+            "timeframe": "30d",  // "7d", "30d", "90d", "365d" (default: "30d")
+            "categories": []     // Optional category filter
+        }
+
+    Returns:
+        {
+            "suggestions": ["suggestion 1", "suggestion 2", "suggestion 3"],
+            "analysis": "Detailed financial analysis...",
+            "language": "de"
+        }
+    """
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        from ..accounts.models import UserProfile
+
         req = InsightsRequestSerializer(data=request.data)
         req.is_valid(raise_exception=True)
+
+        # Get user's language preference from UserProfile
+        try:
+            profile = UserProfile.objects.get(user=request.user)
+            language = profile.get_language()
+        except UserProfile.DoesNotExist:
+            language = 'en'  # Fallback to English if no profile
+
         provider = ProviderRegistry.get_active()
         context = req.validated_data.copy()
         default_timeframe = 30
@@ -61,7 +90,8 @@ class InsightsView(APIView):
 
         # Add more timeframe parsing as needed
 
-        data = provider.generate_insights(request.user.id, context)
+        data = provider.generate_insights(request.user.id, context, language=language)
+        data['language'] = language
         return Response(data)
 
 

@@ -6,7 +6,7 @@ from django.conf import settings
 class InsightsProvider(Protocol):
     name: str
 
-    def generate_insights(self, user_id: int, context: Dict[str, Any]) -> Dict[str, Any]:
+    def generate_insights(self, user_id: int, context: Dict[str, Any], language: str = 'en') -> Dict[str, Any]:
         ...
 
 

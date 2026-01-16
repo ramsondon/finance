@@ -13,13 +13,32 @@ class OllamaProvider:
         self.host = host or os.environ.get("OLLAMA_HOST", "http://localhost:11434")
         self.model = model or os.environ.get("OLLAMA_MODEL", "llama3")
 
-    def generate_insights(self, user_id: int, context: dict) -> dict:
+    def generate_insights(self, user_id: int, context: dict, language: str = 'en') -> dict:
+        # Language instruction mapping
+        language_instructions = {
+            'en': 'Respond in English.',
+            # 'de': 'Antworte auf Deutsch.',
+            # 'es': 'Responde en español.',
+            # 'fr': 'Répondez en français.',
+            # 'it': 'Rispondi in italiano.',
+            # 'pt': 'Responda em português.',
+            'de': 'Respond in German.',
+            'es': 'Respond in Spanish.',
+            'fr': 'Respond in French.',
+            'it': 'Respond in Italian.',
+            'pt': 'Respond in Portuguese.',
+        }
+
+        language_instruction = language_instructions.get(language, language_instructions['en'])
+
         prompt = (
             "You are a financial advisor AI. You provide budgeting suggestions based on transactional data of a user.\n\n"
-            "Your task:\n"
+            "**Your task**\n"
             "Provide exactly 3 specific, actionable budgeting suggestions and a brief analysis based on the following context:\n\n"
             + str(context) +
-            "Format your response as:\n"
+            "\n\n"
+            f"{language_instruction}\n\n"
+            "** Response Format**\n"
             "SUGGESTIONS:\n"
             "1. [First suggestion]\n"
             "2. [Second suggestion]\n"
