@@ -128,3 +128,92 @@ class CategoryExpenseBreakdownView(APIView):
 
         data = StatsService().category_expense_breakdown(request.user.id, period=period, account_id=account_id)
         return Response(data)
+
+
+class SpendingTrendView(APIView):
+    """
+    Get spending trend and forecast data.
+    Endpoint: GET /api/analytics/spending-trend/
+
+    Query params:
+    - period: current_month, last_month, current_year, last_year, current_week, last_week, all_time
+    - account_id: Optional account ID to filter by
+
+    Returns:
+    {
+        "current_period_expense": 1500.00,
+        "previous_period_expense": 1200.00,
+        "trend_percent": 25.0,
+        "daily_average": 50.00,
+        "forecast_month_end": 1500.00,
+        "days_in_period": 30,
+        "days_elapsed": 15,
+        "is_trending_up": true
+    }
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        period = request.query_params.get('period', 'current_month')
+        account_id = request.query_params.get('account_id')
+
+        # Validate period
+        allowed_periods = ['current_month', 'last_month', 'current_year', 'last_year', 'current_week', 'last_week', 'all_time']
+        if period not in allowed_periods:
+            period = 'current_month'
+
+        # Validate account_id if provided
+        if account_id:
+            try:
+                account_id = int(account_id)
+                if not BankAccount.objects.filter(id=account_id, user=request.user).exists():
+                    account_id = None
+            except (ValueError, TypeError):
+                account_id = None
+
+        data = StatsService().spending_trend(request.user.id, period=period, account_id=account_id)
+        return Response(data)
+
+
+class CashFlowView(APIView):
+    """
+    Get cash flow metrics for the period.
+    Endpoint: GET /api/analytics/cash-flow/
+
+    Query params:
+    - period: current_month, last_month, current_year, last_year, current_week, last_week, all_time
+    - account_id: Optional account ID to filter by
+
+    Returns:
+    {
+        "income": 5000.00,
+        "expense": 1500.00,
+        "net_flow": 3500.00,
+        "savings_rate": 70.0,
+        "burn_rate": 1500.00,
+        "balance_change": 3500.00
+    }
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        period = request.query_params.get('period', 'current_month')
+        account_id = request.query_params.get('account_id')
+
+        # Validate period
+        allowed_periods = ['current_month', 'last_month', 'current_year', 'last_year', 'current_week', 'last_week', 'all_time']
+        if period not in allowed_periods:
+            period = 'current_month'
+
+        # Validate account_id if provided
+        if account_id:
+            try:
+                account_id = int(account_id)
+                if not BankAccount.objects.filter(id=account_id, user=request.user).exists():
+                    account_id = None
+            except (ValueError, TypeError):
+                account_id = None
+
+        data = StatsService().cash_flow(request.user.id, period=period, account_id=account_id)
+        return Response(data)
+

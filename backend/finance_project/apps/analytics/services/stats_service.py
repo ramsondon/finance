@@ -250,3 +250,225 @@ class StatsService:
             items.append({"id": cat_id, "name": cat_name, "value": float(total), "color": cat_color})
 
         return {"labels": labels, "values": values, "colors": colors, "items": items}
+
+    def spending_trend(self, user_id: int, period: str = "current_month", account_id: int = None) -> Dict[str, Any]:
+        """Calculate spending trends and forecast for current period.
+
+        Args:
+            user_id: User ID
+            period: Time period ('current_month', 'last_month', etc.)
+            account_id: Optional account ID to filter by
+
+        Returns:
+            Dict with current/previous spending, trend %, forecast, days elapsed
+        """
+        from .date_utils import get_date_range, get_previous_period
+        from ...banking.services.exchange_service import ExchangeService
+        from datetime import date
+        from decimal import Decimal
+
+        # Get current period date range
+        start_date, end_date = get_date_range(period)
+
+        # Get accounts
+        accounts = BankAccount.objects.filter(user_id=user_id)
+        if account_id:
+            accounts = accounts.filter(id=account_id)
+
+        # Get user currency
+        try:
+            from ...accounts.models import UserProfile
+            user_profile = UserProfile.objects.get(user_id=user_id)
+            user_currency = user_profile.get_currency()
+        except:
+            user_currency = "USD"
+
+        # Calculate current period expenses with currency conversion
+        current_expense = Decimal('0')
+        qs = Transaction.objects.filter(
+            account__user_id=user_id,
+            type="expense",
+            date__gte=start_date,
+            date__lte=end_date
+        ).select_related('account')
+        if account_id:
+            qs = qs.filter(account_id=account_id)
+
+        for tx in qs:
+            amount = Decimal(str(abs(tx.amount)))
+            # Convert to user's preferred currency
+            if tx.account.currency != user_currency:
+                converted = ExchangeService.convert(float(amount), tx.account.currency, user_currency)
+                current_expense += Decimal(str(converted))
+            else:
+                current_expense += amount
+
+        # Calculate previous period expenses with currency conversion
+        prev_period = get_previous_period(period)
+        prev_start, prev_end = get_date_range(prev_period) if prev_period else (None, None)
+
+        previous_expense = Decimal('0')
+        if prev_start and prev_end:
+            qs_prev = Transaction.objects.filter(
+                account__user_id=user_id,
+                type="expense",
+                date__gte=prev_start,
+                date__lte=prev_end
+            ).select_related('account')
+            if account_id:
+                qs_prev = qs_prev.filter(account_id=account_id)
+
+            for tx in qs_prev:
+                amount = Decimal(str(abs(tx.amount)))
+                # Convert to user's preferred currency
+                if tx.account.currency != user_currency:
+                    converted = ExchangeService.convert(float(amount), tx.account.currency, user_currency)
+                    previous_expense += Decimal(str(converted))
+                else:
+                    previous_expense += amount
+
+        # Calculate trend
+        if previous_expense == 0:
+            trend_percent = 100.0 if current_expense > 0 else 0.0
+        else:
+            trend_percent = float(((current_expense - previous_expense) / previous_expense) * 100)
+
+        # Calculate days elapsed and total days in period
+        today = date.today()
+        days_elapsed = max(1, (today - start_date).days + 1)
+        days_in_period = (end_date - start_date).days + 1
+
+        # Calculate daily average and month-end forecast
+        daily_average = float(current_expense) / days_elapsed if days_elapsed > 0 else 0.0
+        forecast_month_end = daily_average * days_in_period
+
+        return {
+            "current_period_expense": float(current_expense),
+            "previous_period_expense": float(previous_expense),
+            "trend_percent": trend_percent,
+            "daily_average": daily_average,
+            "forecast_month_end": forecast_month_end,
+            "days_in_period": days_in_period,
+            "days_elapsed": days_elapsed,
+            "is_trending_up": trend_percent > 0,
+        }
+
+    def cash_flow(self, user_id: int, period: str = "current_month", account_id: int = None) -> Dict[str, Any]:
+        """Calculate cash flow metrics for the period.
+
+        Args:
+            user_id: User ID
+            period: Time period ('current_month', 'last_month', etc.)
+            account_id: Optional account ID to filter by
+
+        Returns:
+            Dict with income, expense, net flow, savings rate, burn rate
+        """
+        from .date_utils import get_date_range
+        from ...banking.services.exchange_service import ExchangeService
+        from decimal import Decimal
+
+        # Get period date range
+        start_date, end_date = get_date_range(period)
+
+        # Get accounts
+        accounts = BankAccount.objects.filter(user_id=user_id)
+        if account_id:
+            accounts = accounts.filter(id=account_id)
+
+        # Get user currency
+        try:
+            from ...accounts.models import UserProfile
+            user_profile = UserProfile.objects.get(user_id=user_id)
+            user_currency = user_profile.get_currency()
+        except:
+            user_currency = "USD"
+
+        # Calculate income and expense with currency conversion
+        income = Decimal('0')
+        expense = Decimal('0')
+
+        for acc in accounts:
+            acc_income = Transaction.objects.filter(
+                account=acc,
+                type="income",
+                date__gte=start_date,
+                date__lte=end_date
+            ).aggregate(total=Sum("amount"))["total"] or 0
+
+            acc_expense = Transaction.objects.filter(
+                account=acc,
+                type="expense",
+                date__gte=start_date,
+                date__lte=end_date
+            ).aggregate(total=Sum("amount"))["total"] or 0
+
+            # Convert to user's preferred currency
+            if acc.currency != user_currency:
+                income_converted = ExchangeService.convert(float(acc_income), acc.currency, user_currency)
+                expense_converted = ExchangeService.convert(float(abs(acc_expense)), acc.currency, user_currency)
+                income += Decimal(str(income_converted))
+                expense += Decimal(str(expense_converted))
+            else:
+                income += Decimal(str(acc_income))
+                expense += Decimal(str(abs(acc_expense)))
+
+        # Calculate metrics
+        net_flow = income - expense
+
+        # Savings rate: (income - expense) / income * 100
+        if income == 0:
+            savings_rate = 0.0
+        else:
+            savings_rate = float((net_flow / income) * 100)
+
+        # Burn rate: monthly expense burn rate
+        days_in_period = (end_date - start_date).days + 1
+        burn_rate = float(expense) * (30 / days_in_period) if days_in_period > 0 else 0.0
+
+        # Balance change: compare account balances at start vs end of period
+        balance_start = Decimal('0')
+        balance_end = Decimal('0')
+
+        for acc in accounts:
+            # Balance at start of period
+            start_txs = Transaction.objects.filter(
+                account=acc,
+                date__lt=start_date
+            ).aggregate(total=Sum("amount"))["total"] or 0
+
+            opening_balance = Decimal(str(acc.opening_balance))
+            start_total = opening_balance + Decimal(str(start_txs))
+
+            # Convert to user's preferred currency
+            if acc.currency != user_currency:
+                start_converted = ExchangeService.convert(float(start_total), acc.currency, user_currency)
+                balance_start += Decimal(str(start_converted))
+            else:
+                balance_start += start_total
+
+            # Balance at end of period
+            end_txs = Transaction.objects.filter(
+                account=acc,
+                date__lte=end_date
+            ).aggregate(total=Sum("amount"))["total"] or 0
+
+            end_total = opening_balance + Decimal(str(end_txs))
+
+            # Convert to user's preferred currency
+            if acc.currency != user_currency:
+                end_converted = ExchangeService.convert(float(end_total), acc.currency, user_currency)
+                balance_end += Decimal(str(end_converted))
+            else:
+                balance_end += end_total
+
+        balance_change = float(balance_end - balance_start)
+
+        return {
+            "income": float(income),
+            "expense": float(expense),
+            "net_flow": float(net_flow),
+            "savings_rate": savings_rate,
+            "burn_rate": burn_rate,
+            "balance_change": balance_change,
+        }

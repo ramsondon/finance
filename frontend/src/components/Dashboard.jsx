@@ -26,6 +26,9 @@ export default function Dashboard() {
   const [filtersLoading, setFiltersLoading] = useState(false)
   const [userCurrency, setUserCurrency] = useState(getFormatPreferences().currencyCode)
   const sensitiveMode = useSensitiveModeListener()
+  const [spendingTrend, setSpendingTrend] = useState(null)
+  const [cashFlow, setCashFlow] = useState(null)
+  const [recurringTransactions, setRecurringTransactions] = useState(null)
 
   const fetchData = (period = dashboardPeriod, accountId = selectedAccountFilter) => {
     setLoading(true)
@@ -33,11 +36,17 @@ export default function Dashboard() {
     Promise.all([
       axios.get(`/api/analytics/overview?period=${period}${accountParam}`).catch(() => ({ data: { total_balance: 0, income_expense_breakdown: { income: 0, expense: 0 }, monthly_trends: [], income_change_percent: null, expense_change_percent: null } })),
       axios.get('/api/banking/accounts/').catch(() => ({ data: { results: [] } })),
-      axios.get(`/api/analytics/category-expense/?period=${period}${accountParam}`).catch(() => ({ data: { labels: [], values: [] } }))
-    ]).then(([overviewRes, accountsRes, catRes]) => {
+      axios.get(`/api/analytics/category-expense/?period=${period}${accountParam}`).catch(() => ({ data: { labels: [], values: [] } })),
+      axios.get(`/api/analytics/spending-trend/?period=${period}${accountParam}`).catch(() => ({ data: { current_period_expense: 0, previous_period_expense: 0, trend_percent: 0, daily_average: 0, forecast_month_end: 0, days_in_period: 0, days_elapsed: 0, is_trending_up: false } })),
+      axios.get(`/api/analytics/cash-flow/?period=${period}${accountParam}`).catch(() => ({ data: { income: 0, expense: 0, net_flow: 0, savings_rate: 0, burn_rate: 0, balance_change: 0 } })),
+      axios.get('/api/banking/recurring/summary/').catch(() => ({ data: { total_count: 0, active_count: 0, monthly_recurring_cost: 0, yearly_recurring_cost: 0, by_frequency: {}, top_recurring: [], overdue_count: 0 } }))
+    ]).then(([overviewRes, accountsRes, catRes, trendRes, cashFlowRes, recurringRes]) => {
       setOverview(overviewRes.data)
       setAccounts(accountsRes.data.results || accountsRes.data || [])
       setCategoryBreakdown(catRes.data || { labels: [], values: [] })
+      setSpendingTrend(trendRes.data)
+      setCashFlow(cashFlowRes.data)
+      setRecurringTransactions(recurringRes.data)
       setLoading(false)
     }).catch(err => {
       setError(err.message)
@@ -52,10 +61,14 @@ export default function Dashboard() {
     const accountParam = newAccount !== 'all' ? `&account_id=${newAccount}` : ''
     Promise.all([
       axios.get(`/api/analytics/overview?period=${newPeriod}${accountParam}`),
-      axios.get(`/api/analytics/category-expense/?period=${newPeriod}${accountParam}`)
-    ]).then(([overviewRes, catRes]) => {
+      axios.get(`/api/analytics/category-expense/?period=${newPeriod}${accountParam}`),
+      axios.get(`/api/analytics/spending-trend/?period=${newPeriod}${accountParam}`),
+      axios.get(`/api/analytics/cash-flow/?period=${newPeriod}${accountParam}`)
+    ]).then(([overviewRes, catRes, trendRes, cashFlowRes]) => {
       setOverview(overviewRes.data)
       setCategoryBreakdown(catRes.data || { labels: [], values: [] })
+      setSpendingTrend(trendRes.data)
+      setCashFlow(cashFlowRes.data)
     }).catch(err => {
       console.error('Failed to fetch data:', err)
     }).finally(() => {
@@ -409,6 +422,152 @@ export default function Dashboard() {
           <div className="text-gray-500">No expense data available.</div>
         )}
       </div>
+
+      {/* Spending Trend Widget */}
+      {spendingTrend && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-900">{t('dashboard.spendingTrend')}</h3>
+              <span className="text-2xl">{spendingTrend.is_trending_up ? '📈' : '📉'}</span>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">{t('dashboard.currentSpending')}</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    <SensitiveValue
+                      value={`${getCurrencySymbol(overview?.total_balance_currency || 'USD')} ${spendingTrend.current_period_expense.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                      sensitiveMode={sensitiveMode}
+                    />
+                  </p>
+                </div>
+                <div className={`px-3 py-1 rounded-full text-sm font-semibold ${spendingTrend.is_trending_up ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+                  {spendingTrend.trend_percent >= 0 ? '+' : ''}{spendingTrend.trend_percent.toFixed(1)}%
+                </div>
+              </div>
+
+              <div className="bg-gray-50 rounded-lg p-4">
+                <p className="text-sm text-gray-500">{t('dashboard.dailyAverage')}</p>
+                <p className="text-xl font-bold text-gray-900">
+                  <SensitiveValue
+                    value={`${getCurrencySymbol(overview?.total_balance_currency || 'USD')} ${spendingTrend.daily_average.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                    sensitiveMode={sensitiveMode}
+                  />
+                </p>
+                <p className="text-xs text-gray-500 mt-1">{spendingTrend.days_elapsed} of {spendingTrend.days_in_period} days</p>
+              </div>
+
+              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                <p className="text-sm text-gray-500">{t('dashboard.forecastedTotal')}</p>
+                <p className="text-xl font-bold text-blue-900">
+                  <SensitiveValue
+                    value={`${getCurrencySymbol(overview?.total_balance_currency || 'USD')} ${spendingTrend.forecast_month_end.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                    sensitiveMode={sensitiveMode}
+                  />
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {cashFlow && (
+            <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-gray-900">{t('dashboard.cashFlow')}</h3>
+                <span className="text-2xl">💰</span>
+              </div>
+
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-green-50 rounded-lg p-3">
+                    <p className="text-xs text-gray-500">{t('dashboard.income')}</p>
+                    <p className="text-lg font-bold text-green-900">
+                      <SensitiveValue
+                        value={`${getCurrencySymbol(overview?.total_balance_currency || 'USD')} ${cashFlow.income.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                        sensitiveMode={sensitiveMode}
+                      />
+                    </p>
+                  </div>
+                  <div className="bg-red-50 rounded-lg p-3">
+                    <p className="text-xs text-gray-500">{t('dashboard.expenses')}</p>
+                    <p className="text-lg font-bold text-red-900">
+                      <SensitiveValue
+                        value={`${getCurrencySymbol(overview?.total_balance_currency || 'USD')} ${cashFlow.expense.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                        sensitiveMode={sensitiveMode}
+                      />
+                    </p>
+                  </div>
+                </div>
+
+                <div className={`rounded-lg p-4 ${cashFlow.net_flow >= 0 ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+                  <p className="text-sm text-gray-500">{t('dashboard.netFlow')}</p>
+                  <p className={`text-xl font-bold ${cashFlow.net_flow >= 0 ? 'text-green-900' : 'text-red-900'}`}>
+                    <SensitiveValue
+                      value={`${getCurrencySymbol(overview?.total_balance_currency || 'USD')} ${cashFlow.net_flow.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                      sensitiveMode={sensitiveMode}
+                    />
+                  </p>
+                </div>
+
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-gray-500">{t('dashboard.savingsRate')}</p>
+                    <p className={`text-lg font-bold ${cashFlow.savings_rate >= 20 ? 'text-green-600' : cashFlow.savings_rate >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                      {cashFlow.savings_rate.toFixed(1)}%
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {recurringTransactions && recurringTransactions.total_count > 0 && (
+        <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold text-gray-900">{t('dashboard.recurringTransactions')}</h3>
+            <span className="text-2xl">🔄</span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+              <p className="text-sm text-gray-500">{t('dashboard.activeSubscriptions')}</p>
+              <p className="text-3xl font-bold text-blue-900">{recurringTransactions.active_count}</p>
+              <p className="text-xs text-blue-700 mt-1">of {recurringTransactions.total_count} total</p>
+            </div>
+
+            <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+              <p className="text-sm text-gray-500">{t('dashboard.monthlyRecurringCost')}</p>
+              <p className="text-2xl font-bold text-green-900">
+                <SensitiveValue
+                  value={`${getCurrencySymbol(overview?.total_balance_currency || 'USD')} ${parseFloat(recurringTransactions.monthly_recurring_cost).toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                  sensitiveMode={sensitiveMode}
+                />
+              </p>
+            </div>
+
+            <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+              <p className="text-sm text-gray-500">{t('dashboard.yearlyRecurringCost')}</p>
+              <p className="text-2xl font-bold text-purple-900">
+                <SensitiveValue
+                  value={`${getCurrencySymbol(overview?.total_balance_currency || 'USD')} ${parseFloat(recurringTransactions.yearly_recurring_cost).toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                  sensitiveMode={sensitiveMode}
+                />
+              </p>
+            </div>
+
+            {recurringTransactions.overdue_count > 0 && (
+              <div className="bg-red-50 rounded-lg p-4 border border-red-200">
+                <p className="text-sm text-gray-500">{t('dashboard.overdueSubscriptions')}</p>
+                <p className="text-3xl font-bold text-red-900">{recurringTransactions.overdue_count}</p>
+                <p className="text-xs text-red-700 mt-1">Need attention</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Accounts Section */}
       <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
