@@ -30,9 +30,7 @@
     "income": "Income",
     "expenses": "Expenses",
     "allAccountsCombined": "All accounts combined",
-    "vsLastMonth": "vs last month",
-    "incomePercent": "+12.5%",
-    "expensePercent": "-3.2%",
+    "vsPreviousPeriod": "vs previous period",
     "expensesByCategory": "Expenses by Category",
     "uncategorized": "Uncategorized transactions are shown as \"Unknown\"",
     "currentBalance": "Current Balance",
@@ -49,7 +47,12 @@
     "periodLastYear": "Last Year",
     "periodCurrentWeek": "Current Week",
     "periodLastWeek": "Last Week",
-    "periodAllTime": "All Time"
+    "periodAllTime": "All Time",
+    "quickThisMonth": "This Month",
+    "quickLastMonth": "Last Month",
+    "quickYTD": "YTD",
+    "accountFilter": "Account",
+    "allAccounts": "All Accounts"
   },
   "transactions": {
     "title": "Transactions",

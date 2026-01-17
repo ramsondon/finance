@@ -12,7 +12,20 @@ class OverviewStatsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        data = StatsService().overview(request.user.id)
+        period = request.query_params.get('period', 'current_month')
+        account_id = request.query_params.get('account_id')
+
+        # Validate account_id if provided
+        if account_id:
+            try:
+                account_id = int(account_id)
+                # Verify user owns this account
+                if not BankAccount.objects.filter(id=account_id, user=request.user).exists():
+                    account_id = None
+            except (ValueError, TypeError):
+                account_id = None
+
+        data = StatsService().overview(request.user.id, period=period, account_id=account_id)
         return Response(data)
 
 
@@ -96,11 +109,22 @@ class CategoryExpenseBreakdownView(APIView):
     def get(self, request):
         # Get period from query params, default to 'current_month'
         period = request.query_params.get('period', 'current_month')
+        account_id = request.query_params.get('account_id')
 
         # Validate period is one of the allowed values
         allowed_periods = ['current_month', 'last_month', 'current_year', 'last_year', 'current_week', 'last_week', 'all_time']
         if period not in allowed_periods:
             period = 'current_month'
 
-        data = StatsService().category_expense_breakdown(request.user.id, period=period)
+        # Validate account_id if provided
+        if account_id:
+            try:
+                account_id = int(account_id)
+                # Verify user owns this account
+                if not BankAccount.objects.filter(id=account_id, user=request.user).exists():
+                    account_id = None
+            except (ValueError, TypeError):
+                account_id = None
+
+        data = StatsService().category_expense_breakdown(request.user.id, period=period, account_id=account_id)
         return Response(data)

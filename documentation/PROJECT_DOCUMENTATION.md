@@ -1147,13 +1147,74 @@ useEffect(() => {
 
 ### **Dashboard** (Landing)
 - 3 summary cards (total balance, income, expenses)
-- **Category Expense Pie Chart with 7-Period Date Range Selector** ⭐ NEW
+- **Income/Expenses Period Selector with Comparison Percentages** ⭐ NEW
+- **Category Expense Pie Chart with 7-Period Date Range Selector**
 - Account management with balance display
 - "Create Account" button
 - Delete Account with confirmation dialog
 - All values support Sensitive Mode (blur)
 
-#### **Category Expense Pie Chart - Date Range Selector** (NEW)
+#### **Income/Expenses Period Selector with Comparison Percentages** (NEW)
+The Income and Expenses cards now include a shared period selector that filters their values and calculates comparison percentages against the previous equivalent period.
+
+**Supported Periods:**
+1. **Current Month** (default) - 1st of current month to today, compares vs Last Month
+2. **Last Month** - Full previous calendar month, compares vs Two Months Ago
+3. **Current Week** - Monday of current week to today, compares vs Last Week
+4. **Last Week** - Monday to Sunday of previous week, compares vs Two Weeks Ago
+5. **Current Year** - Jan 1 of current year to today, compares vs Last Year
+6. **Last Year** - Full previous calendar year, compares vs Two Years Ago
+7. **All Time** - Entire transaction history (no comparison, percentage hidden)
+
+**Comparison Percentage Logic:**
+- If previous period value is 0 and current > 0: shows +100%
+- If previous period value is 0 and current is 0: shows 0%
+- Otherwise: calculates ((current - previous) / previous) * 100
+- For "All Time": percentage indicator is hidden entirely
+
+**Color Logic (Inverse for Expenses):**
+- **Income Card (green background):**
+  - Positive change (good): white badge on green
+  - Negative change (bad): red badge for contrast
+- **Expenses Card (red background):**
+  - Decreased spending (good, negative %): green badge for contrast
+  - Increased spending (bad, positive %): white badge on red
+
+**User Experience:**
+- Shared dropdown displayed below the 3 summary cards
+- Defaults to "Current Month" on page load
+- Selecting a period updates Income/Expenses cards with loading spinner
+- Total Balance card is NOT affected (always shows all-time balance)
+- Percentages update dynamically based on API response
+
+**Backend Implementation:**
+- **Updated File:** `backend/finance_project/apps/analytics/services/date_utils.py`
+  - New `get_previous_period(period: str) -> Optional[str]` function
+  - Maps each period to its comparison period (returns None for all_time)
+  - Added support for `two_months_ago`, `two_weeks_ago`, `two_years_ago` periods
+
+- **Updated View:** `OverviewStatsView`
+  - Accepts `?period={period}` query parameter
+  - Passes period to StatsService.overview()
+
+- **Updated Service:** `StatsService.overview(user_id, period='current_month')`
+  - New `period` parameter filters Income/Expense calculations
+  - Calculates `income_change_percent` and `expense_change_percent`
+  - Returns null for percentages when period is "all_time"
+  - New helper `_calculate_income_expense()` for reuse
+
+- **Updated Serializer:** `OverviewResponseSerializer`
+  - Added `income_change_percent` (nullable float)
+  - Added `expense_change_percent` (nullable float)
+
+**Frontend Implementation:**
+- **New State:** `incomeExpensePeriod` (default: 'current_month')
+- **New State:** `incomeExpenseLoading` for loading indicator
+- **New Handler:** `handleIncomeExpensePeriodChange(newPeriod)`
+- **Updated Cards:** Display dynamic percentages with color logic
+- **Removed:** Hardcoded "+" prefix from Income card value
+
+#### **Category Expense Pie Chart - Date Range Selector**
 The pie chart showing expenses by category now includes a dropdown selector for different time periods:
 
 **Supported Periods:**

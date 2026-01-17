@@ -21,17 +21,19 @@ export default function Dashboard() {
   const [deleteConfirm, setDeleteConfirm] = useState(null) // { id, name }
   const [deleting, setDeleting] = useState(false)
   const [categoryBreakdown, setCategoryBreakdown] = useState({ labels: [], values: [] })
-  const [categoryLoading, setCategoryLoading] = useState(false)
-  const [selectedPeriod, setSelectedPeriod] = useState('current_month')
+  const [dashboardPeriod, setDashboardPeriod] = useState('current_month')
+  const [selectedAccountFilter, setSelectedAccountFilter] = useState('all')
+  const [filtersLoading, setFiltersLoading] = useState(false)
   const [userCurrency, setUserCurrency] = useState(getFormatPreferences().currencyCode)
   const sensitiveMode = useSensitiveModeListener()
 
-  const fetchData = () => {
+  const fetchData = (period = dashboardPeriod, accountId = selectedAccountFilter) => {
     setLoading(true)
+    const accountParam = accountId !== 'all' ? `&account_id=${accountId}` : ''
     Promise.all([
-      axios.get('/api/analytics/overview').catch(() => ({ data: { total_balance: 0, income_expense_breakdown: { income: 0, expense: 0 }, monthly_trends: [] } })),
+      axios.get(`/api/analytics/overview?period=${period}${accountParam}`).catch(() => ({ data: { total_balance: 0, income_expense_breakdown: { income: 0, expense: 0 }, monthly_trends: [], income_change_percent: null, expense_change_percent: null } })),
       axios.get('/api/banking/accounts/').catch(() => ({ data: { results: [] } })),
-      axios.get(`/api/analytics/category-expense/?period=${selectedPeriod}`).catch(() => ({ data: { labels: [], values: [] } }))
+      axios.get(`/api/analytics/category-expense/?period=${period}${accountParam}`).catch(() => ({ data: { labels: [], values: [] } }))
     ]).then(([overviewRes, accountsRes, catRes]) => {
       setOverview(overviewRes.data)
       setAccounts(accountsRes.data.results || accountsRes.data || [])
@@ -43,20 +45,26 @@ export default function Dashboard() {
     })
   }
 
-  const handlePeriodChange = (newPeriod) => {
-    setSelectedPeriod(newPeriod)
-    // Fetch new data with the selected period
-    setCategoryLoading(true)
-    axios.get(`/api/analytics/category-expense/?period=${newPeriod}`)
-      .then(res => {
-        setCategoryBreakdown(res.data || { labels: [], values: [] })
-      })
-      .catch(err => {
-        console.error('Failed to fetch category data:', err)
-      })
-      .finally(() => {
-        setCategoryLoading(false)
-      })
+  const handleFilterChange = (newPeriod, newAccount = selectedAccountFilter) => {
+    setDashboardPeriod(newPeriod)
+    setSelectedAccountFilter(newAccount)
+    setFiltersLoading(true)
+    const accountParam = newAccount !== 'all' ? `&account_id=${newAccount}` : ''
+    Promise.all([
+      axios.get(`/api/analytics/overview?period=${newPeriod}${accountParam}`),
+      axios.get(`/api/analytics/category-expense/?period=${newPeriod}${accountParam}`)
+    ]).then(([overviewRes, catRes]) => {
+      setOverview(overviewRes.data)
+      setCategoryBreakdown(catRes.data || { labels: [], values: [] })
+    }).catch(err => {
+      console.error('Failed to fetch data:', err)
+    }).finally(() => {
+      setFiltersLoading(false)
+    })
+  }
+
+  const handleAccountFilterChange = (newAccount) => {
+    handleFilterChange(dashboardPeriod, newAccount)
   }
 
   const handleDelete = async () => {
@@ -150,6 +158,96 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
+      {/* Dashboard Filters */}
+      <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
+        <div className="flex flex-wrap items-center gap-4">
+          {/* Period Label & Dropdown */}
+          <div className="flex items-center gap-2">
+            <label htmlFor="dashboard-period" className="text-sm font-medium text-gray-700">
+              {t('dashboard.periodSelector')}:
+            </label>
+            <select
+              id="dashboard-period"
+              value={dashboardPeriod}
+              onChange={(e) => handleFilterChange(e.target.value)}
+              disabled={filtersLoading}
+              className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm font-medium hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+            >
+              <option value="current_month">{t('dashboard.periodCurrentMonth')}</option>
+              <option value="last_month">{t('dashboard.periodLastMonth')}</option>
+              <option value="current_week">{t('dashboard.periodCurrentWeek')}</option>
+              <option value="last_week">{t('dashboard.periodLastWeek')}</option>
+              <option value="current_year">{t('dashboard.periodCurrentYear')}</option>
+              <option value="last_year">{t('dashboard.periodLastYear')}</option>
+              <option value="all_time">{t('dashboard.periodAllTime')}</option>
+            </select>
+          </div>
+
+          {/* Quick Period Buttons */}
+          <div className="flex items-center gap-1 border-l border-gray-200 pl-4">
+            <button
+              onClick={() => handleFilterChange('current_month')}
+              disabled={filtersLoading}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                dashboardPeriod === 'current_month'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              } disabled:opacity-50`}
+            >
+              {t('dashboard.quickThisMonth')}
+            </button>
+            <button
+              onClick={() => handleFilterChange('last_month')}
+              disabled={filtersLoading}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                dashboardPeriod === 'last_month'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              } disabled:opacity-50`}
+            >
+              {t('dashboard.quickLastMonth')}
+            </button>
+            <button
+              onClick={() => handleFilterChange('current_year')}
+              disabled={filtersLoading}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                dashboardPeriod === 'current_year'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              } disabled:opacity-50`}
+            >
+              {t('dashboard.quickYTD')}
+            </button>
+          </div>
+
+          {/* Account Filter */}
+          <div className="flex items-center gap-2 border-l border-gray-200 pl-4">
+            <label htmlFor="account-filter" className="text-sm font-medium text-gray-700">
+              {t('dashboard.accountFilter')}:
+            </label>
+            <select
+              id="account-filter"
+              value={selectedAccountFilter}
+              onChange={(e) => handleAccountFilterChange(e.target.value)}
+              disabled={filtersLoading}
+              className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm font-medium hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+            >
+              <option value="all">{t('dashboard.allAccounts')}</option>
+              {accounts.map(acc => (
+                <option key={acc.id} value={acc.id}>{acc.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Loading indicator */}
+          {filtersLoading && (
+            <div className="ml-auto">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Total Balance Card */}
@@ -159,41 +257,84 @@ export default function Dashboard() {
             <span className="text-4xl">💰</span>
           </div>
           <div className="text-4xl font-bold mb-2">
-            {getCurrencySymbol(overview?.total_balance_currency || 'USD')} {(overview?.total_balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            <SensitiveValue
+              value={`${getCurrencySymbol(overview?.total_balance_currency || 'USD')} ${(overview?.total_balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              sensitiveMode={sensitiveMode}
+            />
           </div>
           <div className="flex items-center text-blue-100 text-sm">
             <span className="mr-2">↗</span>
-            <span>{t('dashboard.allAccountsCombined')}</span>
+            <span>{selectedAccountFilter === 'all' ? t('dashboard.allAccountsCombined') : accounts.find(a => a.id === parseInt(selectedAccountFilter))?.name || ''}</span>
           </div>
         </div>
 
         {/* Income Card */}
-        <div className="bg-green-600 rounded-lg p-6 text-white shadow-sm">
+        <div className="bg-green-600 rounded-lg p-6 text-white shadow-sm relative">
+          {filtersLoading && (
+            <div className="absolute inset-0 bg-green-600/80 rounded-lg flex items-center justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+            </div>
+          )}
           <div className="flex items-center justify-between mb-3">
             <div className="text-green-100 text-sm font-medium uppercase tracking-wider">{t('dashboard.income')}</div>
             <span className="text-4xl">📈</span>
           </div>
           <div className="text-4xl font-bold mb-2">
-            +{getCurrencySymbol(overview?.total_balance_currency || 'USD')} {(overview?.income_expense_breakdown?.income || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            <SensitiveValue
+              value={`${getCurrencySymbol(overview?.total_balance_currency || 'USD')} ${(overview?.income_expense_breakdown?.income || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              sensitiveMode={sensitiveMode}
+            />
           </div>
-          <div className="flex items-center text-green-100 text-sm">
-            <span className="mr-2">{t('dashboard.incomePercent')}</span>
-            <span>{t('dashboard.vsLastMonth')}</span>
+          <div className="flex items-center text-sm">
+            {overview?.income_change_percent !== null && overview?.income_change_percent !== undefined ? (
+              <>
+                <span className={`mr-2 px-2 py-0.5 rounded ${
+                  overview.income_change_percent >= 0 
+                    ? 'bg-white/20 text-white' 
+                    : 'bg-red-100 text-red-800'
+                }`}>
+                  {overview.income_change_percent >= 0 ? '+' : ''}{overview.income_change_percent.toFixed(1)}%
+                </span>
+                <span className="text-green-100">{t('dashboard.vsPreviousPeriod')}</span>
+              </>
+            ) : (
+              <span className="text-green-100">{t('dashboard.periodAllTime')}</span>
+            )}
           </div>
         </div>
 
         {/* Expenses Card */}
-        <div className="bg-red-600 rounded-lg p-6 text-white shadow-sm">
+        <div className="bg-red-600 rounded-lg p-6 text-white shadow-sm relative">
+          {filtersLoading && (
+            <div className="absolute inset-0 bg-red-600/80 rounded-lg flex items-center justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+            </div>
+          )}
           <div className="flex items-center justify-between mb-3">
             <div className="text-red-100 text-sm font-medium uppercase tracking-wider">{t('dashboard.expenses')}</div>
             <span className="text-4xl">📉</span>
           </div>
           <div className="text-4xl font-bold mb-2">
-            {getCurrencySymbol(overview?.total_balance_currency || 'USD')} {(overview?.income_expense_breakdown?.expense || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            <SensitiveValue
+              value={`${getCurrencySymbol(overview?.total_balance_currency || 'USD')} ${(overview?.income_expense_breakdown?.expense || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              sensitiveMode={sensitiveMode}
+            />
           </div>
-          <div className="flex items-center text-red-100 text-sm">
-            <span className="mr-2">{t('dashboard.expensePercent')}</span>
-            <span>{t('dashboard.vsLastMonth')}</span>
+          <div className="flex items-center text-sm">
+            {overview?.expense_change_percent !== null && overview?.expense_change_percent !== undefined ? (
+              <>
+                <span className={`mr-2 px-2 py-0.5 rounded ${
+                  overview.expense_change_percent <= 0 
+                    ? 'bg-green-100 text-green-800' 
+                    : 'bg-white/20 text-white'
+                }`}>
+                  {overview.expense_change_percent >= 0 ? '+' : ''}{overview.expense_change_percent.toFixed(1)}%
+                </span>
+                <span className="text-red-100">{t('dashboard.vsPreviousPeriod')}</span>
+              </>
+            ) : (
+              <span className="text-red-100">{t('dashboard.periodAllTime')}</span>
+            )}
           </div>
         </div>
       </div>
@@ -205,36 +346,16 @@ export default function Dashboard() {
             <h3 className="text-xl font-bold text-gray-900">{t('dashboard.expensesByCategory')}</h3>
             <p className="text-gray-500 text-sm">{t('dashboard.uncategorized')}</p>
           </div>
-          <div className="flex items-center gap-3">
-            <label htmlFor="period-select" className="text-sm font-medium text-gray-700">
-              {t('dashboard.periodSelector')}:
-            </label>
-            <select
-              id="period-select"
-              value={selectedPeriod}
-              onChange={(e) => handlePeriodChange(e.target.value)}
-              disabled={categoryLoading}
-              className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm font-medium hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <option value="current_month">{t('dashboard.periodCurrentMonth')}</option>
-              <option value="last_month">{t('dashboard.periodLastMonth')}</option>
-              <option value="current_week">{t('dashboard.periodCurrentWeek')}</option>
-              <option value="last_week">{t('dashboard.periodLastWeek')}</option>
-              <option value="current_year">{t('dashboard.periodCurrentYear')}</option>
-              <option value="last_year">{t('dashboard.periodLastYear')}</option>
-              <option value="all_time">{t('dashboard.periodAllTime')}</option>
-            </select>
-          </div>
         </div>
         {categoryBreakdown.values.length > 0 ? (
           <div className="flex flex-col lg:flex-row gap-6">
             <div className="max-w-xl">
-              {categoryLoading && (
+              {filtersLoading && (
                 <div className="flex items-center justify-center h-64">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
                 </div>
               )}
-              {!categoryLoading && (
+              {!filtersLoading && (
                 <Pie
                   data={{
                     labels: categoryBreakdown.labels,

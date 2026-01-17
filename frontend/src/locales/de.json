@@ -30,9 +30,7 @@
     "income": "Einnahmen",
     "expenses": "Ausgaben",
     "allAccountsCombined": "Alle Konten zusammen",
-    "vsLastMonth": "vs. letzten Monat",
-    "incomePercent": "+12,5%",
-    "expensePercent": "-3,2%",
+    "vsPreviousPeriod": "vs. Vorperiode",
     "expensesByCategory": "Ausgaben nach Kategorie",
     "uncategorized": "Nicht kategorisierte Transaktionen werden als \"Unbekannt\" angezeigt",
     "currentBalance": "Aktuelles Guthaben",
@@ -49,7 +47,12 @@
     "periodLastYear": "Letztes Jahr",
     "periodCurrentWeek": "Diese Woche",
     "periodLastWeek": "Letzte Woche",
-    "periodAllTime": "Gesamter Zeitraum"
+    "periodAllTime": "Gesamter Zeitraum",
+    "quickThisMonth": "Dieser Monat",
+    "quickLastMonth": "Letzter Monat",
+    "quickYTD": "Lfd. Jahr",
+    "accountFilter": "Konto",
+    "allAccounts": "Alle Konten"
   },
   "transactions": {
     "title": "Transaktionen",

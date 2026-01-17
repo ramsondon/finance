@@ -29,16 +29,27 @@ class StatsService:
         current_balance = account.opening_balance + tx_sum
         return float(current_balance)
 
-    def overview(self, user_id: int) -> Dict[str, Any]:
+    def overview(self, user_id: int, period: str = "current_month", account_id: int = None) -> Dict[str, Any]:
         """Calculate account overview with proper balance calculation respecting opening_balance_date.
 
         Converts all account balances to the user's preferred currency.
+        Income and expense are filtered by the selected period with comparison to previous period.
+
+        Args:
+            user_id: User ID
+            period: Time period for income/expense calculation. One of 'current_month',
+                    'last_month', 'current_week', 'last_week', 'current_year',
+                    'last_year', 'all_time'. Defaults to 'current_month'.
+            account_id: Optional account ID to filter by. If None, includes all accounts.
         """
         from ...accounts.models import UserProfile
         from ...banking.services.exchange_service import ExchangeService
+        from .date_utils import get_date_range, get_previous_period
         from decimal import Decimal
 
         accounts = BankAccount.objects.filter(user_id=user_id)
+        if account_id:
+            accounts = accounts.filter(id=account_id)
         balance = Decimal("0")
 
         # Get user's preferred currency
@@ -49,6 +60,7 @@ class StatsService:
             user_currency = "USD"  # Fallback default
 
         # Sum all account balances converted to user's preferred currency
+        # (Total balance is always all-time, not filtered by period)
         for acc in accounts:
             account_balance = self.get_account_balance(acc)
             # Convert to user's preferred currency
@@ -58,20 +70,88 @@ class StatsService:
             else:
                 balance += Decimal(str(account_balance))
 
-        # Income and expense totals, converted to user's preferred currency
+        # Get date range for current period
+        start_date, end_date = get_date_range(period)
+
+        # Calculate income and expense for the selected period
+        income_total, expense_total = self._calculate_income_expense(
+            accounts, start_date, end_date, user_currency
+        )
+
+        # Calculate comparison percentages
+        previous_period = get_previous_period(period)
+        income_change_percent = None
+        expense_change_percent = None
+
+        if previous_period:
+            prev_start, prev_end = get_date_range(previous_period)
+            prev_income, prev_expense = self._calculate_income_expense(
+                accounts, prev_start, prev_end, user_currency
+            )
+
+            # Calculate income change percentage
+            if prev_income == 0:
+                income_change_percent = 100.0 if income_total > 0 else 0.0
+            else:
+                income_change_percent = float(((income_total - prev_income) / prev_income) * 100)
+
+            # Calculate expense change percentage
+            if prev_expense == 0:
+                expense_change_percent = 100.0 if expense_total > 0 else 0.0
+            else:
+                expense_change_percent = float(((expense_total - prev_expense) / prev_expense) * 100)
+
+        # monthly trends minimal stub
+        monthly = []
+        return {
+            "total_balance": float(balance),
+            "total_balance_currency": user_currency,
+            "income_expense_breakdown": {
+                "income": float(income_total),
+                "expense": float(expense_total)
+            },
+            "income_change_percent": income_change_percent,
+            "expense_change_percent": expense_change_percent,
+            "monthly_trends": monthly,
+        }
+
+    def _calculate_income_expense(self, accounts, start_date, end_date, user_currency):
+        """Helper to calculate income and expense totals for a date range.
+
+        Args:
+            accounts: QuerySet of BankAccount objects
+            start_date: Start date for filtering
+            end_date: End date for filtering
+            user_currency: Currency to convert to
+
+        Returns:
+            Tuple of (income_total, expense_total) as Decimals
+        """
+        from ...banking.services.exchange_service import ExchangeService
+        from decimal import Decimal
+
         income_total = Decimal("0")
         expense_total = Decimal("0")
 
-        # Calculate income and expense by account, then convert to user's currency
         for acc in accounts:
-            # Get income for this account
+            # Get income for this account in the date range
             acc_income = (
-                Transaction.objects.filter(account=acc, type="income").aggregate(total=Sum("amount"))["total"]
+                Transaction.objects.filter(
+                    account=acc,
+                    type="income",
+                    date__gte=start_date,
+                    date__lte=end_date
+                ).aggregate(total=Sum("amount"))["total"]
                 or 0
             )
-            # Get expense for this account
+            # Get expense for this account in the date range
             acc_expense = (
-                Transaction.objects.filter(account=acc, type="expense").aggregate(total=Sum("amount"))["total"]
+                Transaction.objects.filter(
+                    account=acc,
+                    type="expense",
+                    date__gte=start_date,
+                    date__lte=end_date
+                ).aggregate(total=Sum("amount"))["total"]
                 or 0
             )
 
@@ -85,22 +165,16 @@ class StatsService:
                 income_total += Decimal(str(acc_income))
                 expense_total += Decimal(str(acc_expense))
 
-        # monthly trends minimal stub
-        monthly = []
-        return {
-            "total_balance": float(balance),
-            "total_balance_currency": user_currency,
-            "income_expense_breakdown": {"income": float(income_total), "expense": float(expense_total)},
-            "monthly_trends": monthly,
-        }
+        return income_total, expense_total
 
-    def category_expense_breakdown(self, user_id: int, period: str = "current_month") -> Dict[str, Any]:
+    def category_expense_breakdown(self, user_id: int, period: str = "current_month", account_id: int = None) -> Dict[str, Any]:
         """Return expense totals grouped by category for the user. Uncategorized -> 'Unknown'.
 
         Args:
             user_id: User ID to get expenses for
             period: One of 'current_month', 'last_month', 'current_year', 'last_year',
                     'current_week', 'last_week', 'all_time'. Defaults to 'current_month'.
+            account_id: Optional account ID to filter expenses by. If None, includes all accounts.
 
         Returns:
             Dict with labels, values, colors, and items lists for pie chart
@@ -127,6 +201,10 @@ class StatsService:
             date__gte=start_date,
             date__lte=end_date
         ).select_related('category')
+
+        # Filter by account if specified
+        if account_id:
+            qs = qs.filter(account_id=account_id)
 
         # Build a dictionary to aggregate by category
         # Initialize with ALL categories so they all appear in results (with 0 if no expenses)
