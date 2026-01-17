@@ -155,7 +155,7 @@ export default function TransactionsTable() {
               onChange={(e) => { setFilters({...filters, account: e.target.value}); setCurrentPage(1) }}
               className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
             >
-              <option value="">All Accounts</option>
+              <option value="">{t('transactions.allAccounts')}</option>
               {accounts.map(acc => (
                 <option key={acc.id} value={acc.id}>{acc.name}</option>
               ))}
