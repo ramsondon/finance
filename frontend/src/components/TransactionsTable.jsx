@@ -206,7 +206,7 @@ export default function TransactionsTable() {
         <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
           <h3 className="text-lg font-semibold text-gray-900">{t('transactions.title')}</h3>
           <p className="text-sm text-gray-500 mt-1">
-            {totalCount === 1 ? t('transactions.transactionsFound').replace('{count}', '1') : t('transactions.transactionsFound').replace('{count}', totalCount)}
+            {t('transactions.transactionsFound', { count: totalCount })}
           </p>
         </div>
 

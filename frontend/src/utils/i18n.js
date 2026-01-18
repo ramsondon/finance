@@ -76,12 +76,27 @@ export function getMessage(key, language = null) {
 
 /**
  * Translate a string, optionally with variable interpolation
- * Example: t('messages.pageOf', { current: 1, total: 5 })
+ * Supports ICU MessageFormat for plurals and other advanced features
+ * Example: t('recurring.overdueAlert', { count: 3 })
  */
 export function t(key, vars = null) {
   let message = getMessage(key)
 
   if (vars) {
+    // First, handle ICU plural forms: {varName, plural, one {...} other {...}}
+    message = message.replace(
+      /\{(\w+),\s*plural,\s*one\s*{([^}]+)}\s*other\s*{([^}]+)}\s*}/g,
+      (match, varName, singular, plural) => {
+        const value = vars[varName]
+        if (value === undefined) return match
+
+        // Handle the # placeholder which represents the count in plural form
+        const form = value === 1 ? singular : plural
+        return form.replace(/#/g, value)
+      }
+    )
+
+    // Then handle regular variable replacements
     Object.entries(vars).forEach(([varKey, value]) => {
       message = message.replace(`{${varKey}}`, value)
     })

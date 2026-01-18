@@ -236,7 +236,7 @@
     "activeSubscriptions": "Active",
     "monthlyRecurring": "Monthly Cost",
     "yearlyRecurring": "Yearly Cost",
-    "overdueAlert": "{count, plural, one {1 subscription is} other {{count} subscriptions are}} overdue",
+    "overdueAlert": "{count, plural, one {1 subscription is} other {# subscriptions are}} overdue",
     "overdueDescription": "These recurring transactions haven't appeared as expected. They may have been cancelled or updated.",
     "filterFrequency": "Frequency",
     "filterStatus": "Status",

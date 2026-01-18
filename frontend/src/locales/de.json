@@ -236,7 +236,7 @@
     "activeSubscriptions": "Aktive",
     "monthlyRecurring": "Monatliche Kosten",
     "yearlyRecurring": "Jährliche Kosten",
-    "overdueAlert": "{count, plural, one {1 Abo ist} other {{count} Abos sind}} überfällig",
+    "overdueAlert": "{count, plural, one {1 Abo ist} other {# Abos sind}} überfällig",
     "overdueDescription": "Diese regelmäßigen Transaktionen sind nicht wie erwartet erschienen. Sie könnten gekündigt oder aktualisiert worden sein.",
     "filterFrequency": "Häufigkeit",
     "filterStatus": "Status",
