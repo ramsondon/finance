@@ -224,16 +224,33 @@ export function formatNumber(num, numberFormat = null) {
   const formatConfig = NUMBER_FORMATS[format]
   if (!formatConfig) return num.toString()
 
+  // Split into integer and decimal parts
   const parts = num.toFixed(2).split('.')
-  const integerPart = parseInt(parts[0]).toLocaleString(formatConfig.locale, { useGrouping: true })
+  let integerPart = parts[0]
   const decimalPart = parts[1]
 
-  // Replace separators based on format
-  let result = integerPart + formatConfig.decimal + decimalPart
+  // Handle negative numbers
+  const isNegative = integerPart.startsWith('-')
+  if (isNegative) {
+    integerPart = integerPart.substring(1)
+  }
 
-  // Handle thousands separator replacement
-  if (formatConfig.separator !== ',') {
-    result = result.replace(/,/g, formatConfig.separator)
+  // Add thousands separator by manually inserting from right to left
+  let formatted = ''
+  for (let i = 0; i < integerPart.length; i++) {
+    const posFromRight = integerPart.length - i
+    if (posFromRight !== integerPart.length && posFromRight % 3 === 0) {
+      formatted += formatConfig.separator
+    }
+    formatted += integerPart[i]
+  }
+
+  // Combine with decimal part
+  let result = formatted + formatConfig.decimal + decimalPart
+
+  // Re-add negative sign if needed
+  if (isNegative) {
+    result = '-' + result
   }
 
   return result

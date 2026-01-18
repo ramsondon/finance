@@ -271,7 +271,7 @@ export default function Dashboard() {
           </div>
           <div className="text-4xl font-bold mb-2">
             <SensitiveValue
-              value={`${getCurrencySymbol(overview?.total_balance_currency || 'USD')} ${(overview?.total_balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              value={`${getCurrencySymbol(overview?.total_balance_currency || 'USD')} ${formatNumber(overview?.total_balance || 0)}`}
               sensitiveMode={sensitiveMode}
             />
           </div>
@@ -294,7 +294,7 @@ export default function Dashboard() {
           </div>
           <div className="text-4xl font-bold mb-2">
             <SensitiveValue
-              value={`${getCurrencySymbol(overview?.total_balance_currency || 'USD')} ${(overview?.income_expense_breakdown?.income || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              value={`${getCurrencySymbol(overview?.total_balance_currency || 'USD')} ${formatNumber(overview?.income_expense_breakdown?.income || 0)}`}
               sensitiveMode={sensitiveMode}
             />
           </div>
@@ -329,7 +329,7 @@ export default function Dashboard() {
           </div>
           <div className="text-4xl font-bold mb-2">
             <SensitiveValue
-              value={`${getCurrencySymbol(overview?.total_balance_currency || 'USD')} ${(overview?.income_expense_breakdown?.expense || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              value={`${getCurrencySymbol(overview?.total_balance_currency || 'USD')} ${formatNumber(overview?.income_expense_breakdown?.expense || 0)}`}
               sensitiveMode={sensitiveMode}
             />
           </div>
@@ -384,7 +384,7 @@ export default function Dashboard() {
                   options={{
                     plugins: {
                       legend: { display: false },
-                      tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${ctx.raw.toLocaleString('en-US', { minimumFractionDigits: 2 })}` } }
+                      tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${formatNumber(ctx.raw)}` } }
                     }
                   }}
                 />
@@ -408,7 +408,7 @@ export default function Dashboard() {
                     </button>
                     <span className="text-sm font-medium text-gray-900">
                       <SensitiveValue
-                        value={item.value.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                        value={formatNumber(item.value)}
                         sensitiveMode={sensitiveMode}
                       />
                     </span>
@@ -438,7 +438,7 @@ export default function Dashboard() {
                   <p className="text-sm text-gray-500">{t('dashboard.currentSpending')}</p>
                   <p className="text-2xl font-bold text-gray-900">
                     <SensitiveValue
-                      value={`${getCurrencySymbol(overview?.total_balance_currency || 'USD')} ${spendingTrend.current_period_expense.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                      value={`${getCurrencySymbol(overview?.total_balance_currency || 'USD')} ${formatNumber(spendingTrend.current_period_expense)}`}
                       sensitiveMode={sensitiveMode}
                     />
                   </p>
@@ -452,7 +452,7 @@ export default function Dashboard() {
                 <p className="text-sm text-gray-500">{t('dashboard.dailyAverage')}</p>
                 <p className="text-xl font-bold text-gray-900">
                   <SensitiveValue
-                    value={`${getCurrencySymbol(overview?.total_balance_currency || 'USD')} ${spendingTrend.daily_average.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                    value={`${getCurrencySymbol(overview?.total_balance_currency || 'USD')} ${formatNumber(spendingTrend.daily_average)}`}
                     sensitiveMode={sensitiveMode}
                   />
                 </p>
@@ -463,7 +463,7 @@ export default function Dashboard() {
                 <p className="text-sm text-gray-500">{t('dashboard.forecastedTotal')}</p>
                 <p className="text-xl font-bold text-blue-900">
                   <SensitiveValue
-                    value={`${getCurrencySymbol(overview?.total_balance_currency || 'USD')} ${spendingTrend.forecast_month_end.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                    value={`${getCurrencySymbol(overview?.total_balance_currency || 'USD')} ${formatNumber(spendingTrend.forecast_month_end)}`}
                     sensitiveMode={sensitiveMode}
                   />
                 </p>
@@ -484,7 +484,7 @@ export default function Dashboard() {
                     <p className="text-xs text-gray-500">{t('dashboard.income')}</p>
                     <p className="text-lg font-bold text-green-900">
                       <SensitiveValue
-                        value={`${getCurrencySymbol(overview?.total_balance_currency || 'USD')} ${cashFlow.income.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                        value={`${getCurrencySymbol(overview?.total_balance_currency || 'USD')} ${formatNumber(cashFlow.income)}`}
                         sensitiveMode={sensitiveMode}
                       />
                     </p>
@@ -493,7 +493,7 @@ export default function Dashboard() {
                     <p className="text-xs text-gray-500">{t('dashboard.expenses')}</p>
                     <p className="text-lg font-bold text-red-900">
                       <SensitiveValue
-                        value={`${getCurrencySymbol(overview?.total_balance_currency || 'USD')} ${cashFlow.expense.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                        value={`${getCurrencySymbol(overview?.total_balance_currency || 'USD')} ${formatNumber(cashFlow.expense)}`}
                         sensitiveMode={sensitiveMode}
                       />
                     </p>
@@ -504,7 +504,7 @@ export default function Dashboard() {
                   <p className="text-sm text-gray-500">{t('dashboard.netFlow')}</p>
                   <p className={`text-xl font-bold ${cashFlow.net_flow >= 0 ? 'text-green-900' : 'text-red-900'}`}>
                     <SensitiveValue
-                      value={`${getCurrencySymbol(overview?.total_balance_currency || 'USD')} ${cashFlow.net_flow.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                      value={`${getCurrencySymbol(overview?.total_balance_currency || 'USD')} ${formatNumber(cashFlow.net_flow)}`}
                       sensitiveMode={sensitiveMode}
                     />
                   </p>
@@ -542,7 +542,7 @@ export default function Dashboard() {
               <p className="text-sm text-gray-500">{t('dashboard.monthlyRecurringCost')}</p>
               <p className="text-2xl font-bold text-green-900">
                 <SensitiveValue
-                  value={`${getCurrencySymbol(overview?.total_balance_currency || 'USD')} ${parseFloat(recurringTransactions.monthly_recurring_cost).toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                  value={`${getCurrencySymbol(overview?.total_balance_currency || 'USD')} ${formatNumber(parseFloat(recurringTransactions.monthly_recurring_cost))}`}
                   sensitiveMode={sensitiveMode}
                 />
               </p>
@@ -552,7 +552,7 @@ export default function Dashboard() {
               <p className="text-sm text-gray-500">{t('dashboard.yearlyRecurringCost')}</p>
               <p className="text-2xl font-bold text-purple-900">
                 <SensitiveValue
-                  value={`${getCurrencySymbol(overview?.total_balance_currency || 'USD')} ${parseFloat(recurringTransactions.yearly_recurring_cost).toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                  value={`${getCurrencySymbol(overview?.total_balance_currency || 'USD')} ${formatNumber(parseFloat(recurringTransactions.yearly_recurring_cost))}`}
                   sensitiveMode={sensitiveMode}
                 />
               </p>
@@ -634,7 +634,7 @@ export default function Dashboard() {
                     <span className="text-sm text-gray-500">Current Balance</span>
                     <span className="text-xl font-bold text-gray-900">
                       <SensitiveValue
-                        value={`${account.currency} ${(account.current_balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                        value={`${account.currency} ${formatNumber(account.current_balance || 0)}`}
                         sensitiveMode={sensitiveMode}
                       />
                     </span>
@@ -646,7 +646,7 @@ export default function Dashboard() {
                       </span>
                       <span className="text-sm text-gray-500">
                         <SensitiveValue
-                          value={`≈ ${userCurrency} ${(account.converted_balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                          value={`≈ ${userCurrency} ${formatNumber(account.converted_balance || 0)}`}
                           sensitiveMode={sensitiveMode}
                         />
                       </span>

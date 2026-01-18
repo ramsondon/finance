@@ -3,7 +3,7 @@ import axios from 'axios'
 import { getCsrfToken } from '../utils/csrf'
 import { SensitiveValue, useSensitiveModeListener } from '../utils/sensitive'
 import { useTranslate } from '../hooks/useLanguage'
-import { formatDate, formatDateTime } from '../utils/format'
+import { formatDate, formatDateTime, formatNumber } from '../utils/format'
 
 export default function TransactionsTable() {
   const t = useTranslate()
@@ -279,7 +279,7 @@ export default function TransactionsTable() {
                         tx.type === 'income' ? 'text-green-600' : tx.type === 'expense' ? 'text-red-600' : 'text-gray-900'
                       }`}>
                         <SensitiveValue
-                          value={`${tx.type === 'income' ? '+' : tx.type === 'expense' ? '-' : ''}${tx.account_currency || 'EUR'} ${Math.abs(tx.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                          value={`${tx.type === 'income' ? '+' : tx.type === 'expense' ? '-' : ''}${tx.account_currency || 'EUR'} ${formatNumber(Math.abs(tx.amount))}`}
                           sensitiveMode={sensitiveMode}
                         />
                       </div>
@@ -390,7 +390,7 @@ function EditTransactionModal({ transaction, categories, onClose, onSuccess, sen
                 transaction.type === 'income' ? 'text-green-600' : transaction.type === 'expense' ? 'text-red-600' : 'text-gray-900'
               }`}>
                 <SensitiveValue
-                  value={`${transaction.type === 'income' ? '+' : transaction.type === 'expense' ? '-' : ''}${transaction.account_currency || 'EUR'} ${Math.abs(transaction.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                  value={`${transaction.type === 'income' ? '+' : transaction.type === 'expense' ? '-' : ''}${transaction.account_currency || 'EUR'} ${formatNumber(Math.abs(transaction.amount))}`}
                   sensitiveMode={sensitiveMode}
                 />
               </span>

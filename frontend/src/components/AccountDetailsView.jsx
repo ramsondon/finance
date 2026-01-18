@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import { SensitiveValue, useSensitiveModeListener } from '../utils/sensitive'
 import { useTranslate } from '../hooks/useLanguage'
-import { formatDate, formatDateTime, dateToInputFormat, inputDateToISO } from '../utils/format'
+import { formatDate, formatDateTime, dateToInputFormat, inputDateToISO, formatNumber } from '../utils/format'
 import DateInput from './DateInput'
 import { Line } from 'react-chartjs-2'
 import {
@@ -331,7 +331,7 @@ export default function AccountDetailsView({ accountId, onClose }) {
                   scales: {
                     y: {
                       ticks: {
-                        callback: (v) => `${account.currency} ${Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                        callback: (v) => `${account.currency} ${formatNumber(v)}`
                       }
                     }
                   }
@@ -376,7 +376,7 @@ export default function AccountDetailsView({ accountId, onClose }) {
                         <td className="py-3 px-4 text-right font-medium whitespace-nowrap">
                           <span style={{ color: parseFloat(tx.amount) >= 0 ? '#10b981' : '#ef4444' }}>
                             <SensitiveValue
-                              value={`${Number((typeof tx.amount === 'string' ? parseFloat(tx.amount) : tx.amount) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${account.currency}`}
+                              value={`${formatNumber(typeof tx.amount === 'string' ? parseFloat(tx.amount) : tx.amount || 0)} ${account.currency}`}
                               sensitiveMode={sensitiveMode}
                             />
                           </span>
