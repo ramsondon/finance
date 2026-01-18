@@ -112,6 +112,15 @@ class RecurringTransactionViewSet(viewsets.ModelViewSet):
             next_expected_date__lt=now
         ).count()
 
+        # Get account currency if filtering by account
+        account_currency = None
+        if account_id:
+            try:
+                account = BankAccount.objects.get(id=account_id, user=request.user)
+                account_currency = account.currency
+            except BankAccount.DoesNotExist:
+                pass
+
         # Return plain dict response (don't use the summary serializer)
         return Response({
             'total_count': total_count,
@@ -121,6 +130,7 @@ class RecurringTransactionViewSet(viewsets.ModelViewSet):
             'by_frequency': by_frequency,
             'top_recurring': top_recurring_data,
             'overdue_count': overdue_count,
+            'account_currency': account_currency,
         })
 
     @action(detail=False, methods=['post'])

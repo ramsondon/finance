@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import { useTranslate } from '../hooks/useLanguage'
-import { formatDate } from '../utils/format'
+import { formatDate, formatCurrency, getCurrencySymbol } from '../utils/format'
 
 /**
  * RecurringTransactionsView
@@ -209,13 +209,13 @@ export default function RecurringTransactionsView() {
           />
           <SummaryCard
             title={t('recurring.monthlyRecurring')}
-            value={`$${summary.monthly_recurring_cost}`}
+            value={formatCurrency(summary.monthly_recurring_cost, summary.account_currency)}
             icon="📅"
             highlight
           />
           <SummaryCard
             title={t('recurring.yearlyRecurring')}
-            value={`$${summary.yearly_recurring_cost}`}
+            value={formatCurrency(summary.yearly_recurring_cost, summary.account_currency)}
             icon="📈"
             highlight
           />
@@ -316,7 +316,7 @@ export default function RecurringTransactionsView() {
                   {t(`recurring.${freq}`)} ({data.count})
                 </div>
                 <div className="text-xs text-gray-500">
-                  ${data.total_amount}
+                  {getCurrencySymbol(summary.account_currency)} {data.total_amount}
                 </div>
               </div>
             ))}
@@ -371,6 +371,7 @@ export default function RecurringTransactionsView() {
                     <RecurringTransactionRow
                       key={txn.id}
                       transaction={txn}
+                      currency={txn.account_currency}
                       onToggleIgnore={toggleIgnore}
                       onViewLinked={fetchLinkedTransactions}
                     />
@@ -457,7 +458,7 @@ function SummaryCard({ title, value, icon, highlight }) {
   )
 }
 
-function RecurringTransactionRow({ transaction, onToggleIgnore, onViewLinked }) {
+function RecurringTransactionRow({ transaction, currency, onToggleIgnore, onViewLinked }) {
   const t = useTranslate()
   const [showNotes, setShowNotes] = useState(false)
   const [notes, setNotes] = useState(transaction.user_notes)
@@ -497,8 +498,8 @@ function RecurringTransactionRow({ transaction, onToggleIgnore, onViewLinked }) 
         </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
-        <div className="text-sm font-medium text-gray-900">${transaction.amount}</div>
-        <div className="text-xs text-gray-500">${transaction.monthly_cost}/mo</div>
+        <div className="text-sm font-medium text-gray-900">{formatCurrency(transaction.amount, currency)}</div>
+        <div className="text-xs text-gray-500">{formatCurrency(transaction.monthly_cost, currency)}/mo</div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
         <div className={`text-sm font-medium ${transaction.is_overdue ? 'text-red-600' : 'text-gray-900'}`}>

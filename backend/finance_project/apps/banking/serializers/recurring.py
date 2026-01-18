@@ -15,6 +15,7 @@ class RecurringTransactionSerializer(serializers.ModelSerializer):
     display_name = serializers.SerializerMethodField()
     is_overdue = serializers.SerializerMethodField()
     days_until_next = serializers.SerializerMethodField()
+    account_currency = serializers.SerializerMethodField()
 
     class Meta:
         model = RecurringTransaction
@@ -38,6 +39,7 @@ class RecurringTransactionSerializer(serializers.ModelSerializer):
             'days_until_next',
             'monthly_cost',
             'yearly_cost',
+            'account_currency',
             'detected_at',
         ]
         read_only_fields = [
@@ -59,6 +61,10 @@ class RecurringTransactionSerializer(serializers.ModelSerializer):
     def get_days_until_next(self, obj):
         """Days until next expected occurrence."""
         return obj.days_until_next()
+
+    def get_account_currency(self, obj):
+        """Get the currency code from the related BankAccount."""
+        return obj.account.currency
 
     def get_monthly_cost(self, obj):
         """Calculate monthly cost equivalent."""
