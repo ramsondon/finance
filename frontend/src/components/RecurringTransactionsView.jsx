@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import { useTranslate } from '../hooks/useLanguage'
-import { formatDate, formatCurrency, getCurrencySymbol } from '../utils/format'
+import { formatDate, formatCurrency, getCurrencySymbol, formatNumber } from '../utils/format'
 
 /**
  * RecurringTransactionsView
@@ -316,7 +316,7 @@ export default function RecurringTransactionsView() {
                   {t(`recurring.${freq}`)} ({data.count})
                 </div>
                 <div className="text-xs text-gray-500">
-                  {getCurrencySymbol(summary.account_currency)} {data.total_amount}
+                  {getCurrencySymbol(summary.account_currency)} {formatNumber(parseFloat(data.total_amount))}
                 </div>
               </div>
             ))}
