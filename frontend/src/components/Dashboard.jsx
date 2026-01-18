@@ -5,10 +5,10 @@ import { SensitiveValue, useSensitiveModeListener } from '../utils/sensitive'
 import CreateAccountModal from './CreateAccountModal'
 import AccountDetailsView from './AccountDetailsView'
 import { useTranslate } from '../hooks/useLanguage'
-import { formatDateTime, getFormatPreferences, formatCurrency, getCurrencySymbol, formatNumber } from '../utils/format'
-import { Pie } from 'react-chartjs-2'
-import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
-ChartJS.register(ArcElement, Tooltip, Legend)
+import { formatDateTime, getFormatPreferences, getCurrencySymbol, formatNumber } from '../utils/format'
+import { Pie, Bar } from 'react-chartjs-2'
+import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title } from 'chart.js'
+ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title)
 
 export default function Dashboard() {
   const t = useTranslate()
@@ -29,6 +29,7 @@ export default function Dashboard() {
   const [spendingTrend, setSpendingTrend] = useState(null)
   const [cashFlow, setCashFlow] = useState(null)
   const [recurringTransactions, setRecurringTransactions] = useState(null)
+  const [monthlyIncomeExpense, setMonthlyIncomeExpense] = useState(null)
 
   const fetchData = (period = dashboardPeriod, accountId = selectedAccountFilter) => {
     setLoading(true)
@@ -39,14 +40,16 @@ export default function Dashboard() {
       axios.get(`/api/analytics/category-expense/?period=${period}${accountParam}`).catch(() => ({ data: { labels: [], values: [] } })),
       axios.get(`/api/analytics/spending-trend/?period=${period}${accountParam}`).catch(() => ({ data: { current_period_expense: 0, previous_period_expense: 0, trend_percent: 0, daily_average: 0, forecast_month_end: 0, days_in_period: 0, days_elapsed: 0, is_trending_up: false } })),
       axios.get(`/api/analytics/cash-flow/?period=${period}${accountParam}`).catch(() => ({ data: { income: 0, expense: 0, net_flow: 0, savings_rate: 0, burn_rate: 0, balance_change: 0 } })),
-      axios.get('/api/banking/recurring/summary/').catch(() => ({ data: { total_count: 0, active_count: 0, monthly_recurring_cost: 0, yearly_recurring_cost: 0, by_frequency: {}, top_recurring: [], overdue_count: 0 } }))
-    ]).then(([overviewRes, accountsRes, catRes, trendRes, cashFlowRes, recurringRes]) => {
+      axios.get('/api/banking/recurring/summary/').catch(() => ({ data: { total_count: 0, active_count: 0, monthly_recurring_cost: 0, yearly_recurring_cost: 0, by_frequency: {}, top_recurring: [], overdue_count: 0 } })),
+      axios.get(`/api/analytics/monthly-income-expense/${accountId !== 'all' ? `?account_id=${accountId}` : ''}`).catch(() => ({ data: { months: [], income: [], expense: [], currency: 'USD' } }))
+    ]).then(([overviewRes, accountsRes, catRes, trendRes, cashFlowRes, recurringRes, monthlyRes]) => {
       setOverview(overviewRes.data)
       setAccounts(accountsRes.data.results || accountsRes.data || [])
       setCategoryBreakdown(catRes.data || { labels: [], values: [] })
       setSpendingTrend(trendRes.data)
       setCashFlow(cashFlowRes.data)
       setRecurringTransactions(recurringRes.data)
+      setMonthlyIncomeExpense(monthlyRes.data)
       setLoading(false)
     }).catch(err => {
       setError(err.message)
@@ -63,12 +66,14 @@ export default function Dashboard() {
       axios.get(`/api/analytics/overview?period=${newPeriod}${accountParam}`),
       axios.get(`/api/analytics/category-expense/?period=${newPeriod}${accountParam}`),
       axios.get(`/api/analytics/spending-trend/?period=${newPeriod}${accountParam}`),
-      axios.get(`/api/analytics/cash-flow/?period=${newPeriod}${accountParam}`)
-    ]).then(([overviewRes, catRes, trendRes, cashFlowRes]) => {
+      axios.get(`/api/analytics/cash-flow/?period=${newPeriod}${accountParam}`),
+      axios.get(`/api/analytics/monthly-income-expense/${newAccount !== 'all' ? `?account_id=${newAccount}` : ''}`)
+    ]).then(([overviewRes, catRes, trendRes, cashFlowRes, monthlyRes]) => {
       setOverview(overviewRes.data)
       setCategoryBreakdown(catRes.data || { labels: [], values: [] })
       setSpendingTrend(trendRes.data)
       setCashFlow(cashFlowRes.data)
+      setMonthlyIncomeExpense(monthlyRes.data)
     }).catch(err => {
       console.error('Failed to fetch data:', err)
     }).finally(() => {
@@ -361,65 +366,134 @@ export default function Dashboard() {
           </div>
         </div>
         {categoryBreakdown.values.length > 0 ? (
-          <div className="flex flex-col lg:flex-row gap-6">
-            <div className="max-w-xl">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div>
+              <h4 className="text-sm font-semibold text-gray-700 mb-4">{t('dashboard.expensesByCategory')}</h4>
               {filtersLoading && (
-                <div className="flex items-center justify-center h-64">
+                <div className="flex items-center justify-center" style={{ height: '300px' }}>
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
                 </div>
               )}
               {!filtersLoading && (
-                <Pie
-                  data={{
-                    labels: categoryBreakdown.labels,
-                    datasets: [
-                      {
-                        label: 'Expenses',
-                        data: categoryBreakdown.values,
-                        backgroundColor: categoryBreakdown.colors || [],
-                        borderWidth: 1,
+                <div style={{ height: '300px' }}>
+                  <Pie
+                    data={{
+                      labels: categoryBreakdown.labels,
+                      datasets: [
+                        {
+                          label: 'Expenses',
+                          data: categoryBreakdown.values,
+                          backgroundColor: categoryBreakdown.colors || [],
+                          borderWidth: 1,
+                        }
+                      ]
+                    }}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: { display: false },
+                        tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${formatNumber(ctx.raw)}` } }
                       }
-                    ]
-                  }}
-                  options={{
-                    plugins: {
-                      legend: { display: false },
-                      tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${formatNumber(ctx.raw)}` } }
-                    }
-                  }}
-                />
+                    }}
+                  />
+                </div>
               )}
             </div>
-            <div className="flex-1">
-              <ul className="divide-y divide-gray-100">
-                {categoryBreakdown.items?.map((item) => (
-                  <li key={item.id || 'unknown'} className="py-2 flex items-center justify-between">
-                    <button
-                      onClick={() => {
-                        // Navigate to Transactions tab with category filter
-                        window.location.hash = `category=${item.id || 'unknown'}`
-                        const evt = new CustomEvent('nav-to-transactions')
-                        window.dispatchEvent(evt)
-                      }}
-                      className="text-left flex items-center gap-3 hover:bg-gray-50 rounded px-2 py-1 w-full"
-                    >
-                      <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: item.color || '#9ca3af' }}></span>
-                      <span className="text-sm text-gray-800">{item.name}</span>
-                    </button>
-                    <span className="text-sm font-medium text-gray-900">
-                      <SensitiveValue
-                        value={formatNumber(item.value)}
-                        sensitiveMode={sensitiveMode}
-                      />
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              <p className="text-xs text-gray-500 mt-2">Tip: Click a category to view all matching transactions.</p>
+
+            <div>
+              <h4 className="text-sm font-semibold text-gray-700 mb-4">{t('dashboard.monthlyIncomeVsExpenses')}</h4>
+              {filtersLoading && (
+                <div className="flex items-center justify-center" style={{ height: '300px' }}>
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                </div>
+              )}
+              {!filtersLoading && monthlyIncomeExpense && monthlyIncomeExpense.months && monthlyIncomeExpense.months.length > 0 ? (
+                <div style={{ height: '300px' }}>
+                  <Bar
+                    data={{
+                      labels: monthlyIncomeExpense.months,
+                      datasets: [
+                        {
+                          label: t('dashboard.income'),
+                          data: monthlyIncomeExpense.income,
+                          backgroundColor: '#10b981',
+                          borderColor: '#059669',
+                          borderWidth: 1,
+                        },
+                        {
+                          label: t('dashboard.expenses'),
+                          data: monthlyIncomeExpense.expense,
+                          backgroundColor: '#ef4444',
+                          borderColor: '#dc2626',
+                          borderWidth: 1,
+                        }
+                      ]
+                    }}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: {
+                          display: true,
+                          position: 'top',
+                          labels: { usePointStyle: true }
+                        },
+                        tooltip: {
+                          callbacks: {
+                            label: (ctx) => `${ctx.dataset.label}: ${getCurrencySymbol(monthlyIncomeExpense.currency)} ${formatNumber(ctx.raw)}`
+                          }
+                        }
+                      },
+                      scales: {
+                        y: {
+                          beginAtZero: true,
+                          ticks: {
+                            callback: (value) => `${getCurrencySymbol(monthlyIncomeExpense.currency)} ${formatNumber(value)}`
+                          }
+                        }
+                      }
+                    }}
+                  />
+                </div>
+              ) : !filtersLoading ? (
+                <div className="text-gray-500 h-64 flex items-center justify-center">{t('dashboard.noDataAvailable')}</div>
+              ) : null}
             </div>
           </div>
         ) : (
           <div className="text-gray-500">No expense data available.</div>
+        )}
+
+        {categoryBreakdown.values.length > 0 && (
+          <div className="mt-6 border-t border-gray-200 pt-6">
+            <h4 className="text-sm font-semibold text-gray-700 mb-4">Breakdown by Category</h4>
+            <ul className="divide-y divide-gray-100">
+              {categoryBreakdown.items?.map((item) => (
+                <li key={item.id || 'unknown'} className="py-2 flex items-center justify-between">
+                  <button
+                    onClick={() => {
+                      // Navigate to Transactions tab with category filter
+                      window.location.hash = `category=${item.id || 'unknown'}`
+                      const evt = new CustomEvent('nav-to-transactions')
+                      window.dispatchEvent(evt)
+                    }}
+                    className="text-left flex items-center gap-3 hover:bg-gray-50 rounded px-2 py-1 w-full"
+                  >
+                    <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: item.color || '#9ca3af' }}></span>
+                    <span className="text-sm text-gray-800">{item.name}</span>
+                  </button>
+                  <span className="text-sm font-medium text-gray-900">
+                    <SensitiveValue
+                      value={formatNumber(item.value)}
+                      sensitiveMode={sensitiveMode}
+                    />
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs text-gray-500 mt-2">Tip: Click a category to view all matching transactions.</p>
+          </div>
         )}
       </div>
 

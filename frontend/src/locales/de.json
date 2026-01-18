@@ -76,7 +76,9 @@
     "budgetHealth": "Budget-Status",
     "balanced": "Ausgeglichen",
     "cautious": "Vorsichtig",
-    "critical": "Kritisch"
+    "critical": "Kritisch",
+    "monthlyIncomeVsExpenses": "Monatliches Einkommen vs. Ausgaben (letzte 6 Monate)",
+    "noDataAvailable": "Keine Daten für diesen Zeitraum verfügbar"
   },
   "transactions": {
     "title": "Transaktionen",

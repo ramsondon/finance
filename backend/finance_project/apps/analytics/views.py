@@ -217,3 +217,37 @@ class CashFlowView(APIView):
         data = StatsService().cash_flow(request.user.id, period=period, account_id=account_id)
         return Response(data)
 
+
+class MonthlyIncomeExpenseView(APIView):
+    """
+    Get monthly income and expense data for the last 6 months.
+    Endpoint: GET /api/analytics/monthly-income-expense/
+
+    Query params:
+    - account_id: Optional account ID to filter by
+
+    Returns:
+    {
+        "months": ["Jan", "Feb", "Mar", ...],
+        "income": [5000.00, 5200.00, ...],
+        "expense": [1500.00, 1600.00, ...],
+        "currency": "USD"
+    }
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        account_id = request.query_params.get('account_id')
+
+        # Validate account_id if provided
+        if account_id:
+            try:
+                account_id = int(account_id)
+                # Verify user owns this account
+                if not BankAccount.objects.filter(id=account_id, user=request.user).exists():
+                    account_id = None
+            except (ValueError, TypeError):
+                account_id = None
+
+        data = StatsService().monthly_income_expense(request.user.id, account_id=account_id)
+        return Response(data)

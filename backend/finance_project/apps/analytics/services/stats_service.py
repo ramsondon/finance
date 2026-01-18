@@ -472,3 +472,86 @@ class StatsService:
             "burn_rate": burn_rate,
             "balance_change": balance_change,
         }
+
+    def monthly_income_expense(self, user_id: int, account_id: int = None, months: int = 6) -> Dict[str, Any]:
+        """Calculate monthly income and expense for the last N months.
+
+        Returns data for a bar chart showing income vs expenses by month.
+
+        Args:
+            user_id: User ID
+            account_id: Optional account ID to filter by. If None, includes all accounts.
+            months: Number of months to include (default 6)
+
+        Returns:
+            Dict with months, income, and expense lists for bar chart
+        """
+        from datetime import datetime, timedelta
+        from ...accounts.models import UserProfile
+        from decimal import Decimal
+
+        # Get user's preferred currency
+        try:
+            user_profile = UserProfile.objects.get(user_id=user_id)
+            user_currency = user_profile.get_currency()
+        except UserProfile.DoesNotExist:
+            user_currency = "USD"
+
+        # Get accounts
+        accounts = BankAccount.objects.filter(user_id=user_id)
+        if account_id:
+            accounts = accounts.filter(id=account_id)
+
+        # Calculate the start date (N months ago, first day of that month)
+        today = datetime.now().date()
+        target_month = today.month - months + 1
+        target_year = today.year
+
+        # Handle year wraparound
+        while target_month <= 0:
+            target_month += 12
+            target_year -= 1
+
+        start_date = datetime(target_year, target_month, 1).date()
+
+        # Generate list of months to include
+        months_list = []
+        current = datetime(start_date.year, start_date.month, 1)
+        while current.date() <= today:
+            months_list.append(current.date())
+            # Move to next month
+            if current.month == 12:
+                current = datetime(current.year + 1, 1, 1)
+            else:
+                current = datetime(current.year, current.month + 1, 1)
+
+        # Calculate income and expense for each month
+        monthly_data = []
+
+        for month_start in months_list:
+            # Calculate month end
+            if month_start.month == 12:
+                month_end = datetime(month_start.year + 1, 1, 1).date() - timedelta(days=1)
+            else:
+                month_end = datetime(month_start.year, month_start.month + 1, 1).date() - timedelta(days=1)
+
+            # Calculate income and expense for this month
+            income, expense = self._calculate_income_expense(accounts, month_start, month_end, user_currency)
+
+            monthly_data.append({
+                "label": month_start.strftime("%b"),  # e.g., "Jan"
+                "income": float(income),
+                "expense": float(expense),
+            })
+
+        # Extract lists for chart
+        months = [d["label"] for d in monthly_data]
+        income_values = [d["income"] for d in monthly_data]
+        expense_values = [d["expense"] for d in monthly_data]
+
+        return {
+            "months": months,
+            "income": income_values,
+            "expense": expense_values,
+            "currency": user_currency,
+        }

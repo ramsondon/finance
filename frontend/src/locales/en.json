@@ -76,7 +76,9 @@
     "budgetHealth": "Budget Health",
     "balanced": "Balanced",
     "cautious": "Cautious",
-    "critical": "Critical"
+    "critical": "Critical",
+    "monthlyIncomeVsExpenses": "Monthly Income vs Expenses (Last 6 Months)",
+    "noDataAvailable": "No data available for this period"
   },
   "transactions": {
     "title": "Transactions",
