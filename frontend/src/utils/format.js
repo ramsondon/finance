@@ -143,19 +143,36 @@ export async function updateFormatPreferences(prefs) {
 export function formatDate(date, dateFormat = null) {
   const prefs = getFormatPreferences()
   const format = dateFormat || prefs.dateFormat
-  const d = typeof date === 'string' ? new Date(date) : date
 
-  const options = DATE_FORMATS[format]
-  if (!options) return d.toLocaleDateString('en-US')
+  // Parse date
+  let d = date
+  if (typeof date === 'string') {
+    d = new Date(date)
+  }
 
-  // Use user's language preference, with fallback to locale from DATE_FORMATS
-  const locale = prefs.language === 'de' ? 'de-DE' : options.locale
+  // Handle invalid dates
+  if (isNaN(d.getTime())) {
+    return ''
+  }
 
-  return d.toLocaleDateString(locale, {
-    year: '2-digit',
-    month: '2-digit',
-    day: '2-digit',
-  })
+  // Extract date parts
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+
+  // Format according to user preference
+  switch(format) {
+    case 'MM/DD/YYYY':
+      return `${month}/${day}/${year}`
+    case 'DD/MM/YYYY':
+      return `${day}/${month}/${year}`
+    case 'DD.MM.YYYY':
+      return `${day}.${month}.${year}`
+    case 'YYYY-MM-DD':
+      return `${year}-${month}-${day}`
+    default:
+      return `${month}/${day}/${year}` // Fallback to US format
+  }
 }
 
 /**
@@ -167,32 +184,55 @@ export function formatDateTime(dateTimeString, dateFormat = null, timeFormat = n
   const format = dateFormat || prefs.dateFormat
   const tFormat = timeFormat || prefs.timeFormat
 
-  // Parse ISO datetime string
-  const d = typeof dateTimeString === 'string' ? new Date(dateTimeString) : dateTimeString
-
-  // Get date options
-  const dateOptions = DATE_FORMATS[format]
-  if (!dateOptions) {
-    return d.toLocaleString('en-US')
+  // Parse datetime
+  let d = dateTimeString
+  if (typeof dateTimeString === 'string') {
+    d = new Date(dateTimeString)
   }
 
-  // Use user's language preference, with fallback to locale from DATE_FORMATS
-  const locale = prefs.language === 'de' ? 'de-DE' : dateOptions.locale
-
-  // Format date part
-  const dateStr = d.toLocaleDateString(locale, {
-    year: '2-digit',
-    month: '2-digit',
-    day: '2-digit',
-  })
-
-  // Format time part (HH:MM only)
-  const timeOptions = {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: tFormat === '12-hour',
+  // Handle invalid dates
+  if (isNaN(d.getTime())) {
+    return ''
   }
-  const timeStr = d.toLocaleTimeString(locale, timeOptions)
+
+  // Extract date parts
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+
+  // Format date part according to user preference
+  let dateStr
+  switch(format) {
+    case 'MM/DD/YYYY':
+      dateStr = `${month}/${day}/${year}`
+      break
+    case 'DD/MM/YYYY':
+      dateStr = `${day}/${month}/${year}`
+      break
+    case 'DD.MM.YYYY':
+      dateStr = `${day}.${month}.${year}`
+      break
+    case 'YYYY-MM-DD':
+      dateStr = `${year}-${month}-${day}`
+      break
+    default:
+      dateStr = `${month}/${day}/${year}` // Fallback to US format
+  }
+
+  // Format time part according to user preference
+  let hours = d.getHours()
+  const minutes = String(d.getMinutes()).padStart(2, '0')
+
+  let timeStr
+  if (tFormat === '12-hour') {
+    const ampm = hours >= 12 ? 'PM' : 'AM'
+    hours = hours % 12 || 12 // Convert to 12-hour format
+    const hoursStr = String(hours).padStart(2, '0')
+    timeStr = `${hoursStr}:${minutes} ${ampm}`
+  } else {
+    const hoursStr = String(hours).padStart(2, '0')
+    timeStr = `${hoursStr}:${minutes}`
+  }
 
   return `${dateStr} ${timeStr}`
 }
