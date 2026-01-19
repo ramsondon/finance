@@ -153,7 +153,7 @@
     "duplicateErrorDetail": "Bitte verwenden Sie einen anderen Namen für Ihre Kategorie.",
     "nameRequired": "Der Kategoriename ist erforderlich.",
     "failedToSave": "Kategorie konnte nicht gespeichert werden.",
-    "generateWithAI": "🤖 Mit KI generieren",
+    "generateWithAI": "Mit KI generieren",
     "generateWithAIDesc": "Analysieren Sie Ihre Transaktionen und erstellen Sie automatisch Kategorievorschläge basierend auf Mustern",
     "generating": "Wird generiert...",
     "aiGenerationStarted": "KI-Kategoriengenerierung im Hintergrund gestartet",
@@ -213,7 +213,7 @@
     "errorDeleting": "Fehler beim Löschen der Regel",
     "errorUpdating": "Fehler beim Aktualisieren der Regel",
     "errorApplying": "Fehler beim Anwenden von Regeln:",
-    "generateFromCategories": "🤖 Aus Kategorien generieren",
+    "generateFromCategories": "Aus Kategorien generieren",
     "generateModal": {
       "title": "Regeln aus Kategorien generieren",
       "description": "Analysieren Sie Ihre kategorisierten Transaktionen, um Kategorisierungsregeln automatisch zu generieren.",
@@ -324,9 +324,9 @@
     "compactView": "Kompakte Ansicht",
     "compactViewDesc": "Abstände reduzieren (Alt+Shift+C)",
     "keyboardShortcuts": "Tastaturkürzel:",
-    "toggleSensitive": "🔐 Alt+Shift+S - Vertraulicher Modus umschalten",
-    "toggleDark": "🌙 Alt+Shift+D - Dunkler Modus umschalten",
-    "toggleCompact": "📦 Alt+Shift+C - Kompakte Ansicht umschalten"
+    "toggleSensitive": "Alt+Shift+S - Vertraulicher Modus umschalten",
+    "toggleDark": "Alt+Shift+D - Dunkler Modus umschalten",
+    "toggleCompact": "Alt+Shift+C - Kompakte Ansicht umschalten"
   },
   "accountDetails": {
     "details": "Kontodetails",

@@ -3,7 +3,7 @@ import axios from 'axios'
 import { getCsrfToken } from '../utils/csrf'
 import { dateToInputFormat, inputDateToISO } from '../utils/format'
 import DateInput from './DateInput'
-import { X } from 'lucide-react'
+import { X, Lightbulb } from 'lucide-react'
 
 export default function CreateAccountModal({ onClose, onCreated }) {
   const [form, setForm] = useState({
@@ -206,8 +206,9 @@ export default function CreateAccountModal({ onClose, onCreated }) {
               title="Reference date for opening balance"
               showPickerButton={true}
             />
-            <p className="text-xs text-gray-500 mt-1">
-              💡 Set a reference date when you know your account balance. Leave empty if you have complete transaction history.
+            <p className="text-xs text-gray-500 mt-1 flex items-start gap-1">
+              <Lightbulb size={14} className="text-yellow-500 flex-shrink-0 mt-0.5" />
+              <span>Set a reference date when you know your account balance. Leave empty if you have complete transaction history.</span>
             </p>
             <p className="text-xs text-gray-400 mt-1">
               Example: If you know your balance was €5,000 two weeks ago, enter that date. Then import transactions from that date onward.

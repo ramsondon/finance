@@ -153,7 +153,7 @@
     "duplicateErrorDetail": "Please use a different name for your category.",
     "nameRequired": "Category name is required.",
     "failedToSave": "Failed to save category.",
-    "generateWithAI": "🤖 Generate with AI",
+    "generateWithAI": "Generate with AI",
     "generateWithAIDesc": "Analyze your transactions and automatically suggest categories based on patterns",
     "generating": "Generating...",
     "aiGenerationStarted": "AI category generation started in background",
@@ -213,7 +213,7 @@
     "errorDeleting": "Error deleting rule",
     "errorUpdating": "Error updating rule",
     "errorApplying": "Error applying rules:",
-    "generateFromCategories": "🤖 Generate from Categories",
+    "generateFromCategories": "Generate from Categories",
     "generateModal": {
       "title": "Generate Rules from Categories",
       "description": "Analyze your categorized transactions to automatically generate categorization rules.",
@@ -324,9 +324,9 @@
     "compactView": "Compact View",
     "compactViewDesc": "Reduce spacing (Alt+Shift+C)",
     "keyboardShortcuts": "Keyboard Shortcuts:",
-    "toggleSensitive": "🔐 Alt+Shift+S - Toggle Sensitive Mode",
-    "toggleDark": "🌙 Alt+Shift+D - Toggle Dark Mode",
-    "toggleCompact": "📦 Alt+Shift+C - Toggle Compact View"
+    "toggleSensitive": "Alt+Shift+S - Toggle Sensitive Mode",
+    "toggleDark": "Alt+Shift+D - Toggle Dark Mode",
+    "toggleCompact": "Alt+Shift+C - Toggle Compact View"
   },
   "accountDetails": {
     "details": "Account Details",

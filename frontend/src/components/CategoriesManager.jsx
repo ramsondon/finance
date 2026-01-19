@@ -224,7 +224,10 @@ export default function CategoriesManager() {
                 {t('categories.generating')}
               </>
             ) : (
-              t('categories.generateWithAI')
+              <>
+                <Zap size={18} />
+                {t('categories.generateWithAI')}
+              </>
             )}
           </button>
           <button

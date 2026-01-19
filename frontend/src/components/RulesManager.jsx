@@ -4,7 +4,7 @@ import { getCsrfToken } from '../utils/csrf'
 import { useTranslate } from '../hooks/useLanguage'
 import { dateToInputFormat, inputDateToISO } from '../utils/format'
 import DateInput from './DateInput'
-import { X } from 'lucide-react'
+import { X, Zap } from 'lucide-react'
 
 export default function RulesManager() {
   const t = useTranslate()
@@ -165,8 +165,9 @@ export default function RulesManager() {
           </button>
           <button
             onClick={() => setShowGenerateModal(true)}
-            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium"
+            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium flex items-center gap-2"
           >
+            <Zap size={18} />
             {t('rules.generateFromCategories')}
           </button>
           <button
@@ -336,8 +337,9 @@ function GenerateRulesModal({ onClose, onGenerate, loading, error, result }) {
           <div className="py-4">
             <button
               onClick={onGenerate}
-              className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium"
+              className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium flex items-center justify-center gap-2"
             >
+              <Zap size={18} />
               {t('rules.generateFromCategories')}
             </button>
           </div>

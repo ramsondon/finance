@@ -14,7 +14,7 @@ import { getCsrfToken } from './utils/csrf'
 import { getFormatPreferences, saveFormatPreferences, updateFormatPreferences, DATE_FORMATS, CURRENCY_OPTIONS, NUMBER_FORMATS, TIME_FORMATS } from './utils/format'
 import { getSupportedLanguages, setLanguage as setLanguagePreference } from './utils/i18n'
 import { useTranslate } from './hooks/useLanguage'
-import { BarChart3, CreditCard, RotateCw, Folder, Settings, Zap, LogOut, Bell } from 'lucide-react'
+import { BarChart3, CreditCard, RotateCw, Folder, Settings, Zap, LogOut, Bell, Lock, Moon, Package } from 'lucide-react'
 
 // Configure axios to include CSRF token in all requests
 axios.interceptors.request.use((config) => {
@@ -487,9 +487,18 @@ const SettingsMenu = ({ sensitiveMode, setSensitiveMode, darkMode, setDarkMode, 
         <div className="border-t border-gray-200 pt-4">
           <div className="text-xs text-gray-500 space-y-2 bg-blue-50 p-3 rounded-lg">
             <div className="font-semibold text-gray-700">{t('settings.keyboardShortcuts')}</div>
-            <div>{t('settings.toggleSensitive')}</div>
-            <div>{t('settings.toggleDark')}</div>
-            <div>{t('settings.toggleCompact')}</div>
+            <div className="flex items-center gap-2">
+              <Lock size={14} className="text-blue-600" />
+              {t('settings.toggleSensitive')}
+            </div>
+            <div className="flex items-center gap-2">
+              <Moon size={14} className="text-blue-600" />
+              {t('settings.toggleDark')}
+            </div>
+            <div className="flex items-center gap-2">
+              <Package size={14} className="text-blue-600" />
+              {t('settings.toggleCompact')}
+            </div>
           </div>
         </div>
       </div>
