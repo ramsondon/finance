@@ -357,18 +357,15 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Expense by Category */}
-      <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-xl font-bold text-gray-900">{t('dashboard.expensesByCategory')}</h3>
-            <p className="text-gray-500 text-sm">{t('dashboard.uncategorized')}</p>
+      {/* Charts Grid - Expenses by Category and Monthly Income vs Expenses */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Expense by Category - Pie Chart */}
+        <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold text-gray-900">{t('dashboard.expensesByCategory')}</h3>
           </div>
-        </div>
-        {categoryBreakdown.values.length > 0 ? (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div>
-              <h4 className="text-sm font-semibold text-gray-700 mb-4">{t('dashboard.expensesByCategory')}</h4>
+          {categoryBreakdown.values.length > 0 ? (
+            <>
               {filtersLoading && (
                 <div className="flex items-center justify-center" style={{ height: '300px' }}>
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -399,102 +396,103 @@ export default function Dashboard() {
                   />
                 </div>
               )}
-            </div>
 
-            <div>
-              <h4 className="text-sm font-semibold text-gray-700 mb-4">{t('dashboard.monthlyIncomeVsExpenses')}</h4>
-              {filtersLoading && (
-                <div className="flex items-center justify-center" style={{ height: '300px' }}>
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-                </div>
-              )}
-              {!filtersLoading && monthlyIncomeExpense && monthlyIncomeExpense.months && monthlyIncomeExpense.months.length > 0 ? (
-                <div style={{ height: '300px' }}>
-                  <Bar
-                    data={{
-                      labels: monthlyIncomeExpense.months,
-                      datasets: [
-                        {
-                          label: t('dashboard.income'),
-                          data: monthlyIncomeExpense.income,
-                          backgroundColor: '#10b981',
-                          borderColor: '#059669',
-                          borderWidth: 1,
-                        },
-                        {
-                          label: t('dashboard.expenses'),
-                          data: monthlyIncomeExpense.expense,
-                          backgroundColor: '#ef4444',
-                          borderColor: '#dc2626',
-                          borderWidth: 1,
-                        }
-                      ]
-                    }}
-                    options={{
-                      responsive: true,
-                      maintainAspectRatio: false,
-                      plugins: {
-                        legend: {
-                          display: true,
-                          position: 'top',
-                          labels: { usePointStyle: true }
-                        },
-                        tooltip: {
-                          callbacks: {
-                            label: (ctx) => `${ctx.dataset.label}: ${getCurrencySymbol(monthlyIncomeExpense.currency)} ${formatNumber(ctx.raw)}`
-                          }
-                        }
-                      },
-                      scales: {
-                        y: {
-                          beginAtZero: true,
-                          ticks: {
-                            callback: (value) => `${getCurrencySymbol(monthlyIncomeExpense.currency)} ${formatNumber(value)}`
-                          }
-                        }
+              {/* Category Breakdown List - Inside Pie Chart Card */}
+              <div className="mt-6 border-t border-gray-200 pt-6">
+                <ul className="divide-y divide-gray-100">
+                  {categoryBreakdown.items?.map((item) => (
+                    <li key={item.id || 'unknown'} className="py-2 flex items-center justify-between">
+                      <button
+                        onClick={() => {
+                          // Navigate to Transactions tab with category filter
+                          window.location.hash = `category=${item.id || 'unknown'}`
+                          const evt = new CustomEvent('nav-to-transactions')
+                          window.dispatchEvent(evt)
+                        }}
+                        className="text-left flex items-center gap-3 hover:bg-gray-50 rounded px-2 py-1 w-full"
+                      >
+                        <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: item.color || '#9ca3af' }}></span>
+                        <span className="text-sm text-gray-800">{item.name}</span>
+                      </button>
+                      <span className="text-sm font-medium text-gray-900">
+                        <SensitiveValue
+                          value={formatNumber(item.value)}
+                          sensitiveMode={sensitiveMode}
+                        />
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-xs text-gray-500 mt-2">Tip: Click a category to view all matching transactions.</p>
+              </div>
+            </>
+          ) : (
+            <div className="text-gray-500 flex items-center justify-center h-64">No expense data available.</div>
+          )}
+        </div>
+
+        {/* Monthly Income vs Expenses - Bar Chart */}
+        <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold text-gray-900">{t('dashboard.monthlyIncomeVsExpenses')}</h3>
+          </div>
+          {filtersLoading && (
+            <div className="flex items-center justify-center" style={{ height: '300px' }}>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            </div>
+          )}
+          {!filtersLoading && monthlyIncomeExpense && monthlyIncomeExpense.months && monthlyIncomeExpense.months.length > 0 ? (
+            <div style={{ height: '300px' }}>
+              <Bar
+                data={{
+                  labels: monthlyIncomeExpense.months,
+                  datasets: [
+                    {
+                      label: t('dashboard.income'),
+                      data: monthlyIncomeExpense.income,
+                      backgroundColor: '#10b981',
+                      borderColor: '#059669',
+                      borderWidth: 1,
+                    },
+                    {
+                      label: t('dashboard.expenses'),
+                      data: monthlyIncomeExpense.expense,
+                      backgroundColor: '#ef4444',
+                      borderColor: '#dc2626',
+                      borderWidth: 1,
+                    }
+                  ]
+                }}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: {
+                      display: true,
+                      position: 'top',
+                      labels: { usePointStyle: true }
+                    },
+                    tooltip: {
+                      callbacks: {
+                        label: (ctx) => `${ctx.dataset.label}: ${getCurrencySymbol(monthlyIncomeExpense.currency)} ${formatNumber(ctx.raw)}`
                       }
-                    }}
-                  />
-                </div>
-              ) : !filtersLoading ? (
-                <div className="text-gray-500 h-64 flex items-center justify-center">{t('dashboard.noDataAvailable')}</div>
-              ) : null}
+                    }
+                  },
+                  scales: {
+                    y: {
+                      beginAtZero: true,
+                      ticks: {
+                        callback: (value) => `${getCurrencySymbol(monthlyIncomeExpense.currency)} ${formatNumber(value)}`
+                      }
+                    }
+                  }
+                }}
+              />
             </div>
-          </div>
-        ) : (
-          <div className="text-gray-500">No expense data available.</div>
-        )}
-
-        {categoryBreakdown.values.length > 0 && (
-          <div className="mt-6 border-t border-gray-200 pt-6">
-            <h4 className="text-sm font-semibold text-gray-700 mb-4">Breakdown by Category</h4>
-            <ul className="divide-y divide-gray-100">
-              {categoryBreakdown.items?.map((item) => (
-                <li key={item.id || 'unknown'} className="py-2 flex items-center justify-between">
-                  <button
-                    onClick={() => {
-                      // Navigate to Transactions tab with category filter
-                      window.location.hash = `category=${item.id || 'unknown'}`
-                      const evt = new CustomEvent('nav-to-transactions')
-                      window.dispatchEvent(evt)
-                    }}
-                    className="text-left flex items-center gap-3 hover:bg-gray-50 rounded px-2 py-1 w-full"
-                  >
-                    <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: item.color || '#9ca3af' }}></span>
-                    <span className="text-sm text-gray-800">{item.name}</span>
-                  </button>
-                  <span className="text-sm font-medium text-gray-900">
-                    <SensitiveValue
-                      value={formatNumber(item.value)}
-                      sensitiveMode={sensitiveMode}
-                    />
-                  </span>
-                </li>
-              ))}
-            </ul>
-            <p className="text-xs text-gray-500 mt-2">Tip: Click a category to view all matching transactions.</p>
-          </div>
-        )}
+          ) : !filtersLoading ? (
+            <div className="text-gray-500 flex items-center justify-center h-64">{t('dashboard.noDataAvailable')}</div>
+          ) : null}
+        </div>
       </div>
 
       {/* Spending Trend Widget */}
