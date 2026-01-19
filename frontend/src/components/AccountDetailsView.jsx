@@ -16,6 +16,7 @@ import {
   Legend,
   Filler
 } from 'chart.js'
+import { TrendingUp, TrendingDown, CreditCard } from 'lucide-react'
 
 // Register Chart.js components
 ChartJS.register(
@@ -193,10 +194,10 @@ export default function AccountDetailsView({ accountId, onClose }) {
 
   const getTypeIcon = (type) => {
     switch(type) {
-      case 'income': return '📈'
-      case 'expense': return '📉'
-      case 'transfer': return '↔️'
-      default: return '💳'
+      case 'income': return <TrendingUp size={16} className="text-green-700" />
+      case 'expense': return <TrendingDown size={16} className="text-red-700" />
+      case 'transfer': return <TrendingUp size={16} className="text-blue-700 rotate-180" />
+      default: return <CreditCard size={16} className="text-gray-700" />
     }
   }
 
@@ -383,7 +384,7 @@ export default function AccountDetailsView({ accountId, onClose }) {
                         </td>
                         <td className="py-3 px-4 text-sm whitespace-nowrap">
                           <span className={`inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full border ${getTypeColor(tx.type)}`}>
-                            {/*<span className="mr-1">{getTypeIcon(tx.type)}</span>*/}
+                            <span className="mr-2">{getTypeIcon(tx.type)}</span>
                             {t(`transactions.${tx.type}`)}
                           </span>
                         </td>

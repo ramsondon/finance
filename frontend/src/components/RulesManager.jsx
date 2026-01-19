@@ -4,6 +4,7 @@ import { getCsrfToken } from '../utils/csrf'
 import { useTranslate } from '../hooks/useLanguage'
 import { dateToInputFormat, inputDateToISO } from '../utils/format'
 import DateInput from './DateInput'
+import { X } from 'lucide-react'
 
 export default function RulesManager() {
   const t = useTranslate()
@@ -459,7 +460,9 @@ function CreateRuleModal({ categories, onClose, onSuccess }) {
       <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
           <h3 className="text-xl font-bold text-gray-900">Create New Rule</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl">✕</button>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+            <X size={24} />
+          </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
@@ -718,7 +721,9 @@ function EditRuleModal({ rule, categories, onClose, onSuccess }) {
       <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
           <h3 className="text-xl font-bold text-gray-900">Edit Rule</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl">✕</button>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+            <X size={24} />
+          </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">

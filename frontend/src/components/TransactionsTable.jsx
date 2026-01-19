@@ -4,6 +4,7 @@ import { getCsrfToken } from '../utils/csrf'
 import { SensitiveValue, useSensitiveModeListener } from '../utils/sensitive'
 import { useTranslate } from '../hooks/useLanguage'
 import { formatDate, formatDateTime, formatNumber } from '../utils/format'
+import { TrendingUp, TrendingDown, ArrowLeftRight, CreditCard, Search, RotateCw, X } from 'lucide-react'
 
 export default function TransactionsTable() {
   const t = useTranslate()
@@ -110,10 +111,10 @@ export default function TransactionsTable() {
 
   const getTypeIcon = (type) => {
     switch(type) {
-      case 'income': return '📈'
-      case 'expense': return '📉'
-      case 'transfer': return '↔️'
-      default: return '💳'
+      case 'income': return <TrendingUp size={16} className="text-green-700" />
+      case 'expense': return <TrendingDown size={16} className="text-red-700" />
+      case 'transfer': return <ArrowLeftRight size={16} className="text-blue-700" />
+      default: return <CreditCard size={16} className="text-gray-700" />
     }
   }
 
@@ -129,16 +130,17 @@ export default function TransactionsTable() {
           <h3 className="text-lg font-semibold text-gray-900">{t('transactions.filters')}</h3>
           <button
             onClick={() => { setCurrentPage(1); loadTransactions() }}
-            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors font-medium text-sm"
+            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors font-medium text-sm flex items-center gap-2"
           >
-            🔄 {t('transactions.refresh')}
+            <RotateCw size={18} />
+            {t('transactions.refresh')}
           </button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">{t('transactions.search')}</label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">🔍</span>
+              <Search size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
                 value={filters.search}
@@ -221,7 +223,7 @@ export default function TransactionsTable() {
           </div>
         ) : totalCount === 0 ? (
           <div className="text-center py-20 bg-gradient-to-br from-gray-50 to-white">
-            <div className="text-6xl mb-4">💳</div>
+            <CreditCard size={64} className="mx-auto text-gray-400 mb-4" />
             <h3 className="text-xl font-semibold text-gray-700 mb-2">{t('transactions.noTransactionsFound')}</h3>
             <p className="text-gray-500">{t('transactions.importCSV')}</p>
           </div>
@@ -270,7 +272,7 @@ export default function TransactionsTable() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full border ${getTypeColor(tx.type)}`}>
-                        {/*<span className="mr-1">{getTypeIcon(tx.type)}</span>*/}
+                        <span className="mr-2">{getTypeIcon(tx.type)}</span>
                         {t(`transactions.${tx.type}`)}
                       </span>
                     </td>
@@ -370,7 +372,9 @@ function EditTransactionModal({ transaction, categories, onClose, onSuccess, sen
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
         <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
           <h3 className="text-lg font-bold text-gray-900">{t('transactionEdit.title')}</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl">✕</button>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+            <X size={24} />
+          </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">

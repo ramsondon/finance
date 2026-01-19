@@ -14,6 +14,7 @@ import { getCsrfToken } from './utils/csrf'
 import { getFormatPreferences, saveFormatPreferences, updateFormatPreferences, DATE_FORMATS, CURRENCY_OPTIONS, NUMBER_FORMATS, TIME_FORMATS } from './utils/format'
 import { getSupportedLanguages, setLanguage as setLanguagePreference } from './utils/i18n'
 import { useTranslate } from './hooks/useLanguage'
+import { BarChart3, CreditCard, RotateCw, Folder, Settings, Zap, LogOut, Bell } from 'lucide-react'
 
 // Configure axios to include CSRF token in all requests
 axios.interceptors.request.use((config) => {
@@ -144,12 +145,12 @@ function AppContent() {
 
   // Dashboard menu items - use translations
   const menuItems = [
-    { id: 'dashboard', label: t('nav.dashboard'), icon: '📊' },
-    { id: 'transactions', label: t('nav.transactions'), icon: '💳' },
-    { id: 'recurring', label: t('nav.recurring'), icon: '🔄' },
-    { id: 'categories', label: t('nav.categories'), icon: '📁' },
-    { id: 'rules', label: t('nav.rules'), icon: '⚙️' },
-    { id: 'insights', label: t('nav.insights'), icon: '🤖' },
+    { id: 'dashboard', label: t('nav.dashboard'), icon: BarChart3 },
+    { id: 'transactions', label: t('nav.transactions'), icon: CreditCard },
+    { id: 'recurring', label: t('nav.recurring'), icon: RotateCw },
+    { id: 'categories', label: t('nav.categories'), icon: Folder },
+    { id: 'rules', label: t('nav.rules'), icon: Settings },
+    { id: 'insights', label: t('nav.insights'), icon: Zap },
   ]
 
   const handleLogout = async () => {
@@ -219,7 +220,10 @@ function AppContent() {
                   : 'text-gray-700 hover:bg-gray-100'
               }`}
             >
-              <span className="text-2xl">{item.icon}</span>
+              <item.icon
+                size={24}
+                className={activeTab === item.id ? 'text-white' : 'text-gray-700'}
+              />
               {!sidebarCollapsed && (
                 <span className="font-medium">{item.label}</span>
               )}
@@ -233,7 +237,7 @@ function AppContent() {
             onClick={handleLogout}
             className="w-full flex items-center space-x-3 px-4 py-3 hover:bg-gray-100 rounded-lg transition-colors text-gray-700"
           >
-            <span className="text-2xl">🚪</span>
+            <LogOut size={24} className="text-gray-700" />
             {!sidebarCollapsed && <span>{t('common.logout')}</span>}
           </button>
         </div>
@@ -265,14 +269,14 @@ function AppContent() {
                   {t('common.import')}
                 </button>
                 <button className="p-2.5 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-gray-700">
-                  <span className="text-xl">🔔</span>
+                  <Bell size={20} className="text-gray-700" />
                 </button>
                 <div className="relative">
                   <button
                     onClick={() => setShowSettingsMenu(!showSettingsMenu)}
                     className="p-2.5 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-gray-700"
                   >
-                    <span className="text-xl">⚙️</span>
+                    <Settings size={20} className="text-gray-700" />
                   </button>
                   {showSettingsMenu && (
                     <SettingsMenu

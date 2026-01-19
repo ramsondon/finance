@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import { getCsrfToken } from '../utils/csrf'
+import { Upload, Loader, AlertCircle, CheckCircle, FileText, FileCode, X } from 'lucide-react'
 
 export default function ImportModal({ onClose }) {
   const [accounts, setAccounts] = useState([])
@@ -53,7 +54,7 @@ export default function ImportModal({ onClose }) {
           'X-CSRFToken': getCsrfToken()
         }
       })
-      setSuccess(`✅ Successfully imported ${res.data.queued} transactions (${res.data.file_type.toUpperCase()})`)
+      setSuccess(`Successfully imported ${res.data.queued} transactions (${res.data.file_type.toUpperCase()})`)
       setResult(res.data)
       setFile(null)
       setTimeout(() => onClose(), 2500)
@@ -69,7 +70,9 @@ export default function ImportModal({ onClose }) {
       <div className="bg-white rounded-lg shadow-lg w-full max-w-md border border-gray-200">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">Import Transactions</h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">✕</button>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+            <X size={24} />
+          </button>
         </div>
         <div className="p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -111,8 +114,8 @@ export default function ImportModal({ onClose }) {
                 />
               </div>
               <p className="mt-2 text-xs text-gray-500 space-y-1">
-                <div>📄 <strong>CSV Format:</strong> date, amount, description, type, category (optional)</div>
-                <div>📋 <strong>JSON Format:</strong> Array of transaction objects with banking fields</div>
+                <div className="flex items-center gap-1"><FileText size={14} className="text-gray-400" /> <strong>CSV Format:</strong> date, amount, description, type, category (optional)</div>
+                <div className="flex items-center gap-1"><FileCode size={14} className="text-gray-400" /> <strong>JSON Format:</strong> Array of transaction objects with banking fields</div>
               </p>
             </div>
 
@@ -134,10 +137,14 @@ export default function ImportModal({ onClose }) {
             {result && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
                 <div className="font-medium mb-1">Import Complete</div>
-                <div>✓ Queued {result.queued} transactions</div>
+                <div className="flex items-center gap-1">
+                  <CheckCircle size={14} className="text-green-600" />
+                  Queued {result.queued} transactions
+                </div>
                 {result.errors?.length > 0 && (
-                  <div className="mt-2 text-red-600">
-                    ⚠️ {result.errors.length} rows had errors
+                  <div className="mt-2 text-red-600 flex items-center gap-1">
+                    <AlertCircle size={14} />
+                    {result.errors.length} rows had errors
                   </div>
                 )}
                 {result.file_type && (
@@ -151,9 +158,19 @@ export default function ImportModal({ onClose }) {
               <button
                 type="submit"
                 disabled={uploading || !file || !selectedAccount}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors flex items-center justify-center gap-2"
               >
-                {uploading ? '⏳ Importing...' : '📤 Import'}
+                {uploading ? (
+                  <>
+                    <Loader size={18} className="animate-spin" />
+                    Importing...
+                  </>
+                ) : (
+                  <>
+                    <Upload size={18} />
+                    Import
+                  </>
+                )}
               </button>
               <button
                 type="button"

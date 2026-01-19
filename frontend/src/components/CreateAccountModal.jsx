@@ -3,6 +3,7 @@ import axios from 'axios'
 import { getCsrfToken } from '../utils/csrf'
 import { dateToInputFormat, inputDateToISO } from '../utils/format'
 import DateInput from './DateInput'
+import { X } from 'lucide-react'
 
 export default function CreateAccountModal({ onClose, onCreated }) {
   const [form, setForm] = useState({
@@ -108,7 +109,9 @@ export default function CreateAccountModal({ onClose, onCreated }) {
       <div className="bg-white rounded-lg shadow-lg w-full max-w-md border border-gray-200">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900">Create Bank Account</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">✕</button>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+            <X size={24} />
+          </button>
         </div>
         <form onSubmit={handleSubmit} className="px-6 py-4 space-y-4">
           {error && (

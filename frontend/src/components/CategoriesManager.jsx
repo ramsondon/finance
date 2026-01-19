@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import axios from 'axios'
 import { getCsrfToken } from '../utils/csrf'
 import { useTranslate } from '../hooks/useLanguage'
+import { Folder, Zap, X, Check, AlertCircle } from 'lucide-react'
 
 export default function CategoriesManager() {
   const t = useTranslate()
@@ -281,7 +282,7 @@ export default function CategoriesManager() {
         </div>
       ) : categories.length === 0 ? (
         <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
-          <div className="text-6xl mb-4">📁</div>
+          <Folder size={64} className="mx-auto text-gray-400 mb-4" />
           <p className="text-gray-500 mb-4">
             {searchQuery ? t('categories.noCategoriesSearch') : t('categories.noCategoriesEmpty')}
           </p>
@@ -431,14 +432,15 @@ export default function CategoriesManager() {
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
             <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-lg">
               <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                🤖 {t('aiCategoryGeneration.title')}
+                <Zap size={24} className="text-yellow-500" />
+                {t('aiCategoryGeneration.title')}
               </h3>
               <button
                 onClick={closeAIGenerationModal}
                 disabled={aiGenerationLoading}
-                className="text-gray-500 hover:text-gray-700 text-2xl disabled:opacity-50"
+                className="text-gray-500 hover:text-gray-700 disabled:opacity-50"
               >
-                ✕
+                <X size={24} />
               </button>
             </div>
 
@@ -460,8 +462,9 @@ export default function CategoriesManager() {
                 </div>
               ) : aiGenerationResult ? (
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4 space-y-2">
-                  <p className="text-green-800 font-medium">
-                    ✓ {t('aiCategoryGeneration.generationComplete')}
+                  <p className="text-green-800 font-medium flex items-center gap-2">
+                    <Check size={18} className="text-green-600" />
+                    {t('aiCategoryGeneration.generationComplete')}
                   </p>
                   <p className="text-green-700 text-sm">
                     {aiGenerationResult.message}
@@ -469,8 +472,9 @@ export default function CategoriesManager() {
                 </div>
               ) : aiGenerationError ? (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4 space-y-2">
-                  <p className="text-red-800 font-medium">
-                    ✗ {t('aiCategoryGeneration.generationError')}
+                  <p className="text-red-800 font-medium flex items-center gap-2">
+                    <AlertCircle size={18} className="text-red-600" />
+                    {t('aiCategoryGeneration.generationError')}
                   </p>
                   <p className="text-red-700 text-sm">
                     {aiGenerationError}
@@ -614,7 +618,9 @@ function CategoryModal({ category, onClose, onSuccess }) {
           <h3 className="text-xl font-bold text-gray-900">
             {isEdit ? 'Edit Category' : 'Create New Category'}
           </h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl">✕</button>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+            <X size={24} />
+          </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">

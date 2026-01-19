@@ -8,6 +8,7 @@ import { useTranslate } from '../hooks/useLanguage'
 import { formatDateTime, getFormatPreferences, getCurrencySymbol, formatNumber } from '../utils/format'
 import { Pie, Bar } from 'react-chartjs-2'
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title } from 'chart.js'
+import { TrendingUp, TrendingDown, DollarSign, Plus, AlertCircle, Trash2, Wallet, ArrowUpDown, RotateCw, Building } from 'lucide-react'
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title)
 
 export default function Dashboard() {
@@ -164,7 +165,7 @@ export default function Dashboard() {
     return (
       <div className="bg-red-50 border-l-4 border-red-500 rounded-lg p-6 shadow-sm">
         <div className="flex items-center">
-          <span className="text-3xl mr-3">⚠️</span>
+          <AlertCircle size={32} className="text-red-500 mr-3" />
           <div>
             <h3 className="text-lg font-semibold text-red-900">{t('dashboard.errorLoadingDashboard')}</h3>
             <p className="text-red-700 mt-1">{error}</p>
@@ -272,7 +273,7 @@ export default function Dashboard() {
         <div className="bg-blue-600 rounded-lg p-6 text-white shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <div className="text-blue-100 text-sm font-medium uppercase tracking-wider">{t('dashboard.totalBalance')}</div>
-            <span className="text-4xl">💰</span>
+            <Wallet size={36} className="text-blue-200" />
           </div>
           <div className="text-4xl font-bold mb-2">
             <SensitiveValue
@@ -295,7 +296,7 @@ export default function Dashboard() {
           )}
           <div className="flex items-center justify-between mb-3">
             <div className="text-green-100 text-sm font-medium uppercase tracking-wider">{t('dashboard.income')}</div>
-            <span className="text-4xl">📈</span>
+            <TrendingUp size={36} className="text-green-200" />
           </div>
           <div className="text-4xl font-bold mb-2">
             <SensitiveValue
@@ -330,7 +331,7 @@ export default function Dashboard() {
           )}
           <div className="flex items-center justify-between mb-3">
             <div className="text-red-100 text-sm font-medium uppercase tracking-wider">{t('dashboard.expenses')}</div>
-            <span className="text-4xl">📉</span>
+            <TrendingDown size={36} className="text-red-200" />
           </div>
           <div className="text-4xl font-bold mb-2">
             <SensitiveValue
@@ -501,7 +502,10 @@ export default function Dashboard() {
           <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-gray-900">{t('dashboard.spendingTrend')}</h3>
-              <span className="text-2xl">{spendingTrend.is_trending_up ? '📈' : '📉'}</span>
+              {spendingTrend.is_trending_up ?
+                <TrendingUp size={28} className="text-red-500" /> :
+                <TrendingDown size={28} className="text-green-500" />
+              }
             </div>
 
             <div className="space-y-4">
@@ -547,7 +551,7 @@ export default function Dashboard() {
             <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-bold text-gray-900">{t('dashboard.cashFlow')}</h3>
-                <span className="text-2xl">💰</span>
+                <ArrowUpDown size={28} className="text-blue-500" />
               </div>
 
               <div className="space-y-4">
@@ -600,7 +604,7 @@ export default function Dashboard() {
         <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-bold text-gray-900">{t('dashboard.recurringTransactions')}</h3>
-            <span className="text-2xl">🔄</span>
+            <RotateCw size={28} className="text-blue-500" />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -658,7 +662,7 @@ export default function Dashboard() {
 
         {accounts.length === 0 ? (
           <div className="text-center py-16 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-            <div className="text-6xl mb-4">🏦</div>
+            <Building size={64} className="mx-auto text-gray-400 mb-4" />
             <h3 className="text-xl font-semibold text-gray-700 mb-2">No accounts yet</h3>
             <p className="text-gray-500 mb-6">Create your first account to start tracking your finances</p>
             <button
@@ -690,14 +694,12 @@ export default function Dashboard() {
                     className="text-gray-400 hover:text-red-600 transition-colors p-1"
                     title="Delete account"
                   >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
+                    <Trash2 size={20} />
                   </button>
                 </div>
                 {account.institution && (
                   <p className="text-sm text-gray-500 mb-3 flex items-center">
-                    <span className="mr-1">🏛️</span>
+                    <Building size={14} className="mr-1 text-gray-400" />
                     {account.institution}
                   </p>
                 )}
@@ -779,9 +781,10 @@ export default function Dashboard() {
                 <p className="text-gray-700">
                   Are you sure you want to delete <strong className="text-gray-900">"{deleteConfirm.name}"</strong>?
                 </p>
-                <p className="text-sm text-red-600 mt-2">
-                  ⚠️ All transactions associated with this account will also be deleted.
-                </p>
+                <div className="flex items-start gap-2 mt-2 text-sm text-red-600 bg-red-50 p-2 rounded">
+                  <AlertCircle size={18} className="text-red-600 flex-shrink-0 mt-0.5" />
+                  <p>All transactions associated with this account will also be deleted.</p>
+                </div>
               </div>
               <div className="flex gap-3">
                 <button

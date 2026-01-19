@@ -1,5 +1,6 @@
 import React from 'react'
 import CookieConsent from './CookieConsent'
+import { CreditCard, BarChart3, Zap, TrendingUp, Download, Lock, Wallet } from 'lucide-react'
 
 export default function LandingPage() {
   return (
@@ -54,7 +55,7 @@ export default function LandingPage() {
         <div className="relative h-96 md:h-[500px] rounded-2xl overflow-hidden border border-gray-700 bg-gradient-to-b from-gray-800 to-gray-900">
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="text-center">
-              <div className="text-8xl mb-4 animate-bounce">📊</div>
+              <BarChart3 size={96} className="mx-auto text-blue-400 mb-4 animate-bounce" />
               <p className="text-gray-400">Dashboard Preview Coming Soon</p>
             </div>
           </div>
@@ -68,45 +69,50 @@ export default function LandingPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {[
             {
-              icon: '💳',
+              icon: CreditCard,
               title: 'Multi-Account Support',
               description: 'Manage multiple bank accounts in one place. Track all your finances from a single dashboard.'
             },
             {
-              icon: '📊',
+              icon: BarChart3,
               title: 'Real-time Analytics',
               description: 'Get instant insights into your spending habits with beautiful charts and visualizations.'
             },
             {
-              icon: '🤖',
+              icon: Zap,
               title: 'AI Insights',
               description: 'Powered by advanced AI, get personalized recommendations to improve your financial health.'
             },
             {
-              icon: '📈',
+              icon: TrendingUp,
               title: 'Smart Categorization',
               description: 'Automatic transaction categorization with customizable rules. Stay organized effortlessly.'
             },
             {
-              icon: '📥',
+              icon: Download,
               title: 'Easy CSV Import',
               description: 'Import transactions from your bank statements with just a few clicks.'
             },
             {
-              icon: '🔒',
+              icon: Lock,
               title: 'Secure & Private',
               description: 'Your financial data is protected with enterprise-grade security and encryption.'
             }
-          ].map((feature, i) => (
+          ].map((feature, i) => {
+            const FeatureIcon = feature.icon
+            return (
             <div
               key={i}
               className="bg-gradient-to-b from-gray-800 to-gray-900 rounded-2xl p-8 border border-gray-700 hover:border-blue-500/50 transition-all hover:shadow-xl hover:shadow-blue-500/20"
             >
-              <div className="text-5xl mb-4">{feature.icon}</div>
+              <div className="mb-4">
+                <FeatureIcon size={48} className="text-blue-400" />
+              </div>
               <h3 className="text-xl font-bold mb-3">{feature.title}</h3>
               <p className="text-gray-400">{feature.description}</p>
             </div>
-          ))}
+            )
+          })}
         </div>
       </section>
 
@@ -130,8 +136,8 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
             <div>
               <div className="flex items-center space-x-2 mb-4">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-lg font-bold">
-                  💰
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center">
+                  <Wallet size={18} className="text-white" />
                 </div>
                 <span className="font-bold">Finance</span>
               </div>

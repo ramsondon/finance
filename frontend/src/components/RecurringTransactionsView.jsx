@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import { useTranslate } from '../hooks/useLanguage'
 import { formatDate, formatCurrency, getCurrencySymbol, formatNumber } from '../utils/format'
+import { Calendar, Clock, AlertCircle, PieChart, CheckCircle, TrendingUp, RotateCw, XCircle, Edit, Search, Link, X } from 'lucide-react'
 
 /**
  * RecurringTransactionsView
@@ -164,9 +165,10 @@ export default function RecurringTransactionsView() {
         </div>
         <button
           onClick={() => setShowDetectModal(true)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
         >
-          🔍 {t('recurring.detectButton')}
+          <Search size={18} />
+          {t('recurring.detectButton')}
         </button>
       </div>
 
@@ -200,23 +202,23 @@ export default function RecurringTransactionsView() {
           <SummaryCard
             title={t('recurring.totalSubscriptions')}
             value={summary.total_count}
-            icon="📊"
+            icon={<PieChart size={32} className="text-blue-600" />}
           />
           <SummaryCard
             title={t('recurring.activeSubscriptions')}
             value={summary.active_count}
-            icon="✅"
+            icon={<CheckCircle size={32} className="text-green-600" />}
           />
           <SummaryCard
             title={t('recurring.monthlyRecurring')}
             value={formatCurrency(summary.monthly_recurring_cost, summary.account_currency)}
-            icon="📅"
+            icon={<Calendar size={32} className="text-indigo-600" />}
             highlight
           />
           <SummaryCard
             title={t('recurring.yearlyRecurring')}
             value={formatCurrency(summary.yearly_recurring_cost, summary.account_currency)}
-            icon="📈"
+            icon={<TrendingUp size={32} className="text-purple-600" />}
             highlight
           />
         </div>
@@ -226,7 +228,7 @@ export default function RecurringTransactionsView() {
       {summary && summary.overdue_count > 0 && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
           <div className="flex items-start gap-3">
-            <span className="text-2xl">⚠️</span>
+            <AlertCircle size={24} className="text-yellow-700 flex-shrink-0" />
             <div>
               <h3 className="font-semibold text-yellow-900">
                 {t('recurring.overdueAlert', { count: summary.overdue_count })}
@@ -305,12 +307,12 @@ export default function RecurringTransactionsView() {
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             {Object.entries(summary.by_frequency).map(([freq, data]) => (
               <div key={freq} className="text-center p-3 bg-gray-50 rounded">
-                <div className="text-2xl mb-1">
-                  {freq === 'weekly' && '📅'}
-                  {freq === 'bi-weekly' && '📅📅'}
-                  {freq === 'monthly' && '📆'}
-                  {freq === 'quarterly' && '📊'}
-                  {freq === 'yearly' && '📈'}
+                <div className="mb-1">
+                  {freq === 'weekly' && <Calendar size={24} className="text-blue-600 mx-auto" />}
+                  {freq === 'bi-weekly' && <Calendar size={24} className="text-blue-600 mx-auto" />}
+                  {freq === 'monthly' && <Calendar size={24} className="text-blue-600 mx-auto" />}
+                  {freq === 'quarterly' && <PieChart size={24} className="text-purple-600 mx-auto" />}
+                  {freq === 'yearly' && <Calendar size={24} className="text-indigo-600 mx-auto" />}
                 </div>
                 <div className="text-sm font-medium text-gray-900">
                   {t(`recurring.${freq}`)} ({data.count})
@@ -449,7 +451,13 @@ export default function RecurringTransactionsView() {
 function SummaryCard({ title, value, icon, highlight }) {
   return (
     <div className={`rounded-lg p-6 ${highlight ? 'bg-blue-50 border border-blue-200' : 'bg-white border border-gray-200'}`}>
-      <div className="text-3xl mb-2">{icon}</div>
+      <div className="mb-2">
+        {typeof icon === 'string' ? (
+          <span className="text-3xl">{icon}</span>
+        ) : (
+          icon
+        )}
+      </div>
       <p className="text-sm text-gray-600 mb-1">{title}</p>
       <p className={`text-2xl font-bold ${highlight ? 'text-blue-600' : 'text-gray-900'}`}>
         {value}
@@ -463,14 +471,14 @@ function RecurringTransactionRow({ transaction, currency, onToggleIgnore, onView
   const [showNotes, setShowNotes] = useState(false)
   const [notes, setNotes] = useState(transaction.user_notes)
 
-  const getFrequencyEmoji = (freq) => {
+  const getFrequencyIcon = (freq) => {
     switch(freq) {
-      case 'weekly': return '📅'
-      case 'bi-weekly': return '📅📅'
-      case 'monthly': return '📆'
-      case 'quarterly': return '📊'
-      case 'yearly': return '📈'
-      default: return '💳'
+      case 'weekly': return <Calendar size={18} className="text-blue-600" />
+      case 'bi-weekly': return <Calendar size={18} className="text-blue-600" />
+      case 'monthly': return <Calendar size={18} className="text-blue-600" />
+      case 'quarterly': return <Calendar size={18} className="text-purple-600" />
+      case 'yearly': return <Calendar size={18} className="text-indigo-600" />
+      default: return <Clock size={18} className="text-gray-600" />
     }
   }
 
@@ -491,7 +499,7 @@ function RecurringTransactionRow({ transaction, currency, onToggleIgnore, onView
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
         <div className="flex items-center gap-2">
-          <span>{getFrequencyEmoji(transaction.frequency)}</span>
+          {getFrequencyIcon(transaction.frequency)}
           <span className="text-sm font-medium text-gray-700">
             {t(`recurring.${transaction.frequency}`)}
           </span>
@@ -506,7 +514,12 @@ function RecurringTransactionRow({ transaction, currency, onToggleIgnore, onView
           {formatDate(transaction.next_expected_date)}
         </div>
         <div className={`text-xs ${transaction.is_overdue ? 'text-red-500' : 'text-gray-500'}`}>
-          {transaction.is_overdue ? '⚠️ Overdue' : `${transaction.days_until_next} days`}
+          {transaction.is_overdue ? (
+            <div className="flex items-center gap-1">
+              <AlertCircle size={14} />
+              Overdue
+            </div>
+          ) : `${transaction.days_until_next} days`}
         </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
@@ -521,7 +534,7 @@ function RecurringTransactionRow({ transaction, currency, onToggleIgnore, onView
             className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded hover:bg-purple-200"
             title="View linked transactions"
           >
-            🔗
+            <Link size={16} className="text-purple-700" />
           </button>
           <button
             onClick={() => onToggleIgnore(transaction.id, transaction.is_ignored)}
@@ -532,14 +545,18 @@ function RecurringTransactionRow({ transaction, currency, onToggleIgnore, onView
             }`}
             title={transaction.is_ignored ? 'Unignore' : 'Ignore'}
           >
-            {transaction.is_ignored ? '🔄' : '🚫'}
+            {transaction.is_ignored ? (
+              <RotateCw size={16} className="text-gray-700" />
+            ) : (
+              <XCircle size={16} className="text-blue-700" />
+            )}
           </button>
           <button
             onClick={() => setShowNotes(!showNotes)}
             className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
             title="Add note"
           >
-            📝
+            <Edit size={16} className="text-gray-700" />
           </button>
         </div>
         {showNotes && (
@@ -564,8 +581,9 @@ function DetectModal({ onClose, onDetect, detecting }) {
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
-        <h3 className="text-lg font-bold text-gray-900 mb-4">
-          🔍 {t('recurring.detectRecurring')}
+        <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+          <Search size={20} className="text-blue-600" />
+          {t('recurring.detectRecurring')}
         </h3>
 
         <p className="text-gray-600 mb-6">
@@ -617,8 +635,9 @@ function LinkedTransactionsModal({ recurring, transactions, loading, onClose }) 
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-bold text-gray-900">
-              🔗 {t('recurring.linkedTransactions')}
+            <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              <Link size={20} className="text-purple-600" />
+              {t('recurring.linkedTransactions')}
             </h3>
             <p className="text-sm text-gray-600 mt-1">
               {recurring.recurring_description} ({recurring.recurring_frequency})
@@ -628,7 +647,7 @@ function LinkedTransactionsModal({ recurring, transactions, loading, onClose }) 
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600"
           >
-            ✕
+            <X size={24} />
           </button>
         </div>
 

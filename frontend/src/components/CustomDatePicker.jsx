@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { dateToInputFormat, inputDateToISO, getFormatPreferences } from '../utils/format'
+import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
 
 /**
  * CustomDatePicker Component
@@ -232,7 +233,7 @@ export default function CustomDatePicker({
             title="Open date picker"
             aria-label="Open calendar date picker"
           >
-            📅
+            <Calendar size={18} className="text-gray-600" />
           </button>
         )}
       </div>
@@ -250,7 +251,7 @@ export default function CustomDatePicker({
                   className="p-1 hover:bg-gray-100 rounded transition-colors"
                   title="Previous month"
                 >
-                  ←
+                  <ChevronLeft size={18} className="text-gray-600" />
                 </button>
                 <div className="flex flex-col items-center">
                   <h3 className="font-semibold text-gray-900 text-sm">
@@ -271,7 +272,7 @@ export default function CustomDatePicker({
                   className="p-1 hover:bg-gray-100 rounded transition-colors"
                   title="Next month"
                 >
-                  →
+                  <ChevronRight size={18} className="text-gray-600" />
                 </button>
               </div>
 
@@ -316,7 +317,7 @@ export default function CustomDatePicker({
                   className="p-1 hover:bg-gray-100 rounded transition-colors"
                   title="Previous years"
                 >
-                  ←
+                  <ChevronLeft size={18} className="text-gray-600" />
                 </button>
                 <h3 className="font-semibold text-gray-900 text-sm">
                   {Math.floor(currentMonth.getFullYear() / 12) * 12} - {Math.floor(currentMonth.getFullYear() / 12) * 12 + 11}
@@ -327,7 +328,7 @@ export default function CustomDatePicker({
                   className="p-1 hover:bg-gray-100 rounded transition-colors"
                   title="Next years"
                 >
-                  →
+                  <ChevronRight size={18} className="text-gray-600" />
                 </button>
               </div>
 
