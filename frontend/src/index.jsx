@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import Dashboard from './components/Dashboard'
 import TransactionsTable from './components/TransactionsTable'
-import ImportCsvModal from './components/ImportCsvModal'
 import RulesManager from './components/RulesManager'
 import CategoriesManager from './components/CategoriesManager'
 import RecurringTransactionsView from './components/RecurringTransactionsView'
@@ -39,7 +38,6 @@ axios.interceptors.request.use((config) => {
 function AppContent() {
   const t = useTranslate() // This hook listens for language changes
   const [activeTab, setActiveTab] = useState('dashboard')
-  const [showImportModal, setShowImportModal] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -296,12 +294,6 @@ function AppContent() {
                 </p>
               </div>
               <div className="flex items-center space-x-3">
-                <button
-                  onClick={() => setShowImportModal(true)}
-                  className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-medium"
-                >
-                  {t('common.import')}
-                </button>
                 <button className={`p-2.5 rounded-lg transition-colors ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}>
                   <Bell size={20} />
                 </button>
@@ -361,11 +353,6 @@ function AppContent() {
           </div>
         </main>
       </div>
-
-      {/* Import Modal */}
-      {showImportModal && (
-        <ImportCsvModal onClose={() => setShowImportModal(false)} />
-      )}
     </div>
   )
 }

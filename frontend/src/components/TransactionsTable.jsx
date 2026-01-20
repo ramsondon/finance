@@ -4,7 +4,8 @@ import { getCsrfToken } from '../utils/csrf'
 import { SensitiveValue, useSensitiveModeListener } from '../utils/sensitive'
 import { useTranslate } from '../hooks/useLanguage'
 import { formatDate, formatDateTime, formatNumber } from '../utils/format'
-import { TrendingUp, TrendingDown, ArrowLeftRight, CreditCard, Search, RotateCw, X } from 'lucide-react'
+import { TrendingUp, TrendingDown, ArrowLeftRight, CreditCard, Search, RotateCw, X, Upload } from 'lucide-react'
+import ImportCsvModal from './ImportCsvModal'
 
 export default function TransactionsTable({ darkMode = false }) {
   const t = useTranslate()
@@ -17,6 +18,7 @@ export default function TransactionsTable({ darkMode = false }) {
   const [accounts, setAccounts] = useState([])
   const [filters, setFilters] = useState({ search: '', type: '', category: '', categoryUnknown: false, account: '' })
   const [editingTransaction, setEditingTransaction] = useState(null)
+  const [showImportModal, setShowImportModal] = useState(false)
   const sensitiveMode = useSensitiveModeListener()
 
   // Load categories for filter dropdown
@@ -128,13 +130,22 @@ export default function TransactionsTable({ darkMode = false }) {
       <div className={`${darkMode ? 'bg-gray-800 shadow-xl' : 'bg-white shadow-lg'} rounded-2xl p-6`}>
         <div className="flex items-center justify-between mb-4">
           <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t('transactions.filters')}</h3>
-          <button
-            onClick={() => { setCurrentPage(1); loadTransactions() }}
-            className={`px-4 py-2 rounded-lg transition-colors font-medium text-sm flex items-center gap-2 ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-900'}`}
-          >
-            <RotateCw size={18} />
-            {t('transactions.refresh')}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowImportModal(true)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm flex items-center gap-2"
+            >
+              <Upload size={18} />
+              {t('common.import')}
+            </button>
+            <button
+              onClick={() => { setCurrentPage(1); loadTransactions() }}
+              className={`px-4 py-2 rounded-lg transition-colors font-medium text-sm flex items-center gap-2 ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-900'}`}
+            >
+              <RotateCw size={18} />
+              {t('transactions.refresh')}
+            </button>
+          </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
@@ -331,6 +342,14 @@ export default function TransactionsTable({ darkMode = false }) {
             loadTransactions()
           }}
         />
+      )}
+
+      {/* Import CSV Modal */}
+      {showImportModal && (
+        <ImportCsvModal onClose={() => {
+          setShowImportModal(false)
+          loadTransactions()
+        }} />
       )}
     </div>
   )
