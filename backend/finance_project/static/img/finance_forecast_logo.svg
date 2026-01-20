@@ -1,28 +1,26 @@
-<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Background Circle -->
-  <circle cx="100" cy="100" r="100" fill="#2563EB"/>
+<svg
+        width="128"
+        height="128"
+        viewBox="0 0 128 128"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+>
+  <!-- Background -->
+  <rect width="128" height="128" rx="28" fill="#0F172A"/>
 
-  <!-- Dollar Sign -->
-  <path d="M100 40 L100 160 M75 60 Q75 50, 85 50 L115 50 Q125 50, 125 60 Q125 70, 115 70 L85 70 Q75 70, 75 80 Q75 90, 85 90 L115 90 Q125 90, 125 100 Q125 110, 115 110 L85 110 Q75 110, 75 120 Q75 130, 85 130 L115 130 Q125 130, 125 140"
-        stroke="white"
-        stroke-width="8"
-        stroke-linecap="round"
-        fill="none"/>
+  <!-- Forecast line -->
+  <path
+          d="M20 78 L44 64 L68 72 L92 44"
+          stroke="#38BDF8"
+          stroke-width="6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+  />
 
-  <!-- Chart Lines -->
-  <polyline points="50,140 70,120 90,130 110,100 130,110 150,80"
-            stroke="white"
-            stroke-width="4"
-            stroke-linecap="round"
-            fill="none"
-            opacity="0.6"/>
+  <!-- Present point -->
+  <circle cx="68" cy="72" r="6" fill="#38BDF8"/>
 
-  <!-- Chart Points -->
-  <circle cx="50" cy="140" r="4" fill="white" opacity="0.8"/>
-  <circle cx="70" cy="120" r="4" fill="white" opacity="0.8"/>
-  <circle cx="90" cy="130" r="4" fill="white" opacity="0.8"/>
-  <circle cx="110" cy="100" r="4" fill="white" opacity="0.8"/>
-  <circle cx="130" cy="110" r="4" fill="white" opacity="0.8"/>
-  <circle cx="150" cy="80" r="4" fill="white" opacity="0.8"/>
+  <!-- Future point -->
+  <circle cx="92" cy="44" r="6" fill="#22C55E"/>
+
 </svg>
-

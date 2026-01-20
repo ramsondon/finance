@@ -186,7 +186,7 @@ function AppContent() {
           {!sidebarCollapsed && (
             <div className="flex items-center space-x-3">
               <img
-                src="/static/img/finance_forecast_logo.png"
+                src="/static/img/finance_forecast_logo.svg"
                 alt="Finance Logo"
                 className="w-10 h-10 rounded-lg"
               />
@@ -195,7 +195,7 @@ function AppContent() {
           )}
           {sidebarCollapsed && (
             <img
-              src="/static/img/finance_forecast_logo.png"
+              src="/static/img/finance_forecast_logo.svg"
               alt="Finance Logo"
               className="w-10 h-10 rounded-lg mx-auto"
             />

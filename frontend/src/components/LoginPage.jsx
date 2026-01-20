@@ -28,7 +28,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <img
-            src="/static/img/finance_forecast_logo.png"
+            src="/static/img/finance_forecast_logo.svg"
             alt="Finance Logo"
             className="w-16 h-16 rounded-lg mx-auto mb-6"
           />

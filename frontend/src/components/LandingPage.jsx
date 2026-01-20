@@ -10,7 +10,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <img
-              src="/static/img/finance_forecast_logo.png"
+              src="/static/img/finance_forecast_logo.svg"
               alt="Finance Logo"
               className="w-10 h-10 rounded-lg"
             />
