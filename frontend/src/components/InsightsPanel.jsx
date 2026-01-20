@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import { useTranslate } from '../hooks/useLanguage'
 
-export default function InsightsPanel() {
+export default function InsightsPanel({ darkMode = false }) {
   const t = useTranslate()
   const [resp, setResp] = useState(null)
   const [loading, setLoading] = useState(false)

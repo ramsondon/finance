@@ -6,7 +6,7 @@ import { useTranslate } from '../hooks/useLanguage'
 import { formatDate, formatDateTime, formatNumber } from '../utils/format'
 import { TrendingUp, TrendingDown, ArrowLeftRight, CreditCard, Search, RotateCw, X } from 'lucide-react'
 
-export default function TransactionsTable() {
+export default function TransactionsTable({ darkMode = false }) {
   const t = useTranslate()
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(true)
@@ -125,12 +125,12 @@ export default function TransactionsTable() {
   return (
     <div className="space-y-6">
       {/* Filters Card */}
-      <div className="bg-white rounded-2xl shadow-lg p-6">
+      <div className={`${darkMode ? 'bg-gray-800 shadow-xl' : 'bg-white shadow-lg'} rounded-2xl p-6`}>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">{t('transactions.filters')}</h3>
+          <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t('transactions.filters')}</h3>
           <button
             onClick={() => { setCurrentPage(1); loadTransactions() }}
-            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors font-medium text-sm flex items-center gap-2"
+            className={`px-4 py-2 rounded-lg transition-colors font-medium text-sm flex items-center gap-2 ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-900'}`}
           >
             <RotateCw size={18} />
             {t('transactions.refresh')}
@@ -204,10 +204,10 @@ export default function TransactionsTable() {
       </div>
 
       {/* Transactions Table */}
-      <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
-          <h3 className="text-lg font-semibold text-gray-900">{t('transactions.title')}</h3>
-          <p className="text-sm text-gray-500 mt-1">
+      <div className={`${darkMode ? 'bg-gray-800 shadow-xl' : 'bg-white shadow-lg'} rounded-2xl overflow-hidden`}>
+        <div className={`px-6 py-4 border-b ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-gradient-to-r from-gray-50 to-white border-gray-200'}`}>
+          <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{t('transactions.title')}</h3>
+          <p className={`text-sm mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
             {t('transactions.transactionsFound', { count: totalCount })}
           </p>
         </div>
@@ -241,11 +241,11 @@ export default function TransactionsTable() {
                   <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">{t('transactions.actions')}</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-100">
+              <tbody className={`${darkMode ? 'bg-gray-800 divide-gray-700' : 'bg-white divide-gray-100'} divide-y`}>
                 {transactions.map(tx => (
-                  <tr key={tx.id} className="hover:bg-gray-50 transition-colors">
+                  <tr key={tx.id} className={`${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'} transition-colors`}>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
+                      <div className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                         {formatDate(tx.date)}
                       </div>
                     </td>
@@ -302,13 +302,13 @@ export default function TransactionsTable() {
         )}
 
         {/* Pagination */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 bg-white">
-          <div className="text-sm text-gray-600">{t('transactions.pageOf', { current: currentPage, total: totalPages, count: totalCount })}</div>
+        <div className={`flex items-center justify-between px-6 py-4 border-t ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`}>
+          <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>{t('transactions.pageOf', { current: currentPage, total: totalPages, count: totalCount })}</div>
           <div className="flex gap-2">
             <button
               onClick={() => canPrev && setCurrentPage(p => Math.max(1, p - 1))}
               disabled={!canPrev}
-              className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
+              className={`px-3 py-1 border rounded disabled:opacity-50 ${darkMode ? 'border-gray-600 hover:bg-gray-600' : 'border-gray-300 hover:bg-gray-50'}`}
             >{t('transactions.previousPage')}</button>
             <button
               onClick={() => canNext && setCurrentPage(p => Math.min(totalPages, p + 1))}

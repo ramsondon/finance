@@ -11,7 +11,7 @@ import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearSca
 import { TrendingUp, TrendingDown, DollarSign, Plus, AlertCircle, Trash2, Wallet, ArrowUpDown, RotateCw, Building } from 'lucide-react'
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title)
 
-export default function Dashboard() {
+export default function Dashboard({ darkMode = false }) {
   const t = useTranslate()
   const [overview, setOverview] = useState(null)
   const [accounts, setAccounts] = useState([])
@@ -178,11 +178,11 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       {/* Dashboard Filters */}
-      <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
+      <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg shadow-sm p-4 border`}>
         <div className="flex flex-wrap items-center gap-4">
           {/* Period Label & Dropdown */}
           <div className="flex items-center gap-2">
-            <label htmlFor="dashboard-period" className="text-sm font-medium text-gray-700">
+            <label htmlFor="dashboard-period" className={`text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
               {t('dashboard.periodSelector')}:
             </label>
             <select
@@ -190,7 +190,7 @@ export default function Dashboard() {
               value={dashboardPeriod}
               onChange={(e) => handleFilterChange(e.target.value)}
               disabled={filtersLoading}
-              className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm font-medium hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+              className={`px-3 py-2 border rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 ${darkMode ? 'bg-gray-700 border-gray-600 text-white hover:border-gray-500' : 'bg-white border-gray-300 text-gray-900 hover:border-gray-400'}`}
             >
               <option value="current_month">{t('dashboard.periodCurrentMonth')}</option>
               <option value="last_month">{t('dashboard.periodLastMonth')}</option>
@@ -249,7 +249,7 @@ export default function Dashboard() {
               value={selectedAccountFilter}
               onChange={(e) => handleAccountFilterChange(e.target.value)}
               disabled={filtersLoading}
-              className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm font-medium hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+              className={`px-3 py-2 border rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 ${darkMode ? 'bg-gray-700 border-gray-600 text-white hover:border-gray-500' : 'bg-white border-gray-300 text-gray-900 hover:border-gray-400'}`}
             >
               <option value="all">{t('dashboard.allAccounts')}</option>
               {accounts.map(acc => (

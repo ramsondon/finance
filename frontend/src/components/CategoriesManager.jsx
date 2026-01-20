@@ -4,7 +4,7 @@ import { getCsrfToken } from '../utils/csrf'
 import { useTranslate } from '../hooks/useLanguage'
 import { Folder, Zap, X, Check, AlertCircle } from 'lucide-react'
 
-export default function CategoriesManager() {
+export default function CategoriesManager({ darkMode = false }) {
   const t = useTranslate()
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)

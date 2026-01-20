@@ -6,7 +6,7 @@ import { dateToInputFormat, inputDateToISO } from '../utils/format'
 import DateInput from './DateInput'
 import { X, Zap } from 'lucide-react'
 
-export default function RulesManager() {
+export default function RulesManager({ darkMode = false }) {
   const t = useTranslate()
   const [rules, setRules] = useState([])
   const [categories, setCategories] = useState([])

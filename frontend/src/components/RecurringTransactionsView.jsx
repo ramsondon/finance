@@ -10,7 +10,7 @@ import { Calendar, Clock, AlertCircle, PieChart, CheckCircle, TrendingUp, Rotate
  *
  * Uses backend pagination to handle large datasets efficiently.
  */
-export default function RecurringTransactionsView() {
+export default function RecurringTransactionsView({ darkMode = false }) {
   const t = useTranslate()
   const [summary, setSummary] = useState(null)
   const [recurring, setRecurring] = useState([])

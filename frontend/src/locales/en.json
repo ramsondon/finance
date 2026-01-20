@@ -320,7 +320,7 @@
     "language": "Language",
     "display": "Display",
     "darkMode": "Dark Mode",
-    "darkModeDesc": "Coming soon (Alt+Shift+D)",
+    "darkModeDesc": "Toggle dark theme (Alt+Shift+D)",
     "compactView": "Compact View",
     "compactViewDesc": "Reduce spacing (Alt+Shift+C)",
     "keyboardShortcuts": "Keyboard Shortcuts:",

@@ -64,14 +64,15 @@ cd /Users/matthiasschmid/Projects/finance
 11. [Frontend Architecture](#-frontend-architecture)
 12. [UI Components & Features](#-ui-components--features)
 13. [Sensitive Mode](#-sensitive-mode)
-14. [Format Preferences](#-format-preferences)
-15. [Internationalization](#-internationalization)
+14. [Dark Mode](#-dark-mode)
+15. [Format Preferences](#-format-preferences)
+16. [Internationalization](#-internationalization)
 
 ### Deployment & Operations
-16. [Docker Compose Setup](#-docker-compose-setup)
-17. [Environment Configuration](#-environment-configuration)
-18. [Background Tasks (Celery)](#-background-tasks-celery)
-19. [Database Migrations](#-database-migrations)
+17. [Docker Compose Setup](#-docker-compose-setup)
+18. [Environment Configuration](#-environment-configuration)
+19. [Background Tasks (Celery)](#-background-tasks-celery)
+20. [Database Migrations](#-database-migrations)
 
 ### Development
 20. [Design Decisions](#-design-decisions)
@@ -1349,6 +1350,89 @@ export function SensitiveValue({ value, sensitiveMode }) {
 - Account details balances
 - Recurring transaction costs
 - All monetary displays
+
+---
+
+## 🌙 Dark Mode
+
+### **What It Does**
+- Toggles between light and dark UI themes
+- Applies dark colors to sidebar, header, modals, and all content areas
+- Works with all other settings (sensitive mode, format preferences, etc.)
+- Can be toggled on/off instantly
+- Keyboard shortcut: `Alt+Shift+D`
+- Persists in both localStorage (client) and UserProfile.preferences (server)
+
+### **Implementation**
+
+**Backend (UserProfile Model):**
+```python
+# Stored in UserProfile.preferences JSONField
+profile.set_preference('darkMode', True)
+profile.get_preference('darkMode', False)
+```
+
+**Frontend (React):**
+```javascript
+// State management
+const [darkMode, setDarkMode] = useState(localStorage.getItem('darkMode') === 'true')
+
+// Sync to server whenever dark mode changes
+useEffect(() => {
+  axios.post('/api/accounts/auth/preferences/', { darkMode: darkMode })
+}, [darkMode])
+
+// Load from server on app start
+axios.get('/api/accounts/auth/preferences/')
+  .then(res => {
+    const serverPrefs = res.data.preferences || {}
+    if (serverPrefs.darkMode !== undefined) {
+      setDarkMode(serverPrefs.darkMode)
+    }
+  })
+
+// Dispatch custom event for real-time updates
+window.dispatchEvent(new CustomEvent('darkModeChanged', { detail: { darkMode: newValue } }))
+
+// Use hook to listen for changes
+export function useDarkModeListener() {
+  const [darkMode, setDarkMode] = useState(localStorage.getItem('darkMode') === 'true')
+  useEffect(() => {
+    window.addEventListener('darkModeChanged', (e) => setDarkMode(e.detail.darkMode))
+    return () => window.removeEventListener('darkModeChanged', handler)
+  }, [])
+  return darkMode
+}
+```
+
+**Styling Convention:**
+```jsx
+// Apply dark mode classes based on state
+<div className={darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}>
+  {/* Content */}
+</div>
+
+// Color mapping:
+// Light Mode → Dark Mode
+// bg-gray-50 → bg-gray-900
+// bg-white → bg-gray-800
+// border-gray-200 → border-gray-700
+// text-gray-900 → text-white
+// text-gray-500 → text-gray-400
+// bg-gray-100 → bg-gray-700
+// hover:bg-gray-100 → hover:bg-gray-700
+```
+
+### **Settings Menu**
+- Located in top-right settings button
+- Toggle switch to turn dark mode on/off
+- Instantly updates UI across entire application
+- Changes are auto-saved to UserProfile.preferences on server
+
+### **Keyboard Shortcut**
+- `Alt+Shift+D` - Toggle dark mode on/off
+- Works from any page when user is authenticated
+- Updates both client and server preferences
 
 ---
 

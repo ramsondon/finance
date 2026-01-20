@@ -55,4 +55,20 @@ export function useSensitiveModeListener() {
   return sensitiveMode
 }
 
+/**
+ * Custom hook to listen for dark mode changes in real-time
+ * This hook listens to custom events for instant updates within the same tab
+ */
+export function useDarkModeListener() {
+  const [darkMode, setDarkMode] = useState(localStorage.getItem('darkMode') === 'true')
 
+  useEffect(() => {
+    const handleDarkModeChange = (e) => {
+      setDarkMode(e.detail.darkMode)
+    }
+    window.addEventListener('darkModeChanged', handleDarkModeChange)
+    return () => window.removeEventListener('darkModeChanged', handleDarkModeChange)
+  }, [])
+
+  return darkMode
+}
