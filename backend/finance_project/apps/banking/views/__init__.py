@@ -286,7 +286,13 @@ class TransactionViewSet(viewsets.ModelViewSet):
         rows = self._convert_rows_to_payload(parsed, account)
 
         if rows:
-            import_transactions_task.delay(account.id, rows)
+            # Pass file metadata to task for Import record creation
+            import_transactions_task.delay(
+                account.id,
+                rows,
+                file_name=file.name,
+                import_source=file_extension
+            )
 
         # Save field mappings for future imports
         if field_mappings:

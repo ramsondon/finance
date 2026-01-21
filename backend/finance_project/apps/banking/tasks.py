@@ -4,19 +4,40 @@ from django.db import transaction as db_txn
 from datetime import datetime
 from decimal import Decimal
 import logging
-from .models import BankAccount, Transaction, Category
+from .models import BankAccount, Transaction, Category, Import, ImportTransaction
 from .services.rule_engine import RuleEngine
 
 logger = logging.getLogger(__name__)
 
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=5, max_retries=3)
-def import_transactions_task(self, account_id: int, rows: list[dict]):
-    """Import transactions with extended field support and safe truncation."""
-    logger.info(f"Starting import_transactions_task for account_id={account_id} with {len(rows)} rows")
+def import_transactions_task(self, account_id: int, rows: list[dict], file_name: str = '', import_source: str = 'csv'):
+    """Import transactions with extended field support and safe truncation.
+
+    Creates an Import record to track this import session and connects all
+    imported transactions to it via ImportTransaction records.
+
+    Args:
+        account_id: BankAccount ID to import to
+        rows: List of transaction dictionaries to import
+        file_name: Original file name (optional, for tracking)
+        import_source: Source of import (e.g., 'csv', 'json', 'bank_api')
+    """
+    logger.info(f"Starting import_transactions_task for account_id={account_id} with {len(rows)} rows from source={import_source}")
 
     account = BankAccount.objects.get(id=account_id)
     engine = RuleEngine()
+
+    # Create Import record to track this import session
+    import_record = Import.objects.create(
+        account=account,
+        user=account.user,
+        import_source=import_source,
+        file_name=file_name,
+        total_transactions=len(rows),
+        meta={}
+    )
+    logger.info(f"Created Import record. ID={import_record.id}, file_name={file_name}, source={import_source}")
 
     # Field length limits to prevent database errors
     FIELD_LIMITS = {
@@ -57,6 +78,9 @@ def import_transactions_task(self, account_id: int, rows: list[dict]):
             )
             return value[:limit]
         return value
+
+    successful_count = 0
+    failed_count = 0
 
     with db_txn.atomic():
         for idx, row in enumerate(rows, start=1):
@@ -191,6 +215,14 @@ def import_transactions_task(self, account_id: int, rows: list[dict]):
                 tx = Transaction.objects.create(**tx_data)
                 logger.info(f"Row {idx}: Transaction created successfully. ID={tx.id}, Amount={tx.amount}, Date={tx.date}")
 
+                # Create ImportTransaction link to track this import
+                ImportTransaction.objects.create(
+                    import_record=import_record,
+                    transaction=tx,
+                    was_created=True
+                )
+                logger.debug(f"Row {idx}: Created ImportTransaction link. ID={tx.id}")
+
                 # optional category by name
                 cat_name = row.get("category_name")
                 if cat_name:
@@ -205,6 +237,8 @@ def import_transactions_task(self, account_id: int, rows: list[dict]):
                 engine.apply_rules(account.user_id, tx)
                 logger.debug(f"Row {idx}: Rules applied successfully")
 
+                successful_count += 1
+
             except Exception as e:
                 logger.error(
                     f"Row {idx}: Failed to import transaction. "
@@ -213,9 +247,19 @@ def import_transactions_task(self, account_id: int, rows: list[dict]):
                     f"Row data keys: {list(row.keys())}",
                     exc_info=True
                 )
+                failed_count += 1
                 raise
 
-    logger.info(f"Completed import_transactions_task for account_id={account_id}. Processed {len(rows)} rows successfully")
+    # Update Import record with final statistics
+    import_record.successful_transactions = successful_count
+    import_record.failed_transactions = failed_count
+    import_record.save(update_fields=['successful_transactions', 'failed_transactions'])
+
+    logger.info(
+        f"Completed import_transactions_task for account_id={account_id}. "
+        f"Import ID={import_record.id}: "
+        f"Successful={successful_count}, Failed={failed_count}, Total={len(rows)}"
+    )
 
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=5, max_retries=3)

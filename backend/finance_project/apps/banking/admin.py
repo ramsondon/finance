@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html, mark_safe
 from django.contrib import messages
-from .models import BankAccount, Transaction, Category, Rule, RecurringTransaction, ExchangeRate
+from .models import BankAccount, Transaction, Category, Rule, RecurringTransaction, ExchangeRate, Import, ImportTransaction
 
 
 @admin.register(BankAccount)
@@ -464,3 +464,344 @@ class ExchangeRateAdmin(admin.ModelAdmin):
         from .models import ExchangeRate
         ExchangeRate.get_rates()
         return super().changelist_view(request, extra_context)
+
+
+@admin.register(Import)
+class ImportAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "account_name",
+        "user_display",
+        "import_source",
+        "file_name_display",
+        "transactions_summary",
+        "success_rate_display",
+        "created_at_display",
+    )
+    list_filter = (
+        "import_source",
+        "created_at",
+        "account",
+        "user",
+    )
+    search_fields = (
+        "file_name",
+        "account__name",
+        "user__username",
+        "import_source",
+    )
+    readonly_fields = (
+        "account",
+        "user",
+        "import_source",
+        "file_name",
+        "total_transactions",
+        "successful_transactions",
+        "failed_transactions",
+        "created_at",
+        "meta_pretty",
+        "import_transactions_links",
+    )
+    date_hierarchy = "created_at"
+    ordering = ["-created_at"]
+
+    fieldsets = (
+        (
+            "Import Information",
+            {
+                "fields": (
+                    "account",
+                    "user",
+                    "import_source",
+                    "file_name",
+                )
+            },
+        ),
+        (
+            "Statistics",
+            {
+                "fields": (
+                    "total_transactions",
+                    "successful_transactions",
+                    "failed_transactions",
+                ),
+                "description": "Summary of transaction import results",
+            },
+        ),
+        (
+            "Imported Transactions",
+            {
+                "fields": ("import_transactions_links",),
+                "classes": ("collapse",),
+            },
+        ),
+        (
+            "Metadata",
+            {
+                "fields": (
+                    "created_at",
+                    "meta_pretty",
+                ),
+                "classes": ("collapse",),
+            },
+        ),
+    )
+
+    def account_name(self, obj):
+        """Display account name with link."""
+        return format_html(
+            '<a href="/admin/banking/bankaccount/{}/change/">{}</a>',
+            obj.account.id,
+            obj.account.name
+        )
+    account_name.short_description = "Account"
+    account_name.admin_order_field = "account__name"
+
+    def user_display(self, obj):
+        """Display user with link."""
+        return format_html(
+            '<a href="/admin/auth/user/{}/change/">{}</a>',
+            obj.user.id,
+            obj.user.username
+        )
+    user_display.short_description = "User"
+    user_display.admin_order_field = "user__username"
+
+    def file_name_display(self, obj):
+        """Display file name with truncation."""
+        if not obj.file_name:
+            return "-"
+        if len(obj.file_name) > 40:
+            return format_html(
+                '<span title="{}">{}</span>',
+                obj.file_name,
+                obj.file_name[:40] + "..."
+            )
+        return obj.file_name
+    file_name_display.short_description = "File"
+    file_name_display.admin_order_field = "file_name"
+
+    def transactions_summary(self, obj):
+        """Display transaction counts summary."""
+        return format_html(
+            '<span style="font-family: monospace;">{} total | {} ✓ | {} ✗</span>',
+            obj.total_transactions,
+            obj.successful_transactions,
+            obj.failed_transactions,
+        )
+    transactions_summary.short_description = "Transactions"
+
+    def success_rate_display(self, obj):
+        """Display success rate as percentage with color coding."""
+        if obj.total_transactions == 0:
+            return "-"
+
+        success_rate = (obj.successful_transactions / obj.total_transactions) * 100
+
+        if success_rate == 100:
+            color = "#10b981"  # green
+        elif success_rate >= 90:
+            color = "#3b82f6"  # blue
+        elif success_rate >= 75:
+            color = "#f59e0b"  # amber
+        else:
+            color = "#ef4444"  # red
+
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 3px 8px; border-radius: 3px; font-weight: bold;">{}%</span>',
+            color,
+            format(success_rate, '.0f'),
+        )
+    success_rate_display.short_description = "Success Rate"
+
+    def created_at_display(self, obj):
+        """Display creation time in a readable format."""
+        return obj.created_at.strftime("%Y-%m-%d %H:%M:%S")
+    created_at_display.short_description = "Created"
+    created_at_display.admin_order_field = "created_at"
+
+    def meta_pretty(self, obj):
+        """Display metadata in a pretty format."""
+        import json
+        if not obj.meta:
+            return "No metadata"
+        pretty_json = json.dumps(obj.meta, indent=2)
+        return format_html(
+            '<pre style="background-color: #f3f4f6; padding: 10px; border-radius: 4px; font-size: 12px;">{}</pre>',
+            pretty_json
+        )
+    meta_pretty.short_description = "Metadata"
+
+    def import_transactions_links(self, obj):
+        """Display links to ImportTransaction records for this import."""
+        import_txs = obj.import_transactions.all()
+        if not import_txs.exists():
+            return "No linked transactions yet"
+
+        count = import_txs.count()
+        created_count = import_txs.filter(was_created=True).count()
+        updated_count = import_txs.filter(was_created=False).count()
+
+        # Create a link to filter ImportTransaction by this Import
+        link_url = f'/admin/banking/importtransaction/?import_record__id__exact={obj.id}'
+
+        return format_html(
+            '<div style="padding: 10px; background-color: #f0f9ff; border-radius: 4px;">'
+            '<strong>{} transactions linked to this import</strong><br>'
+            '<a href="{}" style="color: #0066cc; text-decoration: none;">View all transactions →</a><br><br>'
+            '<span style="font-size: 12px; color: #6b7280;">'
+            '• {} newly created<br>'
+            '• {} updated'
+            '</span>'
+            '</div>',
+            count,
+            link_url,
+            created_count,
+            updated_count,
+        )
+    import_transactions_links.short_description = "Linked Transactions"
+
+    def has_add_permission(self, request):
+        """Prevent manual addition - only via import process."""
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        """Allow deletion only for superusers."""
+        return request.user.is_superuser
+
+
+@admin.register(ImportTransaction)
+class ImportTransactionAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "import_display",
+        "transaction_display",
+        "action_display",
+        "created_at_display",
+    )
+    list_filter = (
+        "was_created",
+        "created_at",
+        "import_record__account",
+        "import_record__user",
+        "import_record__import_source",
+    )
+    search_fields = (
+        "transaction__description",
+        "transaction__reference",
+        "transaction__partner_name",
+        "import_record__file_name",
+    )
+    readonly_fields = (
+        "import_record",
+        "transaction",
+        "was_created",
+        "created_at",
+        "transaction_details",
+    )
+    date_hierarchy = "created_at"
+    ordering = ["-created_at"]
+
+    fieldsets = (
+        (
+            "Link Information",
+            {
+                "fields": (
+                    "import_record",
+                    "transaction",
+                    "was_created",
+                    "created_at",
+                ),
+            },
+        ),
+        (
+            "Transaction Details",
+            {
+                "fields": ("transaction_details",),
+                "classes": ("collapse",),
+            },
+        ),
+    )
+
+    def import_display(self, obj):
+        """Display import with link and account info."""
+        return format_html(
+            '<a href="/admin/banking/import/{}/change/">Import #{}</a><br>'
+            '<span style="font-size: 12px; color: #6b7280;">{} | {}</span>',
+            obj.import_record.id,
+            obj.import_record.id,
+            obj.import_record.account.name,
+            obj.import_record.created_at.strftime("%Y-%m-%d %H:%M"),
+        )
+    import_display.short_description = "Import"
+    import_display.admin_order_field = "import_record__created_at"
+
+    def transaction_display(self, obj):
+        """Display transaction with link and key details."""
+        return format_html(
+            '<a href="/admin/banking/transaction/{}/change/">Transaction #{}</a><br>'
+            '<span style="font-size: 12px; color: #6b7280;">{} | {} {}</span>',
+            obj.transaction.id,
+            obj.transaction.id,
+            obj.transaction.date,
+            obj.transaction.account.currency,
+            format(obj.transaction.amount, '.2f'),
+        )
+    transaction_display.short_description = "Transaction"
+    transaction_display.admin_order_field = "transaction__date"
+
+    def action_display(self, obj):
+        """Display whether transaction was created or updated."""
+        if obj.was_created:
+            return mark_safe(
+                '<span style="background-color: #dcfce7; color: #166534; padding: 3px 8px; border-radius: 3px; font-weight: 500;">✓ Created</span>'
+            )
+        else:
+            return mark_safe(
+                '<span style="background-color: #fef3c7; color: #b45309; padding: 3px 8px; border-radius: 3px; font-weight: 500;">⟲ Updated</span>'
+            )
+    action_display.short_description = "Action"
+    action_display.admin_order_field = "was_created"
+
+    def created_at_display(self, obj):
+        """Display creation time."""
+        return obj.created_at.strftime("%Y-%m-%d %H:%M:%S")
+    created_at_display.short_description = "Imported At"
+    created_at_display.admin_order_field = "created_at"
+
+    def transaction_details(self, obj):
+        """Display detailed transaction information."""
+        tx = obj.transaction
+        return format_html(
+            '<table style="width: 100%; border-collapse: collapse; font-size: 13px;">'
+            '<tr style="background-color: #f3f4f6;"><td style="padding: 8px; border: 1px solid #e5e7eb;"><strong>Date</strong></td>'
+            '<td style="padding: 8px; border: 1px solid #e5e7eb;">{}</td></tr>'
+            '<tr><td style="padding: 8px; border: 1px solid #e5e7eb;"><strong>Amount</strong></td>'
+            '<td style="padding: 8px; border: 1px solid #e5e7eb;">{} {}</td></tr>'
+            '<tr style="background-color: #f3f4f6;"><td style="padding: 8px; border: 1px solid #e5e7eb;"><strong>Type</strong></td>'
+            '<td style="padding: 8px; border: 1px solid #e5e7eb;">{}</td></tr>'
+            '<tr><td style="padding: 8px; border: 1px solid #e5e7eb;"><strong>Reference</strong></td>'
+            '<td style="padding: 8px; border: 1px solid #e5e7eb;"><code>{}</code></td></tr>'
+            '<tr style="background-color: #f3f4f6;"><td style="padding: 8px; border: 1px solid #e5e7eb;"><strong>Description</strong></td>'
+            '<td style="padding: 8px; border: 1px solid #e5e7eb;">{}</td></tr>'
+            '<tr><td style="padding: 8px; border: 1px solid #e5e7eb;"><strong>Category</strong></td>'
+            '<td style="padding: 8px; border: 1px solid #e5e7eb;">{}</td></tr>'
+            '</table>',
+            tx.date,
+            tx.account.currency,
+            format(tx.amount, '.2f'),
+            tx.type,
+            tx.reference or "-",
+            tx.description or "-",
+            tx.category.name if tx.category else "-",
+        )
+    transaction_details.short_description = "Transaction Information"
+
+    def has_add_permission(self, request):
+        """Prevent manual addition - only created by import process."""
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        """Allow deletion only for superusers."""
+        return request.user.is_superuser
+

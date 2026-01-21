@@ -211,3 +211,64 @@ class RecurringTransaction(models.Model):
         delta = self.next_expected_date - datetime.now().date()
         return delta.days
 
+
+class Import(models.Model):
+    """
+    Tracks individual import sessions.
+
+    Each time transactions are imported from a file or data source,
+    a new Import record is created to group all transactions from that import.
+    """
+    account = models.ForeignKey(BankAccount, on_delete=models.CASCADE, related_name="imports")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+
+    # Import metadata
+    import_source = models.CharField(max_length=100, blank=True, help_text="Source of import (e.g., 'csv', 'bank_api', 'manual')")
+    file_name = models.CharField(max_length=255, blank=True, help_text="Original file name if imported from file")
+
+    # Statistics
+    total_transactions = models.PositiveIntegerField(default=0, help_text="Total number of transactions in this import")
+    successful_transactions = models.PositiveIntegerField(default=0, help_text="Number of successfully processed transactions")
+    failed_transactions = models.PositiveIntegerField(default=0, help_text="Number of transactions that failed to process")
+
+    # Status tracking
+    meta = models.JSONField(default=dict, blank=True, help_text="Additional metadata about the import process")
+    created_at = models.DateTimeField(auto_now_add=True, help_text="Timestamp when this import was created")
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["account", "-created_at"]),
+            models.Index(fields=["user", "-created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"Import({self.account.name}, {self.created_at.strftime('%Y-%m-%d %H:%M:%S')})"
+
+
+class ImportTransaction(models.Model):
+    """
+    Links transactions to their import session.
+
+    Allows tracing which import created or updated which transactions,
+    useful for auditing and bulk operations on imported data.
+    """
+    import_record = models.ForeignKey(Import, on_delete=models.CASCADE, related_name="import_transactions")
+    transaction = models.ForeignKey(Transaction, on_delete=models.CASCADE, related_name="imports")
+
+    # Track what happened during import
+    was_created = models.BooleanField(default=True, help_text="True if transaction was created, False if updated")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        unique_together = ("import_record", "transaction")
+        indexes = [
+            models.Index(fields=["import_record", "was_created"]),
+            models.Index(fields=["transaction", "-created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        action = "Created" if self.was_created else "Updated"
+        return f"ImportTransaction({action}, {self.transaction.id})"
+
