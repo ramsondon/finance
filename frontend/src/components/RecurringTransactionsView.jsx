@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import { useTranslate } from '../hooks/useLanguage'
 import { formatDate, formatCurrency, getCurrencySymbol, formatNumber } from '../utils/format'
+import { SensitiveValue, useSensitiveModeListener } from '../utils/sensitive'
 import { Calendar, Clock, AlertCircle, PieChart, CheckCircle, TrendingUp, RotateCw, XCircle, Edit, Search, Link, X } from 'lucide-react'
 
 /**
@@ -12,6 +13,7 @@ import { Calendar, Clock, AlertCircle, PieChart, CheckCircle, TrendingUp, Rotate
  */
 export default function RecurringTransactionsView({ darkMode = false }) {
   const t = useTranslate()
+  const sensitiveMode = useSensitiveModeListener()
   const [summary, setSummary] = useState(null)
   const [recurring, setRecurring] = useState([])
   const [loading, setLoading] = useState(true)
@@ -211,13 +213,13 @@ export default function RecurringTransactionsView({ darkMode = false }) {
           />
           <SummaryCard
             title={t('recurring.monthlyRecurring')}
-            value={formatCurrency(summary.monthly_recurring_cost, summary.account_currency)}
+            value={<SensitiveValue value={formatCurrency(summary.monthly_recurring_cost, summary.account_currency)} sensitiveMode={sensitiveMode} />}
             icon={<Calendar size={32} className="text-indigo-600" />}
             highlight
           />
           <SummaryCard
             title={t('recurring.yearlyRecurring')}
-            value={formatCurrency(summary.yearly_recurring_cost, summary.account_currency)}
+            value={<SensitiveValue value={formatCurrency(summary.yearly_recurring_cost, summary.account_currency)} sensitiveMode={sensitiveMode} />}
             icon={<TrendingUp size={32} className="text-purple-600" />}
             highlight
           />
@@ -318,7 +320,7 @@ export default function RecurringTransactionsView({ darkMode = false }) {
                   {t(`recurring.${freq}`)} ({data.count})
                 </div>
                 <div className="text-xs text-gray-500">
-                  {getCurrencySymbol(summary.account_currency)} {formatNumber(parseFloat(data.total_amount))}
+                  <SensitiveValue value={`${getCurrencySymbol(summary.account_currency)} ${formatNumber(parseFloat(data.total_amount))}`} sensitiveMode={sensitiveMode} />
                 </div>
               </div>
             ))}
@@ -376,6 +378,7 @@ export default function RecurringTransactionsView({ darkMode = false }) {
                       currency={txn.account_currency}
                       onToggleIgnore={toggleIgnore}
                       onViewLinked={fetchLinkedTransactions}
+                      sensitiveMode={sensitiveMode}
                     />
                   ))}
                 </tbody>
@@ -442,6 +445,7 @@ export default function RecurringTransactionsView({ darkMode = false }) {
           transactions={linkedTransactions}
           loading={loadingLinked}
           onClose={closeLinkedModal}
+          sensitiveMode={sensitiveMode}
         />
       )}
     </div>
@@ -466,7 +470,7 @@ function SummaryCard({ title, value, icon, highlight }) {
   )
 }
 
-function RecurringTransactionRow({ transaction, currency, onToggleIgnore, onViewLinked }) {
+function RecurringTransactionRow({ transaction, currency, onToggleIgnore, onViewLinked, sensitiveMode }) {
   const t = useTranslate()
   const [showNotes, setShowNotes] = useState(false)
   const [notes, setNotes] = useState(transaction.user_notes)
@@ -506,8 +510,8 @@ function RecurringTransactionRow({ transaction, currency, onToggleIgnore, onView
         </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
-        <div className="text-sm font-medium text-gray-900">{formatCurrency(transaction.amount, currency)}</div>
-        <div className="text-xs text-gray-500">{formatCurrency(transaction.monthly_cost, currency)}/mo</div>
+        <div className="text-sm font-medium text-gray-900"><SensitiveValue value={formatCurrency(transaction.amount, currency)} sensitiveMode={sensitiveMode} /></div>
+        <div className="text-xs text-gray-500"><SensitiveValue value={`${formatCurrency(transaction.monthly_cost, currency)}/mo`} sensitiveMode={sensitiveMode} /></div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
         <div className={`text-sm font-medium ${transaction.is_overdue ? 'text-red-600' : 'text-gray-900'}`}>
@@ -626,7 +630,7 @@ function DetectModal({ onClose, onDetect, detecting }) {
   )
 }
 
-function LinkedTransactionsModal({ recurring, transactions, loading, onClose }) {
+function LinkedTransactionsModal({ recurring, transactions, loading, onClose, sensitiveMode }) {
   const t = useTranslate()
 
   return (
@@ -697,7 +701,7 @@ function LinkedTransactionsModal({ recurring, transactions, loading, onClose }) 
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-right font-medium">
                         <span className={txn.amount >= 0 ? 'text-green-600' : 'text-red-600'}>
-                          {txn.amount >= 0 ? '+' : ''}{txn.amount} {txn.account_currency}
+                          <SensitiveValue value={`${txn.amount >= 0 ? '+' : ''}${txn.amount} ${txn.account_currency}`} sensitiveMode={sensitiveMode} />
                         </span>
                       </td>
                       <td className="px-4 py-3 text-sm">
