@@ -204,6 +204,32 @@ class RecurringTransactionViewSet(viewsets.ModelViewSet):
 
         return Response(RecurringTransactionSerializer(recurring).data)
 
+    @action(detail=True, methods=['patch'])
+    def update_details(self, request, pk=None):
+        """
+        Update user-editable details (display_name and user_notes).
+
+        Request body:
+        - display_name (optional): Custom display name for the recurring transaction
+        - user_notes (optional): User's notes about this transaction
+        """
+        recurring = self.get_object()
+        update_fields = []
+
+        if 'display_name' in request.data:
+            recurring.display_name = request.data['display_name']
+            update_fields.append('display_name')
+
+        if 'user_notes' in request.data:
+            recurring.user_notes = request.data['user_notes']
+            update_fields.append('user_notes')
+
+        if update_fields:
+            update_fields.append('updated_at')
+            recurring.save(update_fields=update_fields)
+
+        return Response(RecurringTransactionSerializer(recurring).data)
+
     @action(detail=False, methods=['get'])
     def overdue(self, request):
         """Get overdue recurring transactions."""

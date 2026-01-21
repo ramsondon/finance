@@ -285,7 +285,18 @@
     "close": "Close",
     "days": "days",
     "years": "years",
-    "yearlyEquivalent": "/year"
+    "yearlyEquivalent": "/year",
+    "editRecurring": "Edit Subscription",
+    "editLabel": "Edit",
+    "transactionDetails": "Transaction Details",
+    "originalDescription": "Original Description",
+    "merchantName": "Merchant Name",
+    "lastOccurrence": "Last Occurrence",
+    "displayName": "Display Name",
+    "displayNameHint": "Enter a custom name to display instead of the original description",
+    "userNotes": "Notes",
+    "userNotesPlaceholder": "Add personal notes about this subscription...",
+    "save": "Save"
   },
   "insights": {
     "title": "AI Financial Insights",

@@ -155,11 +155,14 @@ class RecurringTransaction(models.Model):
     account = models.ForeignKey(BankAccount, on_delete=models.CASCADE, related_name="recurring_transactions")
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
 
-    # Pattern details
-    description = models.CharField(max_length=255)
+    # Pattern details (used by algorithm - do not edit)
+    description = models.CharField(max_length=255, help_text="Original description used for pattern matching")
     merchant_name = models.CharField(max_length=255, blank=True)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     frequency = models.CharField(max_length=20, choices=FREQUENCY_CHOICES)
+
+    # User customization
+    display_name = models.CharField(max_length=255, blank=True, help_text="User-defined display name (falls back to merchant_name or description)")
 
     # Timing
     next_expected_date = models.DateField()
@@ -191,11 +194,11 @@ class RecurringTransaction(models.Model):
         ]
 
     def __str__(self) -> str:
-        return f"{self.description} ({self.frequency})"
+        return f"{self.get_display_name()} ({self.frequency})"
 
     def get_display_name(self) -> str:
         """Get the best display name for this recurring transaction."""
-        return self.merchant_name or self.description
+        return self.display_name or self.merchant_name or self.description
 
     def is_overdue(self) -> bool:
         """Check if this recurring transaction is overdue (missed)."""

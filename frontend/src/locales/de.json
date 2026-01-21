@@ -285,7 +285,18 @@
     "noLinkedTransactions": "Keine Transaktionen für dieses Abomuster gefunden.",
     "total": "Gesamt",
     "transactions": "Transaktionen",
-    "close": "Schließen"
+    "close": "Schließen",
+    "editRecurring": "Abo bearbeiten",
+    "editLabel": "Bearbeiten",
+    "transactionDetails": "Transaktionsdetails",
+    "originalDescription": "Originalbeschreibung",
+    "merchantName": "Händlername",
+    "lastOccurrence": "Letztes Vorkommen",
+    "displayName": "Anzeigename",
+    "displayNameHint": "Geben Sie einen benutzerdefinierten Namen ein, der anstelle der Originalbeschreibung angezeigt wird",
+    "userNotes": "Notizen",
+    "userNotesPlaceholder": "Persönliche Notizen zu diesem Abo hinzufügen...",
+    "save": "Speichern"
   },
   "insights": {
     "title": "KI-Finanzeinblicke",

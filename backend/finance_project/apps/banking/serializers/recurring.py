@@ -12,7 +12,7 @@ class RecurringTransactionSerializer(serializers.ModelSerializer):
 
     monthly_cost = serializers.SerializerMethodField()
     yearly_cost = serializers.SerializerMethodField()
-    display_name = serializers.SerializerMethodField()
+    computed_display_name = serializers.SerializerMethodField()
     is_overdue = serializers.SerializerMethodField()
     days_until_next = serializers.SerializerMethodField()
     account_currency = serializers.SerializerMethodField()
@@ -24,6 +24,7 @@ class RecurringTransactionSerializer(serializers.ModelSerializer):
             'description',
             'merchant_name',
             'display_name',
+            'computed_display_name',
             'amount',
             'frequency',
             'next_expected_date',
@@ -50,7 +51,7 @@ class RecurringTransactionSerializer(serializers.ModelSerializer):
             'detected_at',
         ]
 
-    def get_display_name(self, obj):
+    def get_computed_display_name(self, obj):
         """Get the best display name for this recurring transaction."""
         return obj.get_display_name()
 

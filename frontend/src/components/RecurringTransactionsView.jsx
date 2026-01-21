@@ -3,7 +3,7 @@ import axios from 'axios'
 import { useTranslate } from '../hooks/useLanguage'
 import { formatDate, formatCurrency, getCurrencySymbol, formatNumber } from '../utils/format'
 import { SensitiveValue, useSensitiveModeListener } from '../utils/sensitive'
-import { Calendar, Clock, AlertCircle, PieChart, CheckCircle, TrendingUp, RotateCw, XCircle, Edit, Search, Link, X } from 'lucide-react'
+import { Calendar, Clock, AlertCircle, PieChart, CheckCircle, TrendingUp, RotateCw, XCircle, Edit, Search, Link, X, Save } from 'lucide-react'
 
 /**
  * RecurringTransactionsView
@@ -33,6 +33,7 @@ export default function RecurringTransactionsView({ darkMode = false }) {
   const [selectedRecurring, setSelectedRecurring] = useState(null)
   const [linkedTransactions, setLinkedTransactions] = useState([])
   const [loadingLinked, setLoadingLinked] = useState(false)
+  const [editingRecurring, setEditingRecurring] = useState(null)
 
   // Fetch accounts list
   useEffect(() => {
@@ -143,6 +144,25 @@ export default function RecurringTransactionsView({ darkMode = false }) {
   const closeLinkedModal = () => {
     setSelectedRecurring(null)
     setLinkedTransactions([])
+  }
+
+  const openEditModal = (transaction) => {
+    setEditingRecurring(transaction)
+  }
+
+  const closeEditModal = () => {
+    setEditingRecurring(null)
+  }
+
+  const handleUpdateRecurring = async (id, updates) => {
+    try {
+      await axios.patch(`/api/banking/recurring/${id}/update_details/`, updates)
+      fetchRecurringData()
+      closeEditModal()
+    } catch (err) {
+      console.error('Failed to update recurring transaction:', err)
+      setError('Failed to update recurring transaction')
+    }
   }
 
   const totalPages = Math.max(1, Math.ceil(totalCount / itemsPerPage))
@@ -378,6 +398,7 @@ export default function RecurringTransactionsView({ darkMode = false }) {
                       currency={txn.account_currency}
                       onToggleIgnore={toggleIgnore}
                       onViewLinked={fetchLinkedTransactions}
+                      onEdit={openEditModal}
                       sensitiveMode={sensitiveMode}
                     />
                   ))}
@@ -448,6 +469,16 @@ export default function RecurringTransactionsView({ darkMode = false }) {
           sensitiveMode={sensitiveMode}
         />
       )}
+
+      {/* Edit Recurring Transaction Modal */}
+      {editingRecurring && (
+        <EditRecurringModal
+          recurring={editingRecurring}
+          onClose={closeEditModal}
+          onSave={handleUpdateRecurring}
+          sensitiveMode={sensitiveMode}
+        />
+      )}
     </div>
   )
 }
@@ -470,10 +501,8 @@ function SummaryCard({ title, value, icon, highlight }) {
   )
 }
 
-function RecurringTransactionRow({ transaction, currency, onToggleIgnore, onViewLinked, sensitiveMode }) {
+function RecurringTransactionRow({ transaction, currency, onToggleIgnore, onViewLinked, onEdit, sensitiveMode }) {
   const t = useTranslate()
-  const [showNotes, setShowNotes] = useState(false)
-  const [notes, setNotes] = useState(transaction.user_notes)
 
   const getFrequencyIcon = (freq) => {
     switch(freq) {
@@ -493,11 +522,14 @@ function RecurringTransactionRow({ transaction, currency, onToggleIgnore, onView
     return 'bg-gray-100 text-gray-700'
   }
 
+  // Use computed_display_name for display (falls back chain: display_name -> merchant_name -> description)
+  const displayName = transaction.computed_display_name || transaction.display_name || transaction.merchant_name || transaction.description
+
   return (
     <tr className="border-b border-gray-100 hover:bg-gray-50">
       <td className="px-6 py-4">
         <div>
-          <div className="font-medium text-gray-900">{transaction.display_name}</div>
+          <div className="font-medium text-gray-900">{displayName}</div>
           <div className="text-xs text-gray-500">{transaction.description}</div>
         </div>
       </td>
@@ -536,7 +568,7 @@ function RecurringTransactionRow({ transaction, currency, onToggleIgnore, onView
           <button
             onClick={() => onViewLinked(transaction.id)}
             className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded hover:bg-purple-200"
-            title="View linked transactions"
+            title={t('recurring.linkedTransactions')}
           >
             <Link size={16} className="text-purple-700" />
           </button>
@@ -547,7 +579,7 @@ function RecurringTransactionRow({ transaction, currency, onToggleIgnore, onView
                 ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
             }`}
-            title={transaction.is_ignored ? 'Unignore' : 'Ignore'}
+            title={transaction.is_ignored ? t('recurring.unignoreLabel') : t('recurring.ignoreLabel')}
           >
             {transaction.is_ignored ? (
               <RotateCw size={16} className="text-gray-700" />
@@ -556,24 +588,13 @@ function RecurringTransactionRow({ transaction, currency, onToggleIgnore, onView
             )}
           </button>
           <button
-            onClick={() => setShowNotes(!showNotes)}
+            onClick={() => onEdit(transaction)}
             className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
-            title="Add note"
+            title={t('recurring.editLabel')}
           >
             <Edit size={16} className="text-gray-700" />
           </button>
         </div>
-        {showNotes && (
-          <div className="mt-2 p-2 bg-gray-50 rounded text-left">
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Add a note..."
-              className="w-full text-xs border border-gray-300 rounded p-2"
-              rows="2"
-            />
-          </div>
-        )}
       </td>
     </tr>
   )
@@ -581,6 +602,17 @@ function RecurringTransactionRow({ transaction, currency, onToggleIgnore, onView
 
 function DetectModal({ onClose, onDetect, detecting }) {
   const t = useTranslate()
+
+  // ESC key listener
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
@@ -632,6 +664,17 @@ function DetectModal({ onClose, onDetect, detecting }) {
 
 function LinkedTransactionsModal({ recurring, transactions, loading, onClose, sensitiveMode }) {
   const t = useTranslate()
+
+  // ESC key listener
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
@@ -740,3 +783,172 @@ function LinkedTransactionsModal({ recurring, transactions, loading, onClose, se
     </div>
   )
 }
+
+function EditRecurringModal({ recurring, onClose, onSave, sensitiveMode }) {
+  const t = useTranslate()
+  const [displayName, setDisplayName] = useState(recurring.display_name || '')
+  const [userNotes, setUserNotes] = useState(recurring.user_notes || '')
+  const [saving, setSaving] = useState(false)
+
+  // ESC key listener
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      await onSave(recurring.id, {
+        display_name: displayName,
+        user_notes: userNotes
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Use computed_display_name for the original name display
+  const originalName = recurring.merchant_name || recurring.description
+
+  return (
+    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-lg w-full max-w-lg">
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              <Edit size={20} className="text-blue-600" />
+              {t('recurring.editRecurring')}
+            </h3>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600"
+          >
+            <X size={24} />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-6 space-y-6">
+          {/* Read-only details */}
+          <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+            <h4 className="text-sm font-semibold text-gray-700 mb-3">{t('recurring.transactionDetails')}</h4>
+
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="text-gray-500">{t('recurring.originalDescription')}:</span>
+                <p className="font-medium text-gray-900 truncate" title={recurring.description}>
+                  {recurring.description}
+                </p>
+              </div>
+              <div>
+                <span className="text-gray-500">{t('recurring.merchantName')}:</span>
+                <p className="font-medium text-gray-900">
+                  {recurring.merchant_name || '-'}
+                </p>
+              </div>
+              <div>
+                <span className="text-gray-500">{t('recurring.frequency')}:</span>
+                <p className="font-medium text-gray-900">
+                  {t(`recurring.${recurring.frequency}`)}
+                </p>
+              </div>
+              <div>
+                <span className="text-gray-500">{t('recurring.amount')}:</span>
+                <p className="font-medium text-gray-900">
+                  <SensitiveValue
+                    value={formatCurrency(recurring.amount, recurring.account_currency)}
+                    sensitiveMode={sensitiveMode}
+                  />
+                </p>
+              </div>
+              <div>
+                <span className="text-gray-500">{t('recurring.nextPayment')}:</span>
+                <p className={`font-medium ${recurring.is_overdue ? 'text-red-600' : 'text-gray-900'}`}>
+                  {formatDate(recurring.next_expected_date)}
+                </p>
+              </div>
+              <div>
+                <span className="text-gray-500">{t('recurring.occurrences')}:</span>
+                <p className="font-medium text-gray-900">
+                  {recurring.occurrence_count}
+                </p>
+              </div>
+              <div>
+                <span className="text-gray-500">{t('recurring.confidence')}:</span>
+                <p className="font-medium text-gray-900">
+                  {(recurring.confidence_score * 100).toFixed(0)}%
+                </p>
+              </div>
+              <div>
+                <span className="text-gray-500">{t('recurring.lastOccurrence')}:</span>
+                <p className="font-medium text-gray-900">
+                  {formatDate(recurring.last_occurrence_date)}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Editable fields */}
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {t('recurring.displayName')}
+              </label>
+              <input
+                type="text"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder={originalName}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                {t('recurring.displayNameHint')}
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {t('recurring.userNotes')}
+              </label>
+              <textarea
+                value={userNotes}
+                onChange={(e) => setUserNotes(e.target.value)}
+                placeholder={t('recurring.userNotesPlaceholder')}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                rows="3"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-end gap-3 bg-gray-50">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium text-sm"
+          >
+            {t('recurring.cancel')}
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium text-sm flex items-center gap-2"
+          >
+            {saving && <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>}
+            <Save size={16} />
+            {t('recurring.save')}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
