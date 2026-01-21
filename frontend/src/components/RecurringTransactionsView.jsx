@@ -25,9 +25,10 @@ export default function RecurringTransactionsView({ darkMode = false }) {
   const [totalCount, setTotalCount] = useState(0)
   const [filters, setFilters] = useState({
     frequency: '',
-    is_active: true,
+    status: 'active',  // 'all', 'active', 'ignored', 'inactive'
     search: ''
   })
+  const [searchInput, setSearchInput] = useState('')  // Local search input for debouncing
   const [showDetectModal, setShowDetectModal] = useState(false)
   const [detecting, setDetecting] = useState(false)
   const [selectedRecurring, setSelectedRecurring] = useState(null)
@@ -39,6 +40,17 @@ export default function RecurringTransactionsView({ darkMode = false }) {
   useEffect(() => {
     fetchAccounts()
   }, [])
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchInput !== filters.search) {
+        setFilters(prev => ({ ...prev, search: searchInput }))
+        setCurrentPage(1)
+      }
+    }, 300)  // 300ms debounce
+    return () => clearTimeout(timer)
+  }, [searchInput])
 
   // Fetch recurring data when account, filters, or page changes
   useEffect(() => {
@@ -75,13 +87,17 @@ export default function RecurringTransactionsView({ darkMode = false }) {
       params.append('account_id', selectedAccount)
       params.append('page', String(currentPage))
       params.append('page_size', String(itemsPerPage))
-      params.append('is_active', String(filters.is_active))
+
+      // Use status filter (active, ignored, inactive, or all)
+      if (filters.status && filters.status !== 'all') {
+        params.append('status', filters.status)
+      }
 
       if (filters.frequency) {
         params.append('frequency', filters.frequency)
       }
 
-      // Add search filter if provided (search in description and merchant_name)
+      // Add search filter if provided (search in description, display_name, merchant_name)
       if (filters.search) {
         params.append('search', filters.search)
       }
@@ -292,15 +308,17 @@ export default function RecurringTransactionsView({ darkMode = false }) {
               {t('recurring.filterStatus')}
             </label>
             <select
-              value={filters.is_active ? 'active' : 'all'}
+              value={filters.status}
               onChange={(e) => {
-                setFilters({...filters, is_active: e.target.value === 'active'})
+                setFilters({...filters, status: e.target.value})
                 setCurrentPage(1)
               }}
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
             >
               <option value="all">{t('recurring.allStatus')}</option>
               <option value="active">{t('recurring.activeOnly')}</option>
+              <option value="ignored">{t('recurring.ignoredOnly')}</option>
+              <option value="inactive">{t('recurring.inactiveOnly')}</option>
             </select>
           </div>
 
@@ -311,11 +329,8 @@ export default function RecurringTransactionsView({ darkMode = false }) {
             <input
               type="text"
               placeholder={t('recurring.searchPlaceholder')}
-              value={filters.search}
-              onChange={(e) => {
-                setFilters({...filters, search: e.target.value})
-                setCurrentPage(1)
-              }}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
             />
           </div>

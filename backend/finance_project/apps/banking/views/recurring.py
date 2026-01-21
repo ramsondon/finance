@@ -7,8 +7,8 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework.filters import OrderingFilter
-from django.db.models import Sum
+from rest_framework.filters import OrderingFilter, SearchFilter
+from django.db.models import Sum, Q
 from decimal import Decimal
 
 from ..models import RecurringTransaction, BankAccount, Transaction
@@ -31,14 +31,26 @@ class RecurringTransactionViewSet(viewsets.ModelViewSet):
 
     serializer_class = RecurringTransactionSerializer
     permission_classes = [IsAuthenticated]
-    filter_backends = [DjangoFilterBackend, OrderingFilter]
+    filter_backends = [DjangoFilterBackend, OrderingFilter, SearchFilter]
     filterset_fields = ['account_id', 'frequency', 'is_active', 'is_ignored']
+    search_fields = ['description', 'display_name', 'merchant_name']
     ordering_fields = ['confidence_score', 'amount', 'next_expected_date', 'occurrence_count']
     ordering = ['-confidence_score', '-occurrence_count']
 
     def get_queryset(self):
-        """Return recurring transactions for the current user."""
-        return RecurringTransaction.objects.filter(user=self.request.user)
+        """Return recurring transactions for the current user with custom filtering."""
+        queryset = RecurringTransaction.objects.filter(user=self.request.user)
+
+        # Custom status filter: 'active' means is_active=True AND is_ignored=False
+        status_filter = self.request.query_params.get('status')
+        if status_filter == 'active':
+            queryset = queryset.filter(is_active=True, is_ignored=False)
+        elif status_filter == 'ignored':
+            queryset = queryset.filter(is_ignored=True)
+        elif status_filter == 'inactive':
+            queryset = queryset.filter(is_active=False)
+
+        return queryset
 
     @action(detail=False, methods=['get'])
     def summary(self, request):

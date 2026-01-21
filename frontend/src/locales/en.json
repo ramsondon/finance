@@ -246,6 +246,8 @@
     "allFrequencies": "All Frequencies",
     "allStatus": "All Status",
     "activeOnly": "Active Only",
+    "ignoredOnly": "Ignored Only",
+    "inactiveOnly": "Inactive Only",
     "search": "Search",
     "searchPlaceholder": "Search subscriptions...",
     "byFrequency": "Breakdown by Frequency",

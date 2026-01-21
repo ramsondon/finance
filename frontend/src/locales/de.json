@@ -246,6 +246,8 @@
     "allFrequencies": "Alle Häufigkeiten",
     "allStatus": "Alle Status",
     "activeOnly": "Nur aktive",
+    "ignoredOnly": "Nur ignorierte",
+    "inactiveOnly": "Nur inaktive",
     "search": "Suchen",
     "searchPlaceholder": "Abos durchsuchen...",
     "byFrequency": "Aufschlüsselung nach Häufigkeit",
