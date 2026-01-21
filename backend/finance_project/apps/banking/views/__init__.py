@@ -11,6 +11,7 @@ from ..models import BankAccount, Transaction, Category, Rule
 from ..serializers import BankAccountSerializer, TransactionSerializer, CategorySerializer, RuleSerializer
 from ..services.csv_importer import CSVImporter
 from ..services.json_importer import JSONImporter
+from ..services.field_mapper import FieldMappingRegistry
 from ..tasks import import_transactions_task, apply_rules_task
 
 from .recurring import RecurringTransactionViewSet  # Import recurring transaction views
@@ -120,12 +121,133 @@ class TransactionViewSet(viewsets.ModelViewSet):
             import_transactions_task.delay(account.id, rows)
         return Response({"queued": len(rows), "errors": errors})
 
+    @action(detail=False, methods=["post"], url_path="preview-file")
+    def preview_file(self, request):
+        """Preview file headers/fields for mapping before import."""
+        import csv
+        import json
+        import io
+
+        file = request.FILES.get("file")
+        account_id = request.data.get("account")
+        if not file:
+            return Response(
+                {"code": "bad_request", "message": "file required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        file_extension = file.name.split('.')[-1].lower()
+        file_fields = []
+        sample_data = []
+
+        def flatten_dict(d, parent_key='', sep='.'):
+            """Flatten nested dict with dot notation keys."""
+            items = []
+            for k, v in d.items():
+                new_key = f"{parent_key}{sep}{k}" if parent_key else k
+                if isinstance(v, dict):
+                    items.extend(flatten_dict(v, new_key, sep=sep).items())
+                else:
+                    items.append((new_key, v))
+            return dict(items)
+
+        def extract_keys_recursive(d, parent_key='', sep='.'):
+            """Extract all keys from nested dict with dot notation."""
+            keys = []
+            for k, v in d.items():
+                new_key = f"{parent_key}{sep}{k}" if parent_key else k
+                if isinstance(v, dict):
+                    keys.extend(extract_keys_recursive(v, new_key, sep=sep))
+                else:
+                    keys.append(new_key)
+            return keys
+
+        try:
+            if file_extension == 'csv':
+                # Read CSV headers
+                content = file.read().decode('utf-8')
+                reader = csv.DictReader(io.StringIO(content))
+                file_fields = reader.fieldnames or []
+                # Get first 3 rows as sample
+                for i, row in enumerate(reader):
+                    if i >= 3:
+                        break
+                    sample_data.append(row)
+
+            elif file_extension == 'json':
+                # Read JSON and extract field names from first object with dot notation
+                content = json.loads(file.read().decode('utf-8'))
+                if isinstance(content, list) and len(content) > 0:
+                    # Get all unique keys from first few objects (flattened)
+                    for i, item in enumerate(content[:5]):
+                        if isinstance(item, dict):
+                            for key in extract_keys_recursive(item):
+                                if key not in file_fields:
+                                    file_fields.append(key)
+                    # Get first 3 items as sample (flattened)
+                    sample_data = [flatten_dict(item) if isinstance(item, dict) else item for item in content[:3]]
+                elif isinstance(content, dict):
+                    file_fields = extract_keys_recursive(content)
+                    sample_data = [flatten_dict(content)]
+            else:
+                return Response(
+                    {"code": "bad_format", "message": "File must be CSV or JSON"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        except Exception as e:
+            return Response(
+                {"code": "parse_error", "message": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Get available transaction fields with metadata
+        available_fields = []
+        for name, mapping in FieldMappingRegistry.AVAILABLE_FIELDS.items():
+            available_fields.append({
+                "name": name,
+                "target_property": mapping.target_property,
+                "data_type": mapping.data_type,
+                "required": mapping.required,
+            })
+
+        # Get saved mappings for this account and file type
+        saved_mappings = {}
+        if account_id:
+            try:
+                account = BankAccount.objects.get(id=account_id, user=request.user)
+                import_settings = account.meta.get('import_settings', {}) if account.meta else {}
+                saved_mappings = import_settings.get(f'mappings_{file_extension}', {})
+            except BankAccount.DoesNotExist:
+                pass
+
+        return Response({
+            "file_type": file_extension,
+            "file_fields": file_fields,
+            "sample_data": sample_data,
+            "transaction_fields": available_fields,
+            "saved_mappings": saved_mappings,
+        })
+
     @action(detail=False, methods=["post"], url_path="import-transactions")
     def import_transactions_generic(self, request):
         """Generic import endpoint for CSV or JSON files with flexible field mapping."""
+        import json as json_module
+
         account_id = request.data.get("account")
         file = request.FILES.get("file")
-        field_mappings = request.data.get("field_mappings")  # Optional: {csv_col: tx_property}
+        field_mappings_raw = request.data.get("field_mappings")  # Optional: {csv_col: tx_property}
+
+        # Parse field_mappings if it's a JSON string (from FormData)
+        field_mappings = None
+        if field_mappings_raw:
+            if isinstance(field_mappings_raw, str):
+                try:
+                    field_mappings = json_module.loads(field_mappings_raw)
+                except json_module.JSONDecodeError:
+                    field_mappings = None
+            elif isinstance(field_mappings_raw, dict):
+                field_mappings = field_mappings_raw
 
         if not account_id or not file:
             return Response(
@@ -166,6 +288,15 @@ class TransactionViewSet(viewsets.ModelViewSet):
         if rows:
             import_transactions_task.delay(account.id, rows)
 
+        # Save field mappings for future imports
+        if field_mappings:
+            if not account.meta:
+                account.meta = {}
+            import_settings = account.meta.get('import_settings', {})
+            import_settings[f'mappings_{file_extension}'] = field_mappings
+            account.meta['import_settings'] = import_settings
+            account.save(update_fields=['meta'])
+
         return Response({
             "queued": len(rows),
             "errors": errors,
@@ -204,9 +335,16 @@ class TransactionViewSet(viewsets.ModelViewSet):
             # Add extra fields if present
             if hasattr(r, 'extra_fields') and r.extra_fields:
                 # If reference is in extra_fields, use it instead
-                if 'reference' in r.extra_fields:
+                if 'reference' in r.extra_fields and r.extra_fields['reference']:
                     row['reference'] = r.extra_fields['reference']
+                    # Derive description from reference if not explicitly mapped
+                    if 'description' not in r.extra_fields or not r.extra_fields.get('description'):
+                        row['description'] = r.extra_fields['reference']
                 row.update(r.extra_fields)
+
+            # Ensure description is always set (fallback to reference)
+            if not row.get('description') and row.get('reference'):
+                row['description'] = row['reference']
 
             rows.append(row)
 
@@ -253,7 +391,7 @@ def currencies_view(request):
 @permission_classes([permissions.IsAuthenticated])
 def available_fields_view(request):
     """Return available fields for import mapping."""
-    from .services.field_mapper import FieldMappingRegistry
+    from ..services.field_mapper import FieldMappingRegistry
     return Response({
         "fields": FieldMappingRegistry.list_fields(),
         "display_names": FieldMappingRegistry.get_display_names()

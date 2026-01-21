@@ -23,6 +23,7 @@ class BankAccount(models.Model):
     currency = models.CharField(max_length=8, default="EUR")
     opening_balance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     opening_balance_date = models.DateField(null=True, blank=True, help_text="Reference date for opening balance. If set, balance calculations start from this date.")
+    meta = models.JSONField(default=dict, blank=True, help_text="Additional metadata including import settings")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

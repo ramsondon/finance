@@ -173,4 +173,83 @@ class JSONImporter:
             return "expense"
         return "income" if amount >= 0 else "expense"
 
+    def _map_to_parsed_row(self, mapped: dict, idx: int) -> ParsedRow:
+        """Convert mapped fields to ParsedRow when using field mapper."""
+        # Extract required fields
+        # Accept any date-like field as the primary date
+        date_val = None
+        date_field_used = None
+        for date_field in ["date", "booking_date", "valuation_date"]:
+            val = mapped.get(date_field)
+            if val:
+                date_val = val
+                date_field_used = date_field
+                break
+
+        amount_val = mapped.get("amount")
+        reference = mapped.get("reference", "")
+        description = mapped.get("description", "") or reference  # Fallback to reference
+
+        available_keys = list(mapped.keys())
+
+        if not date_val:
+            # Show what date values we found for debugging
+            date_debug = {k: mapped.get(k) for k in ["date", "booking_date", "valuation_date"]}
+            raise ValueError(f"Missing required field: date. Mapped fields: {available_keys}. Date values found: {date_debug}")
+        if amount_val is None:
+            raise ValueError(f"Missing required field: amount. Mapped fields: {available_keys}")
+        if not reference:
+            raise ValueError(f"Missing required field: reference. Mapped fields: {available_keys}")
+
+        # Parse date if it's a string
+        if isinstance(date_val, str):
+            date = None
+            for fmt in [
+                "%Y-%m-%dT%H:%M:%S.%f%z",
+                "%Y-%m-%dT%H:%M:%S%z",
+                "%Y-%m-%d",
+            ]:
+                try:
+                    date = datetime.strptime(date_val, fmt)
+                    break
+                except ValueError:
+                    continue
+            if date is None:
+                try:
+                    date = datetime.fromisoformat(date_val.replace('Z', '+00:00'))
+                except:
+                    raise ValueError(f"Invalid date format: {date_val}")
+        else:
+            date = date_val
+
+        # Parse amount
+        if isinstance(amount_val, Decimal):
+            amount = amount_val
+        elif isinstance(amount_val, (int, float)):
+            amount = Decimal(str(amount_val))
+        elif isinstance(amount_val, str):
+            amount = Decimal(amount_val.replace(",", "."))
+        else:
+            raise ValueError(f"Invalid amount: {amount_val}")
+
+        # Infer type from amount
+        tx_type = "income" if amount >= 0 else "expense"
+
+        # Collect extra fields (all mapped fields except core ones)
+        core_fields = {"date", "amount", "description", "reference", "type"}
+        extra_fields = {k: v for k, v in mapped.items() if k not in core_fields and v}
+
+        # Always include reference in extra_fields
+        if reference:
+            extra_fields["reference"] = reference
+
+        return ParsedRow(
+            date=date,
+            amount=amount,
+            description=str(description).strip() if description else "Transaction",
+            type=tx_type,
+            category_name=None,
+            extra_fields=extra_fields
+        )
+
 
