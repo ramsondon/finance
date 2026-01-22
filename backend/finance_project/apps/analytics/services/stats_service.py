@@ -144,6 +144,7 @@ class StatsService:
                 ).aggregate(total=Sum("amount"))["total"]
                 or 0
             )
+
             # Get expense for this account in the date range
             acc_expense = (
                 Transaction.objects.filter(
@@ -548,10 +549,13 @@ class StatsService:
         months = [d["label"] for d in monthly_data]
         income_values = [d["income"] for d in monthly_data]
         expense_values = [d["expense"] for d in monthly_data]
+        # Calculate net flow (income - expenses) for each month
+        net_flow_values = [income - expense for income, expense in zip(income_values, expense_values)]
 
         return {
             "months": months,
             "income": income_values,
             "expense": expense_values,
+            "net_flow": net_flow_values,
             "currency": user_currency,
         }

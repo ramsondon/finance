@@ -6,10 +6,10 @@ import CreateAccountModal from './CreateAccountModal'
 import AccountDetailsView from './AccountDetailsView'
 import { useTranslate } from '../hooks/useLanguage'
 import { formatDateTime, getFormatPreferences, getCurrencySymbol, formatNumber } from '../utils/format'
-import { Pie, Bar } from 'react-chartjs-2'
-import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title } from 'chart.js'
+import { Pie, Bar, Line } from 'react-chartjs-2'
+import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title, LineElement, PointElement } from 'chart.js'
 import { TrendingUp, TrendingDown, DollarSign, Plus, AlertCircle, Trash2, Wallet, ArrowUpDown, RotateCw, Building } from 'lucide-react'
-ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title)
+ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title, LineElement, PointElement)
 
 export default function Dashboard({ darkMode = false }) {
   const t = useTranslate()
@@ -42,7 +42,7 @@ export default function Dashboard({ darkMode = false }) {
       axios.get(`/api/analytics/spending-trend/?period=${period}${accountParam}`).catch(() => ({ data: { current_period_expense: 0, previous_period_expense: 0, trend_percent: 0, daily_average: 0, forecast_month_end: 0, days_in_period: 0, days_elapsed: 0, is_trending_up: false } })),
       axios.get(`/api/analytics/cash-flow/?period=${period}${accountParam}`).catch(() => ({ data: { income: 0, expense: 0, net_flow: 0, savings_rate: 0, burn_rate: 0, balance_change: 0 } })),
       axios.get('/api/banking/recurring/summary/').catch(() => ({ data: { total_count: 0, active_count: 0, monthly_recurring_cost: 0, yearly_recurring_cost: 0, by_frequency: {}, top_recurring: [], overdue_count: 0 } })),
-      axios.get(`/api/analytics/monthly-income-expense/${accountId !== 'all' ? `?account_id=${accountId}` : ''}`).catch(() => ({ data: { months: [], income: [], expense: [], currency: 'USD' } }))
+      axios.get(`/api/analytics/monthly-income-expense/${accountId !== 'all' ? `?account_id=${accountId}` : ''}`).catch(() => ({ data: { months: [], income: [], expense: [], net_flow: [], currency: 'USD' } }))
     ]).then(([overviewRes, accountsRes, catRes, trendRes, cashFlowRes, recurringRes, monthlyRes]) => {
       setOverview(overviewRes.data)
       setAccounts(accountsRes.data.results || accountsRes.data || [])
@@ -454,6 +454,8 @@ export default function Dashboard({ darkMode = false }) {
                       backgroundColor: '#10b981',
                       borderColor: '#059669',
                       borderWidth: 1,
+                      type: 'bar',
+                      order: 2,
                     },
                     {
                       label: t('dashboard.expenses'),
@@ -461,6 +463,24 @@ export default function Dashboard({ darkMode = false }) {
                       backgroundColor: '#ef4444',
                       borderColor: '#dc2626',
                       borderWidth: 1,
+                      type: 'bar',
+                      order: 2,
+                    },
+                    {
+                      label: t('dashboard.netFlow'),
+                      data: monthlyIncomeExpense.net_flow,
+                      borderColor: '#3b82f6',
+                      backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                      borderWidth: 3,
+                      fill: true,
+                      type: 'line',
+                      order: 1,
+                      pointRadius: 5,
+                      pointBackgroundColor: '#3b82f6',
+                      pointBorderColor: '#1e40af',
+                      pointBorderWidth: 2,
+                      yAxisID: 'y',
+                      tension: 0,
                     }
                   ]
                 }}
