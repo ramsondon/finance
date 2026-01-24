@@ -206,6 +206,24 @@ class RecurringTransactionViewSet(viewsets.ModelViewSet):
 
         return Response(RecurringTransactionSerializer(recurring).data)
 
+    @action(detail=True, methods=['post'])
+    def deactivate(self, request, pk=None):
+        """Deactivate a recurring transaction (mark as inactive)."""
+        recurring = self.get_object()
+        recurring.is_active = False
+        recurring.save(update_fields=['is_active'])
+
+        return Response(RecurringTransactionSerializer(recurring).data)
+
+    @action(detail=True, methods=['post'])
+    def reactivate(self, request, pk=None):
+        """Reactivate a recurring transaction (mark as active)."""
+        recurring = self.get_object()
+        recurring.is_active = True
+        recurring.save(update_fields=['is_active'])
+
+        return Response(RecurringTransactionSerializer(recurring).data)
+
     @action(detail=True, methods=['patch'])
     def add_note(self, request, pk=None):
         """Add or update a note for a recurring transaction."""

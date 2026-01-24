@@ -3,7 +3,7 @@ import axios from 'axios'
 import { useTranslate } from '../hooks/useLanguage'
 import { formatDate, formatCurrency, getCurrencySymbol, formatNumber } from '../utils/format'
 import { SensitiveValue, useSensitiveModeListener } from '../utils/sensitive'
-import { Calendar, Clock, AlertCircle, PieChart, CheckCircle, TrendingUp, RotateCw, XCircle, Edit, Search, Link, X, Save } from 'lucide-react'
+import { Calendar, Clock, AlertCircle, PieChart, CheckCircle, TrendingUp, RotateCw, XCircle, Edit, Search, Link, X, Save, Power } from 'lucide-react'
 
 /**
  * RecurringTransactionsView
@@ -140,6 +140,16 @@ export default function RecurringTransactionsView({ darkMode = false }) {
       fetchRecurringData()
     } catch (err) {
       console.error('Failed to toggle ignore:', err)
+    }
+  }
+
+  const toggleActive = async (id, isActive) => {
+    try {
+      const endpoint = isActive ? 'deactivate' : 'reactivate'
+      await axios.post(`/api/banking/recurring/${id}/${endpoint}/`)
+      fetchRecurringData()
+    } catch (err) {
+      console.error('Failed to toggle active status:', err)
     }
   }
 
@@ -412,6 +422,7 @@ export default function RecurringTransactionsView({ darkMode = false }) {
                       transaction={txn}
                       currency={txn.account_currency}
                       onToggleIgnore={toggleIgnore}
+                      onToggleActive={toggleActive}
                       onViewLinked={fetchLinkedTransactions}
                       onEdit={openEditModal}
                       sensitiveMode={sensitiveMode}
@@ -516,7 +527,7 @@ function SummaryCard({ title, value, icon, highlight }) {
   )
 }
 
-function RecurringTransactionRow({ transaction, currency, onToggleIgnore, onViewLinked, onEdit, sensitiveMode }) {
+function RecurringTransactionRow({ transaction, currency, onToggleIgnore, onToggleActive, onViewLinked, onEdit, sensitiveMode }) {
   const t = useTranslate()
 
   const getFrequencyIcon = (freq) => {
@@ -586,6 +597,21 @@ function RecurringTransactionRow({ transaction, currency, onToggleIgnore, onView
             title={t('recurring.linkedTransactions')}
           >
             <Link size={16} className="text-purple-700" />
+          </button>
+          <button
+            onClick={() => onToggleActive(transaction.id, transaction.is_active)}
+            className={`px-2 py-1 text-xs rounded ${
+              transaction.is_active
+                ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+            title={transaction.is_active ? t('recurring.deactivateLabel') : t('recurring.reactivateLabel')}
+          >
+            {transaction.is_active ? (
+              <Power size={16} className="text-green-700" />
+            ) : (
+              <Power size={16} className="text-gray-700" />
+            )}
           </button>
           <button
             onClick={() => onToggleIgnore(transaction.id, transaction.is_ignored)}

@@ -278,6 +278,8 @@
     "daysUntilNext": "Days Until Next",
     "ignoreLabel": "Ignore",
     "unignoreLabel": "Unignore",
+    "deactivateLabel": "Deactivate",
+    "reactivateLabel": "Reactivate",
     "addNoteLabel": "Add Note",
     "monthlyEquivalent": "/month",
     "linkedTransactions": "Linked Transactions",

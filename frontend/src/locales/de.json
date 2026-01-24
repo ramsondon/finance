@@ -278,6 +278,8 @@
     "daysUntilNext": "Tage bis nächste",
     "ignoreLabel": "Ignorieren",
     "unignoreLabel": "Nicht ignorieren",
+    "deactivateLabel": "Deaktivieren",
+    "reactivateLabel": "Reaktivieren",
     "addNoteLabel": "Notiz hinzufügen",
     "monthlyEquivalent": "/Monat",
     "yearlyEquivalent": "/Jahr",

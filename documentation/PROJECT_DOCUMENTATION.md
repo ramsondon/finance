@@ -414,8 +414,10 @@ GET    /api/banking/recurring/upcoming/    - Get upcoming items
 POST   /api/banking/recurring/detect/      - Trigger detection
 POST   /api/banking/recurring/{id}/ignore/ - Mark as ignored
 POST   /api/banking/recurring/{id}/unignore/ - Unignore
+POST   /api/banking/recurring/{id}/deactivate/ - Deactivate (exclude from Monthly Costs)
+POST   /api/banking/recurring/{id}/reactivate/ - Reactivate
 PATCH  /api/banking/recurring/{id}/add_note/ - Add notes
-GET    /api/banking/recurring/{id}/linked_transactions/ - Get linked transactions (NEW)
+GET    /api/banking/recurring/{id}/linked_transactions/ - Get linked transactions
 ```
 
 **Analytics:**
@@ -784,22 +786,45 @@ Result: Netflix detected as MONTHLY only (no duplicates)
 - Get alerts for overdue subscriptions
 - View monthly/yearly cost equivalents
 - **View linked transactions** - Click the 🔗 button to see all actual transactions that match this recurring pattern
+- **Deactivate old subscriptions** - Click the ⚡ button to deactivate a subscription (excluded from Monthly Costs calculation)
 
-### **Linked Transactions Feature (NEW)**
-Users can now click the 🔗 button next to any recurring transaction to view all the actual bank transactions that form the pattern. This provides deep insights into:
+### **Deactivate Feature (NEW)**
+Users can now deactivate old or cancelled recurring transactions to exclude them from "Monthly Costs" calculations:
+
+**How it works:**
+- Click the green ⚡ (Power) button on any recurring transaction to deactivate it
+- Deactivated transactions are excluded from Monthly Cost summaries
+- Click the gray ⚡ button on inactive transactions to reactivate them
+- Inactive transactions still appear in the list but with "Inactive Only" filter
+- Status affects API summary calculations: `GET /api/banking/recurring/summary/`
+
+**Implementation:**
+- New endpoints:
+  - `POST /api/banking/recurring/{id}/deactivate/` - Mark as inactive
+  - `POST /api/banking/recurring/{id}/reactivate/` - Mark as active
+- The `summary` endpoint filters by `is_active=True` when calculating monthly/yearly costs
+- Only active transactions contribute to Monthly Costs
+
+**Use Cases:**
+- Cancel old subscriptions you've unsubscribed from
+- Exclude one-time fees from recurring cost calculations
+- Manage services you've replaced with alternatives
+
+### **Linked Transactions Feature**
+Users can click the 🔗 button next to any recurring transaction to view all the actual bank transactions that form the pattern. This provides deep insights into:
 - All individual transaction dates and amounts
 - Payment descriptions and references
 - Categories assigned to each transaction
 - Confirms the pattern detection was correct
 
 **Backend Implementation:**
-- New endpoint: `GET /api/banking/recurring/{id}/linked_transactions/`
+- Endpoint: `GET /api/banking/recurring/{id}/linked_transactions/`
 - Returns the list of Transaction objects stored in `RecurringTransaction.transaction_ids`
 - Includes full transaction details via TransactionSerializer
 - Respects user permissions (only shows user's own transactions)
 
 **Frontend Implementation:**
-- New LinkedTransactionsModal component displays transactions in a scrollable table
+- LinkedTransactionsModal component displays transactions in a scrollable table
 - Shows date, description, reference, amount (color-coded), and category
 - Modal header displays recurring pattern summary (description, frequency)
 - Footer shows total transaction count
@@ -816,8 +841,8 @@ Users can now click the 🔗 button next to any recurring transaction to view al
 - Superuser-only delete permission
 - Manual creation disabled (only via detection)
 
-### **API - 8 Endpoints**
-✅ List (with pagination/filtering), summary, overdue, upcoming, detect, ignore/unignore, add notes, linked_transactions (NEW)
+### **API - 10 Endpoints**
+✅ List (with pagination/filtering), summary, overdue, upcoming, detect, ignore/unignore, deactivate/reactivate, add notes, linked_transactions
 
 ### **Frontend Components**
 - **RecurringTransactionsView:** Complete dashboard with pagination
