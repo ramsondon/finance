@@ -415,7 +415,7 @@ class StatsService:
                 expense += Decimal(str(abs(acc_expense)))
 
         # Calculate metrics
-        net_flow = income - expense
+        net_flow = income - abs(expense)
 
         # Savings rate: (income - expense) / income * 100
         if income == 0:
@@ -550,7 +550,7 @@ class StatsService:
         income_values = [d["income"] for d in monthly_data]
         expense_values = [d["expense"] for d in monthly_data]
         # Calculate net flow (income - expenses) for each month
-        net_flow_values = [income - expense for income, expense in zip(income_values, expense_values)]
+        net_flow_values = [income - abs(expense) for income, expense in zip(income_values, expense_values)]
 
         return {
             "months": months,
