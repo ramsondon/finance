@@ -3,9 +3,9 @@ import axios from 'axios'
 import { getCsrfToken } from '../utils/csrf'
 import { SensitiveValue, useSensitiveModeListener } from '../utils/sensitive'
 import { useTranslate } from '../hooks/useLanguage'
-import { formatDate, formatDateTime, formatNumber } from '../utils/format'
+import { formatDate, formatNumber } from '../utils/format'
 import { TrendingUp, TrendingDown, ArrowLeftRight, CreditCard, Search, RotateCw, X, Upload } from 'lucide-react'
-import ImportCsvModal from './ImportCsvModal'
+import ImportTransactionsModal from './ImportTransactionsModal'
 
 export default function TransactionsTable({ darkMode = false }) {
   const t = useTranslate()
@@ -346,7 +346,7 @@ export default function TransactionsTable({ darkMode = false }) {
 
       {/* Import CSV Modal */}
       {showImportModal && (
-        <ImportCsvModal onClose={() => {
+        <ImportTransactionsModal onClose={() => {
           setShowImportModal(false)
           loadTransactions()
         }} />

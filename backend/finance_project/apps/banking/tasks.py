@@ -4,6 +4,7 @@ from django.db import transaction as db_txn
 from datetime import datetime
 from decimal import Decimal
 import logging
+import hashlib
 from .models import BankAccount, Transaction, Category, Import, ImportTransaction
 from .services.rule_engine import RuleEngine
 
@@ -28,16 +29,35 @@ def import_transactions_task(self, account_id: int, rows: list[dict], file_name:
     account = BankAccount.objects.get(id=account_id)
     engine = RuleEngine()
 
+    # Calculate file hash for deduplication tracking
+    # Hash is based on rows content + file_name to detect re-imported files
+    file_hash = None
+    if rows:
+        try:
+            # Create a deterministic hash of the file content (rows data)
+            import json as json_module
+            rows_json = json_module.dumps(rows, sort_keys=True, default=str)
+            file_hash = hashlib.sha256(rows_json.encode()).hexdigest()
+            logger.debug(f"Calculated file hash: {file_hash}")
+        except Exception as e:
+            logger.warning(f"Failed to calculate file hash. Error: {e}")
+            file_hash = None
+
     # Create Import record to track this import session
+    import_meta = {
+        'file_hash': file_hash,
+        'duplicate_transactions': 0  # Will be updated after processing
+    }
+
     import_record = Import.objects.create(
         account=account,
         user=account.user,
         import_source=import_source,
         file_name=file_name,
         total_transactions=len(rows),
-        meta={}
+        meta=import_meta
     )
-    logger.info(f"Created Import record. ID={import_record.id}, file_name={file_name}, source={import_source}")
+    logger.info(f"Created Import record. ID={import_record.id}, file_name={file_name}, source={import_source}, file_hash={file_hash}")
 
     # Field length limits to prevent database errors
     FIELD_LIMITS = {
@@ -81,6 +101,7 @@ def import_transactions_task(self, account_id: int, rows: list[dict], file_name:
 
     successful_count = 0
     failed_count = 0
+    duplicate_count = 0
 
     with db_txn.atomic():
         for idx, row in enumerate(rows, start=1):
@@ -210,18 +231,33 @@ def import_transactions_task(self, account_id: int, rows: list[dict], file_name:
                         logger.warning(f"Row {idx}: Failed to parse transaction_fee. Error: {e}. Value: {row.get('transaction_fee')}")
                         tx_data["transaction_fee"] = None
 
-                # Create transaction
-                logger.debug(f"Row {idx}: Creating transaction object")
-                tx = Transaction.objects.create(**tx_data)
-                logger.info(f"Row {idx}: Transaction created successfully. ID={tx.id}, Amount={tx.amount}, Date={tx.date}")
+                # Check for duplicate transaction before creating
+                # Use get_or_create() to detect if this exact transaction already exists
+                # Uniqueness is based on: account, date, amount, reference
+                logger.debug(f"Row {idx}: Checking for duplicate transaction (account={account.id}, date={date}, amount={amount}, reference={row.get('reference', '')})")
+
+                tx, created = Transaction.objects.get_or_create(
+                    account=account,
+                    date=date,
+                    amount=amount,
+                    reference=truncate_field("reference", row.get("reference", "")),
+                    defaults=tx_data
+                )
+
+                if created:
+                    logger.info(f"Row {idx}: New transaction created successfully. ID={tx.id}, Amount={tx.amount}, Date={tx.date}")
+                    was_created_flag = True
+                else:
+                    logger.warning(f"Row {idx}: Duplicate transaction detected. ID={tx.id}, Amount={tx.amount}, Date={tx.date}. Skipping creation.")
+                    was_created_flag = False
 
                 # Create ImportTransaction link to track this import
                 ImportTransaction.objects.create(
                     import_record=import_record,
                     transaction=tx,
-                    was_created=True
+                    was_created=was_created_flag
                 )
-                logger.debug(f"Row {idx}: Created ImportTransaction link. ID={tx.id}")
+                logger.debug(f"Row {idx}: Created ImportTransaction link. ID={tx.id}, was_created={was_created_flag}")
 
                 # optional category by name
                 cat_name = row.get("category_name")
@@ -232,12 +268,15 @@ def import_transactions_task(self, account_id: int, rows: list[dict], file_name:
                     tx.save(update_fields=["category"])
                     logger.info(f"Row {idx}: Category assigned. Created={created}")
 
-                # Apply rules
-                logger.debug(f"Row {idx}: Applying categorization rules")
-                engine.apply_rules(account.user_id, tx)
-                logger.debug(f"Row {idx}: Rules applied successfully")
-
-                successful_count += 1
+                # Apply rules (only if transaction was newly created)
+                if was_created_flag:
+                    logger.debug(f"Row {idx}: Applying categorization rules")
+                    engine.apply_rules(account.user_id, tx)
+                    logger.debug(f"Row {idx}: Rules applied successfully")
+                    successful_count += 1
+                else:
+                    logger.debug(f"Row {idx}: Skipping rules for duplicate transaction")
+                    duplicate_count += 1
 
             except Exception as e:
                 logger.error(
@@ -253,12 +292,13 @@ def import_transactions_task(self, account_id: int, rows: list[dict], file_name:
     # Update Import record with final statistics
     import_record.successful_transactions = successful_count
     import_record.failed_transactions = failed_count
-    import_record.save(update_fields=['successful_transactions', 'failed_transactions'])
+    import_record.meta['duplicate_transactions'] = duplicate_count
+    import_record.save(update_fields=['successful_transactions', 'failed_transactions', 'meta'])
 
     logger.info(
         f"Completed import_transactions_task for account_id={account_id}. "
         f"Import ID={import_record.id}: "
-        f"Successful={successful_count}, Failed={failed_count}, Total={len(rows)}"
+        f"Successful={successful_count}, Duplicates={duplicate_count}, Failed={failed_count}, Total={len(rows)}"
     )
 
 

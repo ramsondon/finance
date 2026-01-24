@@ -23,7 +23,8 @@ class FieldMappingRegistry:
         # Core fields (required)
         "date": FieldMapping("date", "date", "date", required=True),
         "amount": FieldMapping("amount", "amount", "decimal", required=True),
-        "reference": FieldMapping("reference", "reference", "string", required=True),
+        # Reference is optional - can be derived from fallback fields
+        "reference": FieldMapping("reference", "reference", "string", required=False),
 
         # Optional fields (type is auto-derived from amount, description from reference)
         "description": FieldMapping("description", "description", "string"),
@@ -93,8 +94,9 @@ class FieldMapper:
         Initialize mapper.
 
         Args:
-            mappings: Dict mapping source field names to target property names
-                     e.g., {"booking": "date", "partnerAccount.iban": "partner_iban"}
+            mappings: Dict mapping target property names to source field names
+                     e.g., {"date": "booking", "partner_iban": "partnerAccount.iban"}
+                     This format allows multiple JSON fields to map to different transaction properties.
         """
         self.mappings = mappings
         self.registry = FieldMappingRegistry()
@@ -135,7 +137,9 @@ class FieldMapper:
         """
         result = {}
 
-        for source_field, target_property in self.mappings.items():
+        # mappings format: {target_property: source_field}
+        # e.g., {"date": "booking", "partner_iban": "partnerAccount.iban"}
+        for target_property, source_field in self.mappings.items():
             # Use nested value getter to handle dot notation
             value = self._get_nested_value(source_data, source_field)
 

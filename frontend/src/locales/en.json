@@ -395,6 +395,9 @@
     "importing": "Importing...",
     "startImport": "Import",
     "noValidTransactions": "No valid transactions found. Please check the field mappings and error details below.",
+    "duplicateFileWarning": "This file appears to have been imported recently. Continue anyway?",
+    "continueAnyway": "Continue Anyway",
+    "duplicatesSkipped": "{count} duplicate transaction(s) skipped",
     "fields": {
       "date": "Date",
       "amount": "Amount",

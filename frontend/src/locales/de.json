@@ -395,6 +395,9 @@
     "importing": "Importiere...",
     "startImport": "Importieren",
     "noValidTransactions": "Keine gültigen Transaktionen gefunden. Bitte überprüfen Sie die Feldzuordnungen und die Fehlerdetails unten.",
+    "duplicateFileWarning": "Diese Datei scheint kürzlich importiert worden zu sein. Trotzdem fortfahren?",
+    "continueAnyway": "Trotzdem fortfahren",
+    "duplicatesSkipped": "{count} doppelte Transaktion(en) übersprungen",
     "fields": {
       "date": "Datum",
       "amount": "Betrag",

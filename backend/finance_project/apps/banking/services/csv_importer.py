@@ -66,6 +66,20 @@ class CSVImporter:
         type_ = (raw.get("type") or "").strip().lower()
         category_name = raw.get("category") or None
 
+        # Reference with fallbacks (Option 1)
+        # Priority: reference → partner_name → description
+        if not reference:
+            fallback_fields = ["partner_name", "partner_iban", "merchant_name"]
+            for fallback_field in fallback_fields:
+                fallback_val = (raw.get(fallback_field) or "").strip()
+                if fallback_val:
+                    reference = fallback_val
+                    break
+
+        # If still no reference, use description as fallback
+        if not reference and description:
+            reference = description
+
         date = None
         for fmt in DATE_FORMATS:
             try:

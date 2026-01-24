@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import axios from 'axios'
 import { getCsrfToken } from '../utils/csrf'
 import { useTranslate } from '../hooks/useLanguage'
 import { Upload, Loader, AlertCircle, CheckCircle, FileText, FileCode, X, ArrowRight, ArrowLeft } from 'lucide-react'
 
-export default function ImportModal({ onClose }) {
+export default function ImportTransactionsModal({ onClose }) {
   const t = useTranslate()
   const [accounts, setAccounts] = useState([])
   const [selectedAccount, setSelectedAccount] = useState('')
@@ -14,6 +14,8 @@ export default function ImportModal({ onClose }) {
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(null)
+  const [previousImportHash, setPreviousImportHash] = useState(null)
+  const [isDuplicateFile, setIsDuplicateFile] = useState(false)
 
   // Mapping state
   const [fileFields, setFileFields] = useState([])
@@ -43,6 +45,21 @@ export default function ImportModal({ onClose }) {
       .catch(() => setAccounts([]))
   }, [])
 
+  // Calculate file hash to detect duplicate imports
+  const calculateFileHash = async (fileObject) => {
+    try {
+      // Use browser's SubtleCrypto API for SHA-256 hash
+      const fileContent = await fileObject.arrayBuffer()
+      const hashBuffer = await crypto.subtle.digest('SHA-256', fileContent)
+      const hashArray = Array.from(new Uint8Array(hashBuffer))
+      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+      return hashHex.substring(0, 16) // Use first 16 chars for comparison
+    } catch (error) {
+      console.warn('Failed to calculate file hash:', error)
+      return null
+    }
+  }
+
   // Auto-map fields when file is previewed
   const autoMapFields = (txFields, fFields) => {
     const mappings = {}
@@ -70,7 +87,7 @@ export default function ImportModal({ onClose }) {
       const aliases = {
         'date': ['date', 'booking', 'transactiondate', 'transaction_date', 'bookingdate', 'valuation', 'datum'],
         'amount': ['amount', 'value', 'sum', 'betrag', 'amount.value'],
-        'reference': ['reference', 'ref', 'referenz', 'booking_text', 'description', 'text', 'verwendungszweck', 'details', 'memo', 'buchungstext'],
+        'reference': ['reference', 'ref', 'referenz', 'booking_text', 'bookingtextformat', 'text', 'verwendungszweck', 'details', 'memo', 'buchungstext', 'note', 'subject'],
         'reference_number': ['reference_number', 'referencenumber', 'reference.no', 'referenznummer'],
         'valuation_date': ['valuation_date','valuationdate', 'valuedate', 'value_date', 'valuta', 'valuation', 'bewertungsdatum'],
         'virtual_card_number': ['virtualcardnumber', 'virtual_card_number', 'vcn', 'virtualcard.number'],
@@ -83,9 +100,9 @@ export default function ImportModal({ onClose }) {
         'partner_name': ['partnername', 'partner_name', 'counterparty', 'recipient', 'sender', 'empfaenger', 'auftraggeber'],
         'partner_iban': ['partneriban', 'partner_iban', 'iban', 'counterparty_iban', 'partneraccount.iban'],
         'partner_account': ['partneraccount.number', 'kontonummer', 'partneraccount', 'partner_account'],
-        'partner_bank_code': ['partneraccount.bankcode', 'partnerbankcode', 'partner_bank_code'],
-        'owner_account': ['owneraccount.number', 'owner_account_number', 'owneraccountnumber', 'eigentuemerkontonummer'],
-        'owner_name': ['ownername', 'owner_name', 'owneraccounttitle', 'eigentuemerkontoname'],
+        'partner_bank_code': ['partneraccount.bankcode', 'partnerbankcode', 'partner_bank_code', 'bankcode'],
+        'owner_account': ['owneraccount.number', 'owner_account_number', 'owneraccountnumber', 'eigentuemerkontonummer', 'owneraccountnumber'],
+        'owner_name': ['ownername', 'owner_name', 'owneraccounttitle', 'eigentuemerkontoname', 'ownername'],
         'booking_type': ['bookingtype', 'booking_type', 'bookingtypetranslation', 'transactiontype', 'buchungsart'],
         'booking_date': ['booking_date', 'buchungsdatum', 'booking', 'bookingdate'],
         'merchant_name': ['merchantname', 'merchant_name', 'merchant', 'haendler'],
@@ -94,6 +111,14 @@ export default function ImportModal({ onClose }) {
 
       const fieldAliases = aliases[txField.name] || []
       for (const alias of fieldAliases) {
+        // First try: exact match (case-insensitive)
+        const exactIdx = fileFieldsLower.findIndex(f => f === alias.toLowerCase())
+        if (exactIdx !== -1) {
+          mappings[txField.name] = fFields[exactIdx]
+          return
+        }
+
+        // Second try: partial match (more permissive)
         const idx = fileFieldsLower.findIndex(f => f.replace(/[_\s.]/g, '').includes(alias.replace(/[_\s.]/g, '')))
         if (idx !== -1) {
           mappings[txField.name] = fFields[idx]
@@ -110,6 +135,7 @@ export default function ImportModal({ onClose }) {
 
     setUploading(true)
     setError(null)
+    setIsDuplicateFile(false)
 
     const formData = new FormData()
     formData.append('file', file)
@@ -128,18 +154,30 @@ export default function ImportModal({ onClose }) {
       setTransactionFields(res.data.transaction_fields)
       setFileType(res.data.file_type)
 
+      // Calculate hash of current file (using the original file object)
+      const currentHash = await calculateFileHash(file)
+      setPreviousImportHash(currentHash)
+
+      // Check if this looks like a duplicate import
+      // Compare with recent imports in the session/local storage
+      if (currentHash) {
+        const recentImportHashes = JSON.parse(localStorage.getItem('recentImportHashes') || '[]')
+        if (recentImportHashes.includes(currentHash)) {
+          setIsDuplicateFile(true)
+          setError(t('import.duplicateFileWarning'))
+        }
+      }
+
       // Use saved mappings if available, otherwise auto-map
       const savedMappings = res.data.saved_mappings || {}
       if (Object.keys(savedMappings).length > 0) {
-        // Convert saved mappings (fileField -> targetProperty) back to (txFieldName -> fileField)
+        // Convert saved mappings (targetProperty: fileField) back to (txFieldName: fileField)
         const restoredMappings = {}
         res.data.transaction_fields.forEach(txField => {
-          // Find which file field maps to this transaction field's target property
-          for (const [fileField, targetProp] of Object.entries(savedMappings)) {
-            if (targetProp === txField.target_property && res.data.file_fields.includes(fileField)) {
-              restoredMappings[txField.name] = fileField
-              break
-            }
+          // Check if this field's target_property is in saved mappings
+          const savedFileField = savedMappings[txField.target_property]
+          if (savedFileField && res.data.file_fields.includes(savedFileField)) {
+            restoredMappings[txField.name] = savedFileField
           }
         })
         // Merge with auto-mappings for any missing fields
@@ -180,13 +218,15 @@ export default function ImportModal({ onClose }) {
     formData.append('file', file)
     formData.append('account', selectedAccount)
 
-    // Convert mappings to format expected by backend: { fileField: transactionProperty }
+    // Convert mappings to format expected by backend: { transactionProperty: fileField }
+    // This allows multiple JSON fields to map to different transaction properties
     const backendMappings = {}
     Object.entries(fieldMappings).forEach(([txField, fileField]) => {
       if (fileField) {
         const txFieldInfo = transactionFields.find(f => f.name === txField)
         if (txFieldInfo) {
-          backendMappings[fileField] = txFieldInfo.target_property
+          // Key is the transaction model property, value is the JSON field
+          backendMappings[txFieldInfo.target_property] = fileField
         }
       }
     })
@@ -201,6 +241,19 @@ export default function ImportModal({ onClose }) {
       })
       setResult(res.data)
       setStep(3)
+
+      // Store this import hash to detect duplicates
+      if (previousImportHash) {
+        const recentImportHashes = JSON.parse(localStorage.getItem('recentImportHashes') || '[]')
+        if (!recentImportHashes.includes(previousImportHash)) {
+          recentImportHashes.push(previousImportHash)
+          // Keep only last 20 imports
+          if (recentImportHashes.length > 20) {
+            recentImportHashes.shift()
+          }
+          localStorage.setItem('recentImportHashes', JSON.stringify(recentImportHashes))
+        }
+      }
 
       // Only auto-close if transactions were successfully queued and no errors
       if (res.data.queued > 0 && (!res.data.errors || res.data.errors.length === 0)) {
@@ -370,6 +423,17 @@ export default function ImportModal({ onClose }) {
                 <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 flex items-center gap-2">
                   <AlertCircle size={16} />
                   {error}
+                  {isDuplicateFile && (
+                    <button
+                      onClick={() => {
+                        setError(null)
+                        setIsDuplicateFile(false)
+                      }}
+                      className="ml-auto text-xs font-medium hover:underline"
+                    >
+                      {t('import.continueAnyway')}
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -481,6 +545,12 @@ export default function ImportModal({ onClose }) {
                     <CheckCircle size={14} className="text-green-600" />
                     {t('import.transactionsQueued', { count: result.queued })}
                   </div>
+                  {result.duplicates > 0 && (
+                    <div className="flex items-center gap-1 text-orange-600 mt-1">
+                      <AlertCircle size={14} />
+                      {t('import.duplicatesSkipped', { count: result.duplicates })}
+                    </div>
+                  )}
                   {result.errors?.length > 0 && (
                     <div className="mt-2">
                       <div className="text-red-600 flex items-center gap-1 mb-1">
@@ -585,3 +655,4 @@ export default function ImportModal({ onClose }) {
     </div>
   )
 }
+

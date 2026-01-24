@@ -45,7 +45,8 @@ services:
     # For development with live reload, uncomment and build frontend on host
     # volumes:
     #   - ..:/app
-    command: ["bash", "-lc", "python manage.py makemigrations && python manage.py migrate && python manage.py configure_google_oauth && python manage.py collectstatic --noinput && gunicorn finance_project.wsgi:application -b 0.0.0.0:8000"]
+#    command: ["bash", "-lc", "python manage.py makemigrations && python manage.py migrate && python manage.py configure_google_oauth && python manage.py collectstatic --noinput && gunicorn finance_project.wsgi:application -b 0.0.0.0:8000"]
+    command: ["bash", "-lc", " python manage.py configure_google_oauth && python manage.py collectstatic --noinput && gunicorn finance_project.wsgi:application -b 0.0.0.0:8000"]
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health || exit 1"]

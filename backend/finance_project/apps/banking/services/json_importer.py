@@ -187,7 +187,19 @@ class JSONImporter:
                 break
 
         amount_val = mapped.get("amount")
+
+        # Reference field with fallbacks (Option 1)
+        # Priority: reference → partner_name → partner_iban → description
         reference = mapped.get("reference", "")
+        if not reference:
+            # Try fallback fields in priority order
+            fallback_fields = ["partner_name", "partner_iban", "description", "merchant_name"]
+            for fallback_field in fallback_fields:
+                fallback_val = mapped.get(fallback_field, "")
+                if fallback_val:
+                    reference = str(fallback_val)
+                    break
+
         description = mapped.get("description", "") or reference  # Fallback to reference
 
         available_keys = list(mapped.keys())
@@ -199,7 +211,7 @@ class JSONImporter:
         if amount_val is None:
             raise ValueError(f"Missing required field: amount. Mapped fields: {available_keys}")
         if not reference:
-            raise ValueError(f"Missing required field: reference. Mapped fields: {available_keys}")
+            raise ValueError(f"Missing required field: reference (tried fallbacks: partner_name, partner_iban, description, merchant_name). Mapped fields: {available_keys}")
 
         # Parse date if it's a string
         if isinstance(date_val, str):
