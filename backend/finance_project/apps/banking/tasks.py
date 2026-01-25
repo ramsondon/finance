@@ -232,17 +232,37 @@ def import_transactions_task(self, account_id: int, rows: list[dict], file_name:
                         tx_data["transaction_fee"] = None
 
                 # Check for duplicate transaction before creating
-                # Use get_or_create() to detect if this exact transaction already exists
-                # Uniqueness is based on: account, date, amount, reference
-                logger.debug(f"Row {idx}: Checking for duplicate transaction (account={account.id}, date={date}, amount={amount}, reference={row.get('reference', '')})")
+                # Uniqueness is based on: account, date, amount, and combined reference value
+                # Combined reference = reference + reference_number + partner_name (with empty strings for null/blank values)
+                combined_ref = (
+                    (truncate_field("reference", row.get("reference", "")) or "") +
+                    (truncate_field("reference_number", row.get("reference_number", "")) or "") +
+                    (truncate_field("partner_name", row.get("partner_name", "")) or "")
+                )
+                logger.debug(
+                    f"Row {idx}: Checking for duplicate transaction "
+                    f"(account={account.id}, date={date}, amount={amount}, "
+                    f"combined_ref_parts: reference='{row.get('reference', '')}', "
+                    f"reference_number='{row.get('reference_number', '')}', "
+                    f"partner_name='{row.get('partner_name', '')}')"
+                )
 
-                tx, created = Transaction.objects.get_or_create(
+                tx, created = Transaction.objects.filter(
                     account=account,
                     date=date,
                     amount=amount,
                     reference=truncate_field("reference", row.get("reference", "")),
-                    defaults=tx_data
-                )
+                    reference_number=truncate_field("reference_number", row.get("reference_number", "")),
+                    partner_name=truncate_field("partner_name", row.get("partner_name", "")),
+                ).first(), None
+
+                if tx is None:
+                    # No matching transaction found, create a new one
+                    tx = Transaction.objects.create(**tx_data)
+                    created = True
+                else:
+                    # Matching transaction found, mark as duplicate
+                    created = False
 
                 if created:
                     logger.info(f"Row {idx}: New transaction created successfully. ID={tx.id}, Amount={tx.amount}, Date={tx.date}")

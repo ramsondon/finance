@@ -85,12 +85,6 @@ class Transaction(models.Model):
 
     class Meta:
         ordering = ["-date", "-id"]
-        constraints = [
-            models.UniqueConstraint(
-                fields=["account", "date", "amount", "reference"],
-                name="unique_transaction_per_account"
-            )
-        ]
         indexes = [
             models.Index(fields=["date", "account"]),
             models.Index(fields=["amount", "account"]),
