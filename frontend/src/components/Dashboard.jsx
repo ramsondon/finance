@@ -9,6 +9,8 @@ import { formatDateTime, getFormatPreferences, getCurrencySymbol, formatNumber }
 import { Pie, Bar, Line } from 'react-chartjs-2'
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title, LineElement, PointElement } from 'chart.js'
 import { TrendingUp, TrendingDown, DollarSign, Plus, AlertCircle, Trash2, Wallet, ArrowUpDown, RotateCw, Building } from 'lucide-react'
+import AnomalyAlertBanner from './AnomalyAlertBanner'
+import NotificationCenter from './NotificationCenter'
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title, LineElement, PointElement)
 
 export default function Dashboard({ darkMode = false }) {
@@ -177,6 +179,23 @@ export default function Dashboard({ darkMode = false }) {
 
   return (
     <div className="space-y-6">
+      {/* Notification Header */}
+      <div className="flex items-center justify-between">
+        <h1 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+          {t('dashboard.title', 'Dashboard')}
+        </h1>
+        <NotificationCenter onAnomalyClick={(anomaly) => {
+          // Could navigate to anomalies view here
+          console.log('Clicked anomaly:', anomaly)
+        }} />
+      </div>
+
+      {/* Anomaly Alert Banner */}
+      <AnomalyAlertBanner onViewAll={() => {
+        // Could navigate to anomalies view here
+        console.log('View all anomalies')
+      }} />
+
       {/* Dashboard Filters */}
       <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg shadow-sm p-4 border`}>
         <div className="flex flex-wrap items-center gap-4">

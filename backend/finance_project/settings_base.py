@@ -212,6 +212,14 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'finance_project.apps.banking.tasks.check_recurring_transaction_overdue_task',
         'schedule': crontab(hour=6, minute=0),  # 6 AM UTC
     },
+    'detect-daily-anomalies': {
+        'task': 'finance_project.apps.banking.tasks.detect_daily_anomalies_task',
+        'schedule': crontab(hour=0, minute=15),  # 12:15 AM UTC daily
+    },
+    'detect-monthly-anomalies': {
+        'task': 'finance_project.apps.banking.tasks.detect_monthly_anomalies_task',
+        'schedule': crontab(day_of_month=1, hour=1, minute=0),  # 1st of month at 1 AM UTC
+    },
 }
 
 # Security baseline

@@ -6,9 +6,12 @@ import { useTranslate } from '../hooks/useLanguage'
 import { formatDate, formatNumber } from '../utils/format'
 import { TrendingUp, TrendingDown, ArrowLeftRight, CreditCard, Search, RotateCw, X, Upload } from 'lucide-react'
 import ImportTransactionsModal from './ImportTransactionsModal'
+import AnomalyBadge from './AnomalyBadge'
+import useAnomalies from '../hooks/useAnomalies'
 
 export default function TransactionsTable({ darkMode = false }) {
   const t = useTranslate()
+  const { anomalies } = useAnomalies()
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(true)
   const [totalCount, setTotalCount] = useState(0)
@@ -118,6 +121,11 @@ export default function TransactionsTable({ darkMode = false }) {
       case 'transfer': return <ArrowLeftRight size={16} className="text-blue-700" />
       default: return <CreditCard size={16} className="text-gray-700" />
     }
+  }
+
+  // Find anomalies for a transaction
+  const getTransactionAnomalies = (transactionId) => {
+    return anomalies?.filter(a => a.transaction_id === transactionId) || []
   }
 
   const totalPages = Math.max(1, Math.ceil(totalCount / itemsPerPage))
@@ -268,18 +276,35 @@ export default function TransactionsTable({ darkMode = false }) {
                     <td className="px-6 py-4">
                       <div className="text-sm text-gray-900 font-medium truncate max-w-xs" title={tx.description || '-'}>{tx.reference || '-'}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {tx.category_name ? (
-                        <span
-                          className="px-3 py-1 text-xs font-medium rounded-full border"
-                          style={{ borderColor: tx.category_color, color: tx.category_color }}
-                          title={tx.category_name}
-                        >
-                          {tx.category_name}
-                        </span>
-                      ) : (
-                        <span className="text-sm text-gray-400">-</span>
-                      )}
+                    <td className="px-6 py-4">
+                      <div className="space-y-2">
+                        <div>
+                          {tx.category_name ? (
+                            <span
+                              className="px-3 py-1 text-xs font-medium rounded-full border"
+                              style={{ borderColor: tx.category_color, color: tx.category_color }}
+                              title={tx.category_name}
+                            >
+                              {tx.category_name}
+                            </span>
+                          ) : (
+                            <span className="text-sm text-gray-400">-</span>
+                          )}
+                        </div>
+                        {/* Anomaly Badge */}
+                        {getTransactionAnomalies(tx.id).map(anomaly => (
+                          <div key={anomaly.id}>
+                            <AnomalyBadge
+                              anomaly={anomaly}
+                              size="xs"
+                              onClick={() => {
+                                // Could open anomaly details modal here
+                                console.log('Clicked anomaly:', anomaly)
+                              }}
+                            />
+                          </div>
+                        ))}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full border ${getTypeColor(tx.type)}`}>

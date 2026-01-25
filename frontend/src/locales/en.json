@@ -426,6 +426,34 @@
       "transactionFee": "Transaction Fee",
       "sepaScheme": "SEPA Scheme"
     }
+  },
+  "anomalies": {
+    "title": "Anomalies",
+    "subtitle": "Review and manage unusual patterns in your financial data",
+    "alertTitle": "⚠️ Anomalies detected",
+    "viewAll": "View All",
+    "dismiss": "Dismiss",
+    "details": "Details",
+    "total": "Total Anomalies",
+    "critical": "Critical",
+    "warning": "Warning",
+    "info": "Informational",
+    "filterSeverity": "Severity",
+    "filterType": "Type",
+    "filterStatus": "Status",
+    "typeAll": "All Types",
+    "severityAll": "All Severities",
+    "statusAll": "All",
+    "statusActive": "Active",
+    "statusDismissed": "Dismissed",
+    "description": "Description",
+    "reason": "Why This Was Flagged",
+    "metrics": "Metrics",
+    "recommendedAction": "Recommended Action",
+    "yourFeedback": "Your Feedback",
+    "falsePositive": "This is a false positive",
+    "confirmed": "I confirm this anomaly",
+    "noAnomalies": "No anomalies detected"
   }
 }
 

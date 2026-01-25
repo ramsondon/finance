@@ -770,3 +770,172 @@ def fetch_exchange_rates_task(self):
             "error": str(e),
         }
 
+
+@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=5, max_retries=3)
+def detect_transaction_anomalies_task(self, transaction_id: int):
+    """
+    Detect anomalies for a specific transaction.
+
+    Called automatically when a transaction is created or imported.
+
+    Args:
+        transaction_id: Transaction ID to analyze
+    """
+    logger.info(f"Starting detect_transaction_anomalies_task for transaction_id={transaction_id}")
+
+    try:
+        from .models import Transaction
+        from .services.anomaly_detector import AnomalyDetectionService, create_anomaly_if_new
+
+        transaction = Transaction.objects.get(id=transaction_id)
+        detector = AnomalyDetectionService(transaction.account.user, transaction.account)
+
+        # Detect all anomalies for this transaction
+        anomalies = detector.detect_all_anomalies_for_transaction(transaction)
+
+        # Create anomalies (avoiding duplicates)
+        created_count = 0
+        for anomaly in anomalies:
+            if create_anomaly_if_new(anomaly):
+                created_count += 1
+                logger.info(f"Created anomaly: {anomaly.anomaly_type} for transaction {transaction_id}")
+
+        logger.info(f"Detected {created_count} anomalies for transaction {transaction_id}")
+        return {
+            "success": True,
+            "anomalies_created": created_count,
+            "transaction_id": transaction_id,
+        }
+
+    except Exception as e:
+        logger.error(f"Error in detect_transaction_anomalies_task: {e}", exc_info=True)
+        raise
+
+
+@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=5, max_retries=3)
+def detect_daily_anomalies_task(self):
+    """
+    Run daily anomaly detection for all users.
+
+    Scheduled to run at midnight UTC.
+    Detects:
+    - Recurring transaction anomalies
+    - Account inactivity
+    - General spending patterns
+    """
+    logger.info("Starting detect_daily_anomalies_task")
+
+    from django.contrib.auth import get_user_model
+    from .models import RecurringTransaction
+    from .services.anomaly_detector import AnomalyDetectionService, create_anomaly_if_new
+
+    User = get_user_model()
+    users_processed = 0
+    anomalies_created = 0
+
+    try:
+        for user in User.objects.filter(anomaly_preferences__anomaly_detection_enabled=True):
+            detector_base = AnomalyDetectionService(user)
+
+            # Check if anomaly detection is disabled
+            if not detector_base.preferences.anomaly_detection_enabled:
+                continue
+
+            users_processed += 1
+            logger.debug(f"Processing anomalies for user {user.email}")
+
+            # Get user's accounts
+            accounts = BankAccount.objects.filter(user=user)
+
+            for account in accounts:
+                detector = AnomalyDetectionService(user, account)
+
+                # Check for inactive accounts
+                if 'account_inactive' in detector.preferences.enabled_types:
+                    anomaly = detector.detect_account_inactive()
+                    if anomaly and create_anomaly_if_new(anomaly):
+                        anomalies_created += 1
+                        logger.debug(f"Created account inactivity anomaly for {account.name}")
+
+                # Check recurring transactions
+                if 'missing_recurring' in detector.preferences.enabled_types:
+                    for recurring in account.recurring_transactions.filter(is_active=True, is_ignored=False):
+                        anomaly = detector.detect_missing_recurring(recurring)
+                        if anomaly and create_anomaly_if_new(anomaly):
+                            anomalies_created += 1
+                            logger.debug(f"Created missing recurring anomaly for {recurring}")
+
+                if 'changed_recurring' in detector.preferences.enabled_types:
+                    for recurring in account.recurring_transactions.filter(is_active=True, is_ignored=False):
+                        anomaly = detector.detect_changed_recurring(recurring)
+                        if anomaly and create_anomaly_if_new(anomaly):
+                            anomalies_created += 1
+                            logger.debug(f"Created changed recurring anomaly for {recurring}")
+
+        logger.info(f"Daily anomalies detected: {users_processed} users, {anomalies_created} anomalies")
+        return {
+            "success": True,
+            "users_processed": users_processed,
+            "anomalies_created": anomalies_created,
+        }
+
+    except Exception as e:
+        logger.error(f"Error in detect_daily_anomalies_task: {e}", exc_info=True)
+        raise
+
+
+@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=5, max_retries=3)
+def detect_monthly_anomalies_task(self):
+    """
+    Run monthly anomaly detection for spending patterns.
+
+    Scheduled to run on the 1st of each month at midnight UTC.
+    Detects:
+    - Spending spikes by category
+    """
+    logger.info("Starting detect_monthly_anomalies_task")
+
+    from django.contrib.auth import get_user_model
+    from .services.anomaly_detector import AnomalyDetectionService, create_anomaly_if_new
+
+    User = get_user_model()
+    users_processed = 0
+    anomalies_created = 0
+
+    try:
+        for user in User.objects.filter(anomaly_preferences__anomaly_detection_enabled=True):
+            detector_base = AnomalyDetectionService(user)
+
+            if not detector_base.preferences.anomaly_detection_enabled:
+                continue
+
+            if 'spending_spike' not in detector_base.preferences.enabled_types:
+                continue
+
+            users_processed += 1
+
+            # Get user's accounts
+            accounts = BankAccount.objects.filter(user=user)
+
+            for account in accounts:
+                detector = AnomalyDetectionService(user, account)
+
+                # Check for spending spikes in each category
+                categories = Category.objects.filter(user=user)
+                for category in categories:
+                    anomaly = detector.detect_spending_spike(category)
+                    if anomaly and create_anomaly_if_new(anomaly):
+                        anomalies_created += 1
+                        logger.debug(f"Created spending spike anomaly for {category.name}")
+
+        logger.info(f"Monthly spending anomalies detected: {users_processed} users, {anomalies_created} anomalies")
+        return {
+            "success": True,
+            "users_processed": users_processed,
+            "anomalies_created": anomalies_created,
+        }
+
+    except Exception as e:
+        logger.error(f"Error in detect_monthly_anomalies_task: {e}", exc_info=True)
+        raise
+

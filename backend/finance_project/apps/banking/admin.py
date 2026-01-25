@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html, mark_safe
 from django.contrib import messages
-from .models import BankAccount, Transaction, Category, Rule, RecurringTransaction, ExchangeRate, Import, ImportTransaction
+from .models import BankAccount, Transaction, Category, Rule, RecurringTransaction, ExchangeRate, Import, ImportTransaction, Anomaly, AnomalyNotification, UserAnomalyPreferences
 
 
 @admin.register(BankAccount)
@@ -22,7 +22,7 @@ class BankAccountAdmin(admin.ModelAdmin):
             "classes": ("collapse",)
         }),
     )
-    actions = ["truncate_transactions", "generate_categories_for_users"]
+    actions = ["truncate_transactions", "generate_categories_for_users", "trigger_anomaly_detection"]
 
     def opening_balance_display(self, obj):
         """Display opening balance with currency."""
@@ -112,6 +112,68 @@ class BankAccountAdmin(admin.ModelAdmin):
         )
     generate_categories_for_users.short_description = "🤖 AI: Generate categories from transactions"
 
+    def trigger_anomaly_detection(self, request, queryset):
+        """
+        Admin action to manually trigger anomaly detection for selected accounts.
+        """
+        import logging
+        from .services.anomaly_detector import AnomalyDetectionService, create_anomaly_if_new
+
+        logger = logging.getLogger(__name__)
+        logger.info(f"Starting anomaly detection for {queryset.count()} accounts")
+
+        total_accounts = queryset.count()
+        total_transactions = 0
+        total_anomalies = 0
+        errors = []
+
+        for account in queryset:
+            try:
+                logger.info(f"Processing account: {account.name}")
+                # Get all transactions for this account
+                transactions = Transaction.objects.filter(account=account)
+                transactions_count = transactions.count()
+                logger.info(f"Account {account.name} has {transactions_count} transactions")
+
+                detector = AnomalyDetectionService(account.user, account)
+                logger.info(f"Detector initialized for user {account.user.username}, detection enabled: {detector.preferences.anomaly_detection_enabled}")
+                logger.info(f"Enabled types: {detector.preferences.enabled_types}")
+
+                for transaction in transactions:
+                    anomalies = detector.detect_all_anomalies_for_transaction(transaction)
+                    logger.info(f"Transaction {transaction.id} detected {len(anomalies)} anomalies")
+
+                    # Save anomalies and create notifications
+                    for anomaly in anomalies:
+                        created = create_anomaly_if_new(anomaly)
+                        if created:
+                            logger.info(f"Created anomaly: {anomaly.anomaly_type}")
+                            total_anomalies += 1
+                        else:
+                            logger.info(f"Duplicate anomaly skipped: {anomaly.anomaly_type}")
+                    total_transactions += 1
+
+            except Exception as e:
+                logger.error(f"Error processing account {account.name}: {str(e)}", exc_info=True)
+                errors.append(f"Error processing account {account.name}: {str(e)}")
+
+        if errors:
+            message = f"⚠️ Anomaly detection completed with errors:\n" + "\n".join(errors[:3])
+            if len(errors) > 3:
+                message += f"\n... and {len(errors) - 3} more errors"
+            self.message_user(request, message, level=messages.WARNING)
+        else:
+            message = (
+                f"🚨 Anomaly detection completed!\n"
+                f"Accounts: {total_accounts}\n"
+                f"Transactions scanned: {total_transactions}\n"
+                f"Anomalies detected: {total_anomalies}"
+            )
+            self.message_user(request, message, level=messages.SUCCESS)
+
+        logger.info(f"Anomaly detection complete. Total anomalies: {total_anomalies}")
+    trigger_anomaly_detection.short_description = "🚨 Trigger anomaly detection"
+
 
 @admin.register(Transaction)
 class TransactionAdmin(admin.ModelAdmin):
@@ -120,7 +182,7 @@ class TransactionAdmin(admin.ModelAdmin):
     search_fields = ("reference", "description", "partner_name", "reference_number")
     date_hierarchy = "date"
     readonly_fields = ("created_at",)
-    actions = ["truncate_transactions", "clear_categories"]
+    actions = ["truncate_transactions", "clear_categories", "detect_anomalies_for_transactions"]
 
     def amount_display(self, obj):
         """Display amount with currency and color coding."""
@@ -164,6 +226,51 @@ class TransactionAdmin(admin.ModelAdmin):
             level="success"
         )
     clear_categories.short_description = "❌ Clear categories for selected transactions"
+
+    def detect_anomalies_for_transactions(self, request, queryset):
+        """
+        Admin action to manually trigger anomaly detection for selected transactions.
+        """
+        from .services.anomaly_detector import AnomalyDetectionService, create_anomaly_if_new
+
+        total_transactions = queryset.count()
+        total_anomalies = 0
+        errors = []
+
+        try:
+            # Group transactions by account to reuse detector
+            accounts = {}
+            for transaction in queryset:
+                account_id = transaction.account_id
+                if account_id not in accounts:
+                    accounts[account_id] = {
+                        'account': transaction.account,
+                        'user': transaction.account.user,
+                        'transactions': []
+                    }
+                accounts[account_id]['transactions'].append(transaction)
+
+            # Detect anomalies for each account
+            for account_info in accounts.values():
+                detector = AnomalyDetectionService(account_info['user'], account_info['account'])
+                for transaction in account_info['transactions']:
+                    anomalies = detector.detect_all_anomalies_for_transaction(transaction)
+                    # Save anomalies and create notifications
+                    for anomaly in anomalies:
+                        if create_anomaly_if_new(anomaly):
+                            total_anomalies += 1
+
+            message = (
+                f"🚨 Anomaly detection completed!\n"
+                f"Transactions scanned: {total_transactions}\n"
+                f"Anomalies detected: {total_anomalies}"
+            )
+            self.message_user(request, message, level=messages.SUCCESS)
+        except Exception as e:
+            error_msg = f"❌ Error during anomaly detection: {str(e)}"
+            self.message_user(request, error_msg, level=messages.ERROR)
+    detect_anomalies_for_transactions.short_description = "🚨 Detect anomalies for selected transactions"
+
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
@@ -804,4 +911,124 @@ class ImportTransactionAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         """Allow deletion only for superusers."""
         return request.user.is_superuser
+
+
+@admin.register(Anomaly)
+class AnomalyAdmin(admin.ModelAdmin):
+    list_display = ("title", "anomaly_type", "severity_badge", "anomaly_score", "user", "account", "is_dismissed", "created_at")
+    list_filter = ("anomaly_type", "severity", "is_dismissed", "is_confirmed", "created_at")
+    search_fields = ("title", "description", "user__username", "account__name")
+    readonly_fields = ("created_at", "updated_at", "anomaly_score", "expected_value", "actual_value", "deviation_percent", "context_data")
+    fieldsets = (
+        ("Anomaly Information", {
+            "fields": ("anomaly_type", "severity", "title", "description", "reason")
+        }),
+        ("Detection Details", {
+            "fields": ("user", "account", "transaction", "recurring")
+        }),
+        ("Scoring", {
+            "fields": ("anomaly_score", "expected_value", "actual_value", "deviation_percent")
+        }),
+        ("Analysis", {
+            "fields": ("context_data",),
+            "classes": ("collapse",)
+        }),
+        ("User Feedback", {
+            "fields": ("is_dismissed", "dismissed_by_user", "dismissed_at", "is_false_positive", "is_confirmed")
+        }),
+        ("Metadata", {
+            "fields": ("created_at", "updated_at"),
+            "classes": ("collapse",)
+        }),
+    )
+    date_hierarchy = "created_at"
+    actions = ["mark_dismissed", "mark_false_positive"]
+
+    def severity_badge(self, obj):
+        """Display severity with color coding."""
+        colors = {
+            'critical': '#dc2626',
+            'warning': '#f59e0b',
+            'info': '#3b82f6',
+        }
+        color = colors.get(obj.severity, '#6b7280')
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 3px 8px; border-radius: 3px; font-weight: 500;">{}</span>',
+            color, obj.get_severity_display()
+        )
+    severity_badge.short_description = "Severity"
+    severity_badge.admin_order_field = "severity"
+
+    def mark_dismissed(self, request, queryset):
+        """Mark selected anomalies as dismissed."""
+        count = queryset.update(is_dismissed=True, dismissed_by_user=True)
+        self.message_user(request, f"{count} anomalies marked as dismissed.", messages.SUCCESS)
+    mark_dismissed.short_description = "Mark selected anomalies as dismissed"
+
+    def mark_false_positive(self, request, queryset):
+        """Mark selected anomalies as false positive."""
+        count = queryset.update(is_false_positive=True, is_dismissed=True)
+        self.message_user(request, f"{count} anomalies marked as false positive.", messages.SUCCESS)
+    mark_false_positive.short_description = "Mark selected anomalies as false positive"
+
+    def has_add_permission(self, request):
+        """Prevent manual addition - only created by detection system."""
+        return False
+
+
+@admin.register(AnomalyNotification)
+class AnomalyNotificationAdmin(admin.ModelAdmin):
+    list_display = ("user", "anomaly_title", "is_read", "is_notified_via_email", "is_notified_via_push", "created_at")
+    list_filter = ("is_read", "is_notified_via_email", "is_notified_via_push", "created_at")
+    search_fields = ("user__username", "anomaly__title")
+    readonly_fields = ("created_at", "anomaly")
+    fieldsets = (
+        ("Notification", {
+            "fields": ("user", "anomaly")
+        }),
+        ("Delivery Status", {
+            "fields": ("is_read", "is_notified_via_email", "is_notified_via_push")
+        }),
+        ("Metadata", {
+            "fields": ("created_at",),
+            "classes": ("collapse",)
+        }),
+    )
+    date_hierarchy = "created_at"
+
+    def anomaly_title(self, obj):
+        """Display anomaly title."""
+        return obj.anomaly.title
+    anomaly_title.short_description = "Anomaly"
+    anomaly_title.admin_order_field = "anomaly__title"
+
+    def has_add_permission(self, request):
+        """Prevent manual addition."""
+        return False
+
+
+@admin.register(UserAnomalyPreferences)
+class UserAnomalyPreferencesAdmin(admin.ModelAdmin):
+    list_display = ("user", "anomaly_detection_enabled", "sensitivity", "notify_on_critical", "notify_on_warning")
+    list_filter = ("anomaly_detection_enabled", "sensitivity", "notify_on_critical", "notify_on_warning", "email_notifications", "push_notifications")
+    search_fields = ("user__username", "user__email")
+    readonly_fields = ("created_at", "updated_at")
+    fieldsets = (
+        ("User", {
+            "fields": ("user",)
+        }),
+        ("Global Settings", {
+            "fields": ("anomaly_detection_enabled", "sensitivity")
+        }),
+        ("Notification Preferences", {
+            "fields": ("notify_on_critical", "notify_on_warning", "notify_on_info", "email_notifications", "push_notifications")
+        }),
+        ("Detection Configuration", {
+            "fields": ("enabled_types", "amount_deviation_percent", "spending_spike_multiplier", "days_before_inactive")
+        }),
+        ("Metadata", {
+            "fields": ("created_at", "updated_at"),
+            "classes": ("collapse",)
+        }),
+    )
 

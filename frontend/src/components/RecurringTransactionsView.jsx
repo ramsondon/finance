@@ -4,6 +4,7 @@ import { useTranslate } from '../hooks/useLanguage'
 import { formatDate, formatCurrency, getCurrencySymbol, formatNumber } from '../utils/format'
 import { SensitiveValue, useSensitiveModeListener } from '../utils/sensitive'
 import { Calendar, Clock, AlertCircle, PieChart, CheckCircle, TrendingUp, RotateCw, XCircle, Edit, Search, Link, X, Save, Power } from 'lucide-react'
+import RecurringTransactionAlerts from './RecurringTransactionAlerts'
 
 /**
  * RecurringTransactionsView
@@ -557,6 +558,14 @@ function RecurringTransactionRow({ transaction, currency, onToggleIgnore, onTogg
         <div>
           <div className="font-medium text-gray-900">{displayName}</div>
           <div className="text-xs text-gray-500">{transaction.description}</div>
+          {/* Recurring Transaction Alerts */}
+          <RecurringTransactionAlerts
+            recurringTransaction={transaction}
+            onAnomalyClick={(anomaly) => {
+              // Could navigate to anomaly details
+              console.log('Clicked anomaly:', anomaly)
+            }}
+          />
         </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap">

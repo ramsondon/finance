@@ -1,3 +1,5 @@
+from copy import copy
+
 from django.conf import settings
 from django.db import models
 
@@ -277,4 +279,222 @@ class ImportTransaction(models.Model):
     def __str__(self) -> str:
         action = "Created" if self.was_created else "Updated"
         return f"ImportTransaction({action}, {self.transaction.id})"
+
+
+class AnomalyType(models.TextChoices):
+    """Types of anomalies the system can detect."""
+    UNUSUAL_AMOUNT = 'unusual_amount', 'Unusual Amount'
+    UNUSUAL_TIMING = 'unusual_timing', 'Unusual Timing'
+    DUPLICATE_PATTERN = 'duplicate_pattern', 'Duplicate Pattern'
+    MISSING_RECURRING = 'missing_recurring', 'Missing Recurring Payment'
+    CHANGED_RECURRING = 'changed_recurring', 'Changed Recurring Pattern'
+    SPENDING_SPIKE = 'spending_spike', 'Spending Spike'
+    NEW_MERCHANT = 'new_merchant', 'New Merchant'
+    ACCOUNT_INACTIVE = 'account_inactive', 'Account Inactive'
+    MULTIPLE_FAILURES = 'multiple_failures', 'Multiple Failed Transactions'
+
+    @staticmethod
+    def defaults() -> list[str]:
+        """Default enabled anomaly types."""
+        return [
+            AnomalyType.UNUSUAL_AMOUNT,
+            AnomalyType.UNUSUAL_TIMING,
+            AnomalyType.DUPLICATE_PATTERN,
+            AnomalyType.MISSING_RECURRING,
+            AnomalyType.CHANGED_RECURRING,
+            AnomalyType.SPENDING_SPIKE,
+            AnomalyType.NEW_MERCHANT,
+            AnomalyType.ACCOUNT_INACTIVE,
+            AnomalyType.MULTIPLE_FAILURES,
+        ]
+
+class AnomalySeverity(models.TextChoices):
+    """Severity levels for anomalies."""
+    INFO = 'info', 'Informational'
+    WARNING = 'warning', 'Warning'
+    CRITICAL = 'critical', 'Critical'
+
+
+class Anomaly(models.Model):
+    """
+    Represents a detected anomaly in user's financial data.
+
+    Stores information about unusual patterns, missing transactions,
+    spending spikes, and other financial anomalies.
+    """
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="anomalies")
+    account = models.ForeignKey(BankAccount, on_delete=models.CASCADE, related_name="anomalies")
+    transaction = models.ForeignKey(Transaction, on_delete=models.CASCADE, null=True, blank=True, related_name="anomalies")
+    recurring = models.ForeignKey(RecurringTransaction, on_delete=models.CASCADE, null=True, blank=True, related_name="anomalies")
+
+    anomaly_type = models.CharField(max_length=50, choices=AnomalyType.choices)
+    severity = models.CharField(max_length=20, choices=AnomalySeverity.choices, default=AnomalySeverity.INFO)
+
+    title = models.CharField(max_length=255, help_text="Brief title of the anomaly")
+    description = models.TextField(help_text="Detailed explanation of what was detected")
+    reason = models.TextField(help_text="Why this was flagged as an anomaly")
+
+    # Scoring and confidence
+    anomaly_score = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0,
+        help_text="Confidence score 0-100"
+    )
+    expected_value = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Expected value for this anomaly"
+    )
+    actual_value = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Actual value detected"
+    )
+    deviation_percent = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Deviation percentage"
+    )
+
+    # Context data for analysis
+    context_data = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Additional metadata: similar_transactions, historical_average, etc."
+    )
+
+    # Dismissal and feedback
+    is_dismissed = models.BooleanField(default=False, help_text="Whether user dismissed this anomaly")
+    dismissed_by_user = models.BooleanField(default=False)
+    dismissed_at = models.DateTimeField(null=True, blank=True)
+
+    is_false_positive = models.BooleanField(default=False, help_text="User marked as false positive")
+    is_confirmed = models.BooleanField(default=False, help_text="User confirmed this anomaly")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', '-created_at']),
+            models.Index(fields=['user', 'severity']),
+            models.Index(fields=['account', 'is_dismissed']),
+            models.Index(fields=['anomaly_type', 'created_at']),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.anomaly_type} - {self.title}"
+
+
+class AnomalyNotification(models.Model):
+    """
+    Tracks notifications sent to users about anomalies.
+
+    Allows tracking which anomalies have been notified and via what channels.
+    """
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="anomaly_notifications")
+    anomaly = models.ForeignKey(Anomaly, on_delete=models.CASCADE, related_name="notifications")
+
+    is_read = models.BooleanField(default=False)
+    is_notified_via_email = models.BooleanField(default=False)
+    is_notified_via_push = models.BooleanField(default=False)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', '-created_at']),
+            models.Index(fields=['user', 'is_read']),
+        ]
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'anomaly'], name='unique_user_anomaly_notification')
+        ]
+
+    def __str__(self) -> str:
+        return f"Notification: {self.anomaly.title}"
+
+
+class UserAnomalyPreferences(models.Model):
+    """
+    User settings for anomaly detection and notifications.
+
+    Allows fine-grained control over what types of anomalies to detect
+    and how to be notified about them.
+    """
+    SENSITIVITY_LOW = 'low'
+    SENSITIVITY_MEDIUM = 'medium'
+    SENSITIVITY_HIGH = 'high'
+
+    SENSITIVITY_CHOICES = [
+        (SENSITIVITY_LOW, 'Low'),
+        (SENSITIVITY_MEDIUM, 'Medium'),
+        (SENSITIVITY_HIGH, 'High'),
+    ]
+
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="anomaly_preferences")
+
+    # Global enable/disable
+    anomaly_detection_enabled = models.BooleanField(default=True)
+
+    # Notification preferences
+    notify_on_critical = models.BooleanField(default=True)
+    notify_on_warning = models.BooleanField(default=False)
+    notify_on_info = models.BooleanField(default=False)
+
+    email_notifications = models.BooleanField(default=False)
+    push_notifications = models.BooleanField(default=True)
+
+    # Detection sensitivity (Low=90%+, Medium=70%+, High=50%+)
+    sensitivity = models.CharField(max_length=20, choices=SENSITIVITY_CHOICES, default=SENSITIVITY_MEDIUM)
+
+    # Which types to detect (array of AnomalyType values)
+    enabled_types = models.JSONField(
+        default=list,
+        help_text="List of anomaly types to detect"
+    )
+
+    # Thresholds
+    amount_deviation_percent = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=50,
+        help_text="Amount deviation % threshold (e.g., 50 = 1.5x is anomalous)"
+    )
+    spending_spike_multiplier = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=2,
+        help_text="Spending spike multiplier (e.g., 2 = 2x is anomalous)"
+    )
+    days_before_inactive = models.PositiveIntegerField(
+        default=30,
+        help_text="Days without transactions before marking account as inactive"
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name_plural = "User Anomaly Preferences"
+
+    def __str__(self) -> str:
+        return f"Anomaly Preferences: {self.user.email}"
+
+    def get_minimum_score_for_severity(self):
+        """Get minimum anomaly score based on sensitivity setting."""
+        if self.sensitivity == self.SENSITIVITY_LOW:
+            return 90
+        elif self.sensitivity == self.SENSITIVITY_HIGH:
+            return 50
+        else:  # MEDIUM
+            return 70
 
